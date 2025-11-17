@@ -1,0 +1,1147 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Allva.Desktop.Models;
+using Npgsql;
+using BCrypt.Net;
+
+namespace Allva.Desktop.ViewModels.Admin;
+
+/// <summary>
+/// ViewModel para la gestión de usuarios normales y flooters
+/// VERSIÓN COMPLETA Y CORREGIDA
+/// </summary>
+public partial class ManageUsersViewModel : ObservableObject
+{
+    // ============================================
+    // CONFIGURACIÓN DE BASE DE DATOS
+    // ============================================
+    
+    private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
+
+    // ============================================
+    // PROPIEDADES OBSERVABLES - DATOS PRINCIPALES
+    // ============================================
+
+    [ObservableProperty]
+    private ObservableCollection<UserModel> _usuarios = new();
+
+    [ObservableProperty]
+    private ObservableCollection<UserModel> _usuariosFiltrados = new();
+
+    [ObservableProperty]
+    private UserModel? _usuarioSeleccionado;
+
+    [ObservableProperty]
+    private bool _cargando;
+
+    [ObservableProperty]
+    private bool _mostrarMensajeExito;
+
+    [ObservableProperty]
+    private string _mensajeExito = string.Empty;
+
+    [ObservableProperty]
+    private string _mensajeExitoColor = "#28a745";
+
+    // ============================================
+    // PROPIEDADES PARA PANEL DERECHO
+    // ============================================
+
+    [ObservableProperty]
+    private bool _mostrarPanelDerecho = false;
+
+    [ObservableProperty]
+    private string _tituloPanelDerecho = "Detalles del Usuario";
+
+    [ObservableProperty]
+    private bool _mostrarFormulario;
+
+    [ObservableProperty]
+    private bool _modoEdicion;
+
+    [ObservableProperty]
+    private string _botonGuardarTexto = "CREAR USUARIO";
+
+    // ============================================
+    // CAMPOS DEL FORMULARIO
+    // ============================================
+
+    [ObservableProperty]
+    private string _formNombre = string.Empty;
+
+    [ObservableProperty]
+    private string _formApellidos = string.Empty;
+
+    [ObservableProperty]
+    private string _formNumeroUsuario = string.Empty;
+
+    [ObservableProperty]
+    private string _formCorreo = string.Empty;
+
+    [ObservableProperty]
+    private string _formTelefono = string.Empty;
+
+    [ObservableProperty]
+    private string _formPassword = string.Empty;
+
+    [ObservableProperty]
+    private bool _formActivo = true;
+
+    [ObservableProperty]
+    private string _tipoEmpleadoTexto = "REGULAR (1 local asignado)";
+
+    // ============================================
+    // PROPIEDADES PARA FILTROS
+    // ============================================
+
+    [ObservableProperty]
+    private string _filtroBusqueda = string.Empty;
+
+    [ObservableProperty]
+    private string _filtroLocal = string.Empty;
+
+    [ObservableProperty]
+    private string _filtroComercio = string.Empty;
+
+    [ObservableProperty]
+    private string _filtroEstado = "Todos";
+
+    [ObservableProperty]
+    private string _filtroTipoUsuario = "Todos";
+
+    // ============================================
+    // BÚSQUEDA Y ASIGNACIÓN DE LOCALES
+    // ============================================
+
+    [ObservableProperty]
+    private string _busquedaComercio = string.Empty;
+
+    [ObservableProperty]
+    private bool _mostrarResultadosBusqueda;
+
+    [ObservableProperty]
+    private ObservableCollection<LocalFormModel> _resultadosBusquedaLocales = new();
+
+    [ObservableProperty]
+    private ObservableCollection<LocalFormModel> _localesAsignados = new();
+
+    // ============================================
+    // ESTADÍSTICAS
+    // ============================================
+
+    public int TotalUsuarios => Usuarios.Count;
+    public int UsuariosActivos => Usuarios.Count(u => u.Activo);
+    public int UsuariosInactivos => Usuarios.Count(u => !u.Activo);
+
+    // Usuario en edición
+    private UserModel? _usuarioEnEdicion;
+    
+    // Diccionario para mapear usuarios con sus locales (para filtros)
+    private Dictionary<int, List<string>> _usuariosConLocales = new();
+    
+    // Contraseña guardada del usuario (para comparar si cambió)
+    private string _passwordGuardada = string.Empty;
+
+    // ============================================
+    // CONSTRUCTOR
+    // ============================================
+
+    public ManageUsersViewModel()
+    {
+        _ = CargarDatosDesdeBaseDatos();
+    }
+
+    // ============================================
+    // OBSERVADORES DE CAMBIOS - AUTO-GENERACIÓN
+    // ============================================
+
+    partial void OnFormNombreChanged(string value)
+    {
+        ActualizarNumeroUsuarioAutomaticamente();
+    }
+
+    partial void OnFormApellidosChanged(string value)
+    {
+        ActualizarNumeroUsuarioAutomaticamente();
+    }
+
+    partial void OnLocalesAsignadosChanged(ObservableCollection<LocalFormModel> value)
+    {
+        ActualizarTipoEmpleado();
+    }
+
+    private void ActualizarNumeroUsuarioAutomaticamente()
+    {
+        if (ModoEdicion)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(FormNombre) || string.IsNullOrWhiteSpace(FormApellidos))
+        {
+            FormNumeroUsuario = string.Empty;
+            return;
+        }
+
+        var nombre = FormNombre.Trim().ToUpper().Replace(" ", "");
+        var apellido = FormApellidos.Trim().ToUpper().Replace(" ", "");
+        var baseNumero = $"{nombre}_{apellido}";
+
+        var numero = baseNumero;
+        var contador = 2;
+
+        while (Usuarios.Any(u => u.NumeroUsuario.Equals(numero, StringComparison.OrdinalIgnoreCase)))
+        {
+            numero = $"{baseNumero}_{contador:D2}";
+            contador++;
+        }
+
+        FormNumeroUsuario = numero;
+    }
+
+    private void ActualizarTipoEmpleado()
+    {
+        var cantidadLocales = LocalesAsignados.Count;
+        
+        if (cantidadLocales == 0)
+        {
+            TipoEmpleadoTexto = "Sin locales asignados";
+        }
+        else if (cantidadLocales == 1)
+        {
+            TipoEmpleadoTexto = "REGULAR (1 local asignado)";
+        }
+        else
+        {
+            TipoEmpleadoTexto = $"FLOOTER ({cantidadLocales} locales asignados)";
+        }
+    }
+
+    // ============================================
+    // MÉTODOS DE BASE DE DATOS - CARGAR
+    // ============================================
+
+    private async Task CargarDatosDesdeBaseDatos()
+    {
+        Cargando = true;
+
+        try
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var usuarios = await CargarUsuarios(connection);
+
+            Usuarios.Clear();
+            foreach (var usuario in usuarios)
+            {
+                Usuarios.Add(usuario);
+            }
+            
+            await CargarMapeoUsuariosLocales(connection);
+            await CargarDatosFlooters(connection);
+
+            OnPropertyChanged(nameof(TotalUsuarios));
+            OnPropertyChanged(nameof(UsuariosActivos));
+            OnPropertyChanged(nameof(UsuariosInactivos));
+
+            await InicializarFiltros();
+        }
+        catch (Exception ex)
+        {
+            MostrarMensajeError($"Error al cargar datos: {ex.Message}");
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private async Task<List<UserModel>> CargarUsuarios(NpgsqlConnection connection)
+    {
+        var usuarios = new List<UserModel>();
+
+        var query = @"SELECT u.id_usuario, u.numero_usuario, u.nombre, u.apellidos,
+                             u.correo, COALESCE(u.telefono, '') as telefono, 
+                             COALESCE(u.es_flooter, false) as es_flotante,
+                             u.activo, u.ultimo_acceso,
+                             COALESCE(l.id_local, 0) as id_local, 
+                             COALESCE(l.nombre_local, 'Sin asignar') as nombre_local, 
+                             COALESCE(l.codigo_local, 'N/A') as codigo_local,
+                             COALESCE(c.id_comercio, 0) as id_comercio, 
+                             COALESCE(c.nombre_comercio, 'Sin asignar') as nombre_comercio
+                      FROM usuarios u
+                      LEFT JOIN locales l ON u.id_local = l.id_local
+                      LEFT JOIN comercios c ON l.id_comercio = c.id_comercio
+                      WHERE u.id_rol = 2
+                      ORDER BY u.nombre, u.apellidos";
+
+        using var cmd = new NpgsqlCommand(query, connection);
+        using var reader = await cmd.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            usuarios.Add(new UserModel
+            {
+                IdUsuario = reader.GetInt32(0),
+                NumeroUsuario = reader.GetString(1),
+                Nombre = reader.GetString(2),
+                Apellidos = reader.GetString(3),
+                Correo = reader.GetString(4),
+                Telefono = reader.GetString(5),
+                EsFlotante = reader.GetBoolean(6),
+                Activo = reader.GetBoolean(7),
+                UltimoAcceso = reader.IsDBNull(8) ? null : reader.GetDateTime(8),
+                IdLocal = reader.GetInt32(9),
+                NombreLocal = reader.GetString(10),
+                CodigoLocal = reader.GetString(11),
+                IdComercio = reader.GetInt32(12),
+                NombreComercio = reader.GetString(13)
+            });
+        }
+
+        return usuarios;
+    }
+    
+    /// <summary>
+    /// Carga todos los locales donde trabaja cada usuario (incluyendo flooters)
+    /// </summary>
+    private async Task CargarMapeoUsuariosLocales(NpgsqlConnection connection)
+    {
+        _usuariosConLocales.Clear();
+        
+        var query = @"SELECT ul.id_usuario, l.codigo_local
+                      FROM usuario_locales ul
+                      INNER JOIN locales l ON ul.id_local = l.id_local
+                      ORDER BY ul.id_usuario";
+        
+        using var cmd = new NpgsqlCommand(query, connection);
+        using var reader = await cmd.ExecuteReaderAsync();
+        
+        while (await reader.ReadAsync())
+        {
+            var idUsuario = reader.GetInt32(0);
+            var codigoLocal = reader.GetString(1);
+            
+            if (!_usuariosConLocales.ContainsKey(idUsuario))
+            {
+                _usuariosConLocales[idUsuario] = new List<string>();
+            }
+            
+            _usuariosConLocales[idUsuario].Add(codigoLocal);
+        }
+    }
+
+    /// <summary>
+    /// Carga los códigos de locales y nombre del comercio para usuarios flooters
+    /// </summary>
+    private async Task CargarDatosFlooters(NpgsqlConnection connection)
+    {
+        foreach (var usuario in Usuarios.Where(u => u.EsFlotante))
+        {
+            if (_usuariosConLocales.ContainsKey(usuario.IdUsuario))
+            {
+                var codigosLocales = _usuariosConLocales[usuario.IdUsuario];
+                
+                // Formatear códigos de locales (máximo 3 visibles)
+                if (codigosLocales.Count <= 3)
+                {
+                    usuario.CodigosLocalesFlooter = string.Join(", ", codigosLocales);
+                }
+                else
+                {
+                    usuario.CodigosLocalesFlooter = string.Join(", ", codigosLocales.Take(3)) + $" +{codigosLocales.Count - 3} más";
+                }
+                
+                // Obtener el nombre del comercio
+                var query = @"SELECT DISTINCT c.nombre_comercio
+                              FROM usuario_locales ul
+                              INNER JOIN locales l ON ul.id_local = l.id_local
+                              INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                              WHERE ul.id_usuario = @IdUsuario
+                              LIMIT 1";
+                
+                using var cmd = new NpgsqlCommand(query, connection);
+                cmd.Parameters.AddWithValue("@IdUsuario", usuario.IdUsuario);
+                
+                var result = await cmd.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                {
+                    usuario.NombreComercioFlooter = result.ToString() ?? "Sin comercio";
+                }
+                else
+                {
+                    usuario.NombreComercioFlooter = "Sin comercio";
+                }
+            }
+            else
+            {
+                usuario.CodigosLocalesFlooter = "N/A";
+                usuario.NombreComercioFlooter = "Sin comercio";
+            }
+        }
+    }
+
+    // ============================================
+    // COMANDOS - PANEL DERECHO
+    // ============================================
+
+    [RelayCommand]
+    private void MostrarFormularioCrear()
+    {
+        LimpiarFormulario();
+        ModoEdicion = false;
+        TituloPanelDerecho = "Crear Nuevo Usuario";
+        BotonGuardarTexto = "CREAR USUARIO";
+        MostrarFormulario = true;
+        MostrarPanelDerecho = true;
+    }
+
+    [RelayCommand]
+    private async Task EditarUsuario(UserModel usuario)
+    {
+        _usuarioEnEdicion = usuario;
+        UsuarioSeleccionado = usuario;
+
+        FormNombre = usuario.Nombre;
+        FormApellidos = usuario.Apellidos;
+        FormNumeroUsuario = usuario.NumeroUsuario;
+        FormCorreo = usuario.Correo;
+        FormTelefono = usuario.Telefono == "Sin teléfono" ? string.Empty : usuario.Telefono ?? string.Empty;
+        FormActivo = usuario.Activo;
+        
+        await CargarPasswordGuardada(usuario.IdUsuario);
+        FormPassword = string.Empty;
+
+        await CargarLocalesAsignadosUsuario(usuario.IdUsuario);
+
+        ModoEdicion = true;
+        TituloPanelDerecho = $"Editar: {usuario.NombreCompleto}";
+        BotonGuardarTexto = "ACTUALIZAR USUARIO";
+        MostrarFormulario = true;
+        MostrarPanelDerecho = true;
+    }
+
+    /// <summary>
+    /// Carga la contraseña guardada del usuario para mostrarla al editar
+    /// </summary>
+    private async Task CargarPasswordGuardada(int idUsuario)
+    {
+        try
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var query = "SELECT password_hash FROM usuarios WHERE id_usuario = @Id";
+            using var cmd = new NpgsqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@Id", idUsuario);
+
+            var result = await cmd.ExecuteScalarAsync();
+            if (result != null && result != DBNull.Value)
+            {
+                _passwordGuardada = result.ToString() ?? string.Empty;
+            }
+            else
+            {
+                _passwordGuardada = string.Empty;
+            }
+        }
+        catch
+        {
+            _passwordGuardada = string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    private async Task VerDetallesUsuario(UserModel usuario)
+    {
+        UsuarioSeleccionado = usuario;
+        TituloPanelDerecho = $"Detalles: {usuario.NombreCompleto}";
+        MostrarFormulario = false;
+        MostrarPanelDerecho = true;
+
+        await CargarLocalesAsignadosUsuario(usuario.IdUsuario);
+    }
+
+    [RelayCommand]
+    private void CerrarPanelDerecho()
+    {
+        MostrarPanelDerecho = false;
+        MostrarFormulario = false;
+        UsuarioSeleccionado = null;
+        LimpiarFormulario();
+    }
+
+    // ============================================
+    // COMANDOS - GENERAR CONTRASEÑA
+    // ============================================
+
+    [RelayCommand]
+    private void GenerarPassword()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
+        var random = new Random();
+        var password = new string(Enumerable.Repeat(chars, 12)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+
+        FormPassword = password;
+        MostrarMensajeExitoNotificacion("✓ Contraseña generada");
+    }
+
+    // ============================================
+    // COMANDOS - ACCIONES CRUD
+    // ============================================
+
+    [RelayCommand]
+    private async Task GuardarUsuario()
+    {
+        if (!ValidarFormulario(out string mensajeError))
+        {
+            MostrarMensajeError(mensajeError);
+            return;
+        }
+
+        Cargando = true;
+
+        try
+        {
+            if (ModoEdicion && _usuarioEnEdicion != null)
+            {
+                await ActualizarUsuario();
+                MostrarMensajeExitoNotificacion("✓ Usuario actualizado correctamente");
+            }
+            else
+            {
+                await CrearNuevoUsuario();
+                MostrarMensajeExitoNotificacion("✓ Usuario creado correctamente");
+            }
+
+            await CargarDatosDesdeBaseDatos();
+            CerrarPanelDerecho();
+        }
+        catch (Exception ex)
+        {
+            MostrarMensajeError($"Error al guardar: {ex.Message}");
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private async Task CrearNuevoUsuario()
+    {
+        using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        using var transaction = await connection.BeginTransactionAsync();
+
+        try
+        {
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(FormPassword);
+
+            bool esFlotante = LocalesAsignados.Count > 1;
+
+            int? idLocalPrincipal = esFlotante ? null : LocalesAsignados.FirstOrDefault()?.IdLocal;
+            int? idComercio = null;
+
+            var primerLocal = LocalesAsignados.FirstOrDefault();
+            if (primerLocal != null)
+            {
+                var queryComercio = "SELECT id_comercio FROM locales WHERE id_local = @IdLocal";
+                using var cmdComercio = new NpgsqlCommand(queryComercio, connection, transaction);
+                cmdComercio.Parameters.AddWithValue("@IdLocal", primerLocal.IdLocal);
+                var result = await cmdComercio.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                {
+                    idComercio = Convert.ToInt32(result);
+                }
+            }
+
+            var queryUsuario = @"
+                INSERT INTO usuarios (
+                    id_comercio, id_local, id_rol, nombre, apellidos, correo, telefono,
+                    numero_usuario, password_hash, es_flooter, idioma, activo, primer_login,
+                    fecha_creacion, fecha_modificacion
+                )
+                VALUES (
+                    @IdComercio, @IdLocal, 2, @Nombre, @Apellidos, @Correo, @Telefono,
+                    @NumeroUsuario, @PasswordHash, @EsFlotante, 'es', @Activo, true,
+                    @FechaCreacion, @FechaModificacion
+                )
+                RETURNING id_usuario";
+
+            using var cmdUsuario = new NpgsqlCommand(queryUsuario, connection, transaction);
+            cmdUsuario.Parameters.AddWithValue("@IdComercio", idComercio.HasValue ? idComercio.Value : DBNull.Value);
+            cmdUsuario.Parameters.AddWithValue("@IdLocal", idLocalPrincipal.HasValue ? idLocalPrincipal.Value : DBNull.Value);
+            cmdUsuario.Parameters.AddWithValue("@Nombre", FormNombre.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@Apellidos", FormApellidos.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@Correo", FormCorreo.Trim());
+            cmdUsuario.Parameters.AddWithValue("@Telefono",
+                string.IsNullOrWhiteSpace(FormTelefono) ? DBNull.Value : FormTelefono.Trim());
+            cmdUsuario.Parameters.AddWithValue("@NumeroUsuario", FormNumeroUsuario);
+            cmdUsuario.Parameters.AddWithValue("@PasswordHash", passwordHash);
+            cmdUsuario.Parameters.AddWithValue("@EsFlotante", esFlotante);
+            cmdUsuario.Parameters.AddWithValue("@Activo", FormActivo);
+            cmdUsuario.Parameters.AddWithValue("@FechaCreacion", DateTime.Now);
+            cmdUsuario.Parameters.AddWithValue("@FechaModificacion", DateTime.Now);
+
+            var idUsuario = Convert.ToInt32(await cmdUsuario.ExecuteScalarAsync());
+
+            foreach (var local in LocalesAsignados)
+            {
+                var queryAsignacion = @"
+                    INSERT INTO usuario_locales (id_usuario, id_local, es_principal)
+                    VALUES (@IdUsuario, @IdLocal, @EsPrincipal)
+                    ON CONFLICT (id_usuario, id_local) DO NOTHING";
+
+                using var cmdAsignacion = new NpgsqlCommand(queryAsignacion, connection, transaction);
+                cmdAsignacion.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                cmdAsignacion.Parameters.AddWithValue("@IdLocal", local.IdLocal);
+                cmdAsignacion.Parameters.AddWithValue("@EsPrincipal", local == LocalesAsignados.First());
+
+                await cmdAsignacion.ExecuteNonQueryAsync();
+            }
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private async Task ActualizarUsuario()
+    {
+        if (_usuarioEnEdicion == null) return;
+
+        using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        using var transaction = await connection.BeginTransactionAsync();
+
+        try
+        {
+            bool esFlotante = LocalesAsignados.Count > 1;
+            
+            int? idLocalPrincipal = esFlotante ? null : LocalesAsignados.FirstOrDefault()?.IdLocal;
+            int? idComercio = null;
+
+            var primerLocal = LocalesAsignados.FirstOrDefault();
+            if (primerLocal != null)
+            {
+                var queryComercio = "SELECT id_comercio FROM locales WHERE id_local = @IdLocal";
+                using var cmdComercio = new NpgsqlCommand(queryComercio, connection, transaction);
+                cmdComercio.Parameters.AddWithValue("@IdLocal", primerLocal.IdLocal);
+                var result = await cmdComercio.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                {
+                    idComercio = Convert.ToInt32(result);
+                }
+            }
+
+            var queryUsuario = @"
+                UPDATE usuarios SET
+                    id_comercio = @IdComercio,
+                    id_local = @IdLocal,
+                    numero_usuario = @NumeroUsuario,
+                    nombre = @Nombre,
+                    apellidos = @Apellidos,
+                    correo = @Correo,
+                    telefono = @Telefono,
+                    es_flooter = @EsFlotante,
+                    activo = @Activo,
+                    fecha_modificacion = @FechaModificacion" +
+                    (string.IsNullOrWhiteSpace(FormPassword) || FormPassword == _passwordGuardada ? "" : ", password_hash = @PasswordHash") + @"
+                WHERE id_usuario = @IdUsuario";
+
+            using var cmdUsuario = new NpgsqlCommand(queryUsuario, connection, transaction);
+            cmdUsuario.Parameters.AddWithValue("@IdComercio", idComercio.HasValue ? idComercio.Value : DBNull.Value);
+            cmdUsuario.Parameters.AddWithValue("@IdLocal", idLocalPrincipal.HasValue ? idLocalPrincipal.Value : DBNull.Value);
+            cmdUsuario.Parameters.AddWithValue("@NumeroUsuario", FormNumeroUsuario);
+            cmdUsuario.Parameters.AddWithValue("@Nombre", FormNombre.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@Apellidos", FormApellidos.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@Correo", FormCorreo.Trim());
+            cmdUsuario.Parameters.AddWithValue("@Telefono",
+                string.IsNullOrWhiteSpace(FormTelefono) ? DBNull.Value : FormTelefono.Trim());
+            cmdUsuario.Parameters.AddWithValue("@EsFlotante", esFlotante);
+            cmdUsuario.Parameters.AddWithValue("@Activo", FormActivo);
+            cmdUsuario.Parameters.AddWithValue("@FechaModificacion", DateTime.Now);
+            cmdUsuario.Parameters.AddWithValue("@IdUsuario", _usuarioEnEdicion.IdUsuario);
+
+            if (!string.IsNullOrWhiteSpace(FormPassword) && FormPassword != _passwordGuardada)
+            {
+                var passwordHash = BCrypt.Net.BCrypt.HashPassword(FormPassword);
+                cmdUsuario.Parameters.AddWithValue("@PasswordHash", passwordHash);
+            }
+
+            await cmdUsuario.ExecuteNonQueryAsync();
+
+            var queryDeleteAsignaciones = "DELETE FROM usuario_locales WHERE id_usuario = @IdUsuario";
+            using var cmdDelete = new NpgsqlCommand(queryDeleteAsignaciones, connection, transaction);
+            cmdDelete.Parameters.AddWithValue("@IdUsuario", _usuarioEnEdicion.IdUsuario);
+            await cmdDelete.ExecuteNonQueryAsync();
+
+            foreach (var local in LocalesAsignados)
+            {
+                var queryAsignacion = @"
+                    INSERT INTO usuario_locales (id_usuario, id_local, es_principal)
+                    VALUES (@IdUsuario, @IdLocal, @EsPrincipal)
+                    ON CONFLICT (id_usuario, id_local) DO NOTHING";
+
+                using var cmdAsignacion = new NpgsqlCommand(queryAsignacion, connection, transaction);
+                cmdAsignacion.Parameters.AddWithValue("@IdUsuario", _usuarioEnEdicion.IdUsuario);
+                cmdAsignacion.Parameters.AddWithValue("@IdLocal", local.IdLocal);
+                cmdAsignacion.Parameters.AddWithValue("@EsPrincipal", local == LocalesAsignados.First());
+
+                await cmdAsignacion.ExecuteNonQueryAsync();
+            }
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    [RelayCommand]
+    private async Task EliminarUsuario(UserModel usuario)
+    {
+        Cargando = true;
+
+        try
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                var queryDeleteAsignaciones = "DELETE FROM usuario_locales WHERE id_usuario = @Id";
+                using var cmdAsignaciones = new NpgsqlCommand(queryDeleteAsignaciones, connection, transaction);
+                cmdAsignaciones.Parameters.AddWithValue("@Id", usuario.IdUsuario);
+                await cmdAsignaciones.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+            }
+
+            var query = "DELETE FROM usuarios WHERE id_usuario = @Id";
+            using var cmd = new NpgsqlCommand(query, connection, transaction);
+            cmd.Parameters.AddWithValue("@Id", usuario.IdUsuario);
+            await cmd.ExecuteNonQueryAsync();
+
+            await transaction.CommitAsync();
+
+            await CargarDatosDesdeBaseDatos();
+
+            MostrarMensajeExitoNotificacion("✓ Usuario eliminado correctamente");
+        }
+        catch (Exception ex)
+        {
+            MostrarMensajeError($"Error al eliminar: {ex.Message}");
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CambiarEstadoUsuario(UserModel usuario)
+    {
+        try
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var nuevoEstado = !usuario.Activo;
+            var query = @"UPDATE usuarios 
+                         SET activo = @Activo, fecha_modificacion = @Fecha
+                         WHERE id_usuario = @Id";
+
+            using var cmd = new NpgsqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@Activo", nuevoEstado);
+            cmd.Parameters.AddWithValue("@Fecha", DateTime.Now);
+            cmd.Parameters.AddWithValue("@Id", usuario.IdUsuario);
+
+            await cmd.ExecuteNonQueryAsync();
+
+            usuario.Activo = nuevoEstado;
+
+            OnPropertyChanged(nameof(UsuariosActivos));
+            OnPropertyChanged(nameof(UsuariosInactivos));
+
+            MostrarMensajeExitoNotificacion($"✓ Estado: {(nuevoEstado ? "Activo" : "Inactivo")}");
+        }
+        catch (Exception ex)
+        {
+            MostrarMensajeError($"Error al cambiar estado: {ex.Message}");
+        }
+    }
+
+    // ============================================
+    // COMANDOS - FILTROS
+    // ============================================
+
+    [RelayCommand]
+    private void AplicarFiltros()
+    {
+        var filtrados = Usuarios.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(FiltroBusqueda))
+        {
+            filtrados = filtrados.Where(u =>
+                u.NombreCompleto.Contains(FiltroBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                u.NumeroUsuario.Contains(FiltroBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                u.Correo.Contains(FiltroBusqueda, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrEmpty(FiltroLocal))
+        {
+            filtrados = filtrados.Where(u =>
+            {
+                if (u.CodigoLocal.Contains(FiltroLocal, StringComparison.OrdinalIgnoreCase))
+                    return true;
+                
+                if (u.EsFlotante && _usuariosConLocales.ContainsKey(u.IdUsuario))
+                {
+                    return _usuariosConLocales[u.IdUsuario].Any(codigo => codigo.Contains(FiltroLocal, StringComparison.OrdinalIgnoreCase));
+                }
+                
+                return false;
+            });
+        }
+
+        if (!string.IsNullOrEmpty(FiltroComercio))
+        {
+            filtrados = filtrados.Where(u =>
+            {
+                // Para usuarios normales, buscar en NombreComercio
+                if (!string.IsNullOrEmpty(u.NombreComercio) && 
+                    u.NombreComercio.Contains(FiltroComercio, StringComparison.OrdinalIgnoreCase))
+                    return true;
+                
+                // Para flooters, buscar en NombreComercioFlooter
+                if (u.EsFlotante && !string.IsNullOrEmpty(u.NombreComercioFlooter))
+                {
+                    return u.NombreComercioFlooter.Contains(FiltroComercio, StringComparison.OrdinalIgnoreCase);
+                }
+                
+                return false;
+            });
+        }
+
+        if (!string.IsNullOrEmpty(FiltroEstado) && FiltroEstado != "Todos")
+        {
+            var activo = FiltroEstado == "Activo";
+            filtrados = filtrados.Where(u => u.Activo == activo);
+        }
+
+        if (!string.IsNullOrEmpty(FiltroTipoUsuario) && FiltroTipoUsuario != "Todos")
+        {
+            var esFlotante = FiltroTipoUsuario == "Flooter";
+            filtrados = filtrados.Where(u => u.EsFlotante == esFlotante);
+        }
+
+        UsuariosFiltrados.Clear();
+        foreach (var usuario in filtrados.OrderBy(u => u.NombreCompleto))
+        {
+            UsuariosFiltrados.Add(usuario);
+        }
+    }
+    
+    [RelayCommand]
+    private void LimpiarFiltros()
+    {
+        FiltroBusqueda = string.Empty;
+        FiltroLocal = string.Empty;
+        FiltroComercio = string.Empty;
+        FiltroEstado = "Todos";
+        FiltroTipoUsuario = "Todos";
+        
+        UsuariosFiltrados.Clear();
+        foreach (var usuario in Usuarios.OrderBy(u => u.NombreCompleto))
+        {
+            UsuariosFiltrados.Add(usuario);
+        }
+        
+        MostrarMensajeExitoNotificacion("✓ Filtros limpiados");
+    }
+
+    // ============================================
+    // BÚSQUEDA Y ASIGNACIÓN DE LOCALES
+    // ============================================
+
+    [RelayCommand]
+    private async Task BuscarLocalesPorComercio()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(BusquedaComercio))
+            {
+                MostrarResultadosBusqueda = false;
+                return;
+            }
+
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var query = @"SELECT l.id_local, 
+                                l.codigo_local, 
+                                COALESCE(l.nombre_local, '') as nombre_local, 
+                                COALESCE(l.tipo_via, '') as tipo_via, 
+                                COALESCE(l.direccion, '') as direccion, 
+                                COALESCE(l.local_numero, '') as local_numero, 
+                                COALESCE(l.escalera, '') as escalera, 
+                                COALESCE(l.piso, '') as piso,
+                                COALESCE(l.codigo_postal, '') as codigo_postal, 
+                                COALESCE(l.pais, '') as pais, 
+                                COALESCE(l.telefono, '') as telefono, 
+                                COALESCE(l.email, '') as email,
+                                c.id_comercio, 
+                                c.nombre_comercio
+                        FROM locales l
+                        INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                        WHERE LOWER(c.nombre_comercio) LIKE LOWER(@Busqueda)
+                        ORDER BY l.codigo_local";
+
+            using var cmd = new NpgsqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@Busqueda", $"%{BusquedaComercio}%");
+
+            ResultadosBusquedaLocales.Clear();
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                ResultadosBusquedaLocales.Add(new LocalFormModel
+                {
+                    IdLocal = reader.GetInt32(0),
+                    CodigoLocal = reader.GetString(1),
+                    NombreLocal = reader.GetString(2),
+                    TipoVia = reader.GetString(3),
+                    Direccion = reader.GetString(4),
+                    LocalNumero = reader.GetString(5),
+                    Escalera = string.IsNullOrEmpty(reader.GetString(6)) ? null : reader.GetString(6),
+                    Piso = string.IsNullOrEmpty(reader.GetString(7)) ? null : reader.GetString(7),
+                    CodigoPostal = reader.GetString(8),
+                    Pais = reader.GetString(9),
+                    Telefono = string.IsNullOrEmpty(reader.GetString(10)) ? null : reader.GetString(10),
+                    Email = string.IsNullOrEmpty(reader.GetString(11)) ? null : reader.GetString(11),
+                    IdComercio = reader.GetInt32(12)
+                });
+            }
+
+            MostrarResultadosBusqueda = ResultadosBusquedaLocales.Count > 0;
+            
+            if (ResultadosBusquedaLocales.Count == 0)
+            {
+                MostrarMensajeError("No se encontraron locales para ese comercio");
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarMensajeError($"Error al buscar locales: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void SeleccionarLocal(LocalFormModel local)
+    {
+        if (!LocalesAsignados.Any(l => l.IdLocal == local.IdLocal))
+        {
+            LocalesAsignados.Add(local);
+            ActualizarTipoEmpleado();
+        }
+
+        BusquedaComercio = string.Empty;
+        MostrarResultadosBusqueda = false;
+        ResultadosBusquedaLocales.Clear();
+    }
+
+    [RelayCommand]
+    private void QuitarLocalAsignado(LocalFormModel local)
+    {
+        LocalesAsignados.Remove(local);
+        ActualizarTipoEmpleado();
+    }
+
+    // ============================================
+    // MÉTODOS AUXILIARES
+    // ============================================
+
+    private void LimpiarFormulario()
+    {
+        FormNombre = string.Empty;
+        FormApellidos = string.Empty;
+        FormNumeroUsuario = string.Empty;
+        FormCorreo = string.Empty;
+        FormTelefono = string.Empty;
+        FormPassword = string.Empty;
+        FormActivo = true;
+
+        LocalesAsignados.Clear();
+        ResultadosBusquedaLocales.Clear();
+        BusquedaComercio = string.Empty;
+        MostrarResultadosBusqueda = false;
+        TipoEmpleadoTexto = "REGULAR (1 local asignado)";
+
+        _usuarioEnEdicion = null;
+        _passwordGuardada = string.Empty;
+    }
+
+    private bool ValidarFormulario(out string mensajeError)
+    {
+        mensajeError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(FormNombre))
+        {
+            mensajeError = "El nombre es obligatorio";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(FormApellidos))
+        {
+            mensajeError = "Los apellidos son obligatorios";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(FormCorreo))
+        {
+            mensajeError = "El correo electrónico es obligatorio";
+            return false;
+        }
+
+        if (!FormCorreo.Contains("@") || !FormCorreo.Contains("."))
+        {
+            mensajeError = "El formato del correo no es válido";
+            return false;
+        }
+
+        if (!ModoEdicion && string.IsNullOrWhiteSpace(FormPassword))
+        {
+            mensajeError = "La contraseña es obligatoria para nuevos usuarios";
+            return false;
+        }
+
+        if (!ModoEdicion && FormPassword.Length < 6)
+        {
+            mensajeError = "La contraseña debe tener al menos 6 caracteres";
+            return false;
+        }
+
+        if (!LocalesAsignados.Any())
+        {
+            mensajeError = "⚠️ DEBE asignar al menos un local al usuario.\n\n" +
+                          "Usa el buscador de 'Asignación de Locales' para buscar por nombre de comercio " +
+                          "y selecciona el local donde trabajará este usuario.";
+            return false;
+        }
+
+        if (LocalesAsignados.Any(l => l.IdLocal <= 0))
+        {
+            mensajeError = "Error: Hay locales asignados sin ID válido. Por favor, elimínalos y asígnalos nuevamente.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task CargarLocalesAsignadosUsuario(int idUsuario)
+    {
+        try
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var query = @"SELECT l.id_local, 
+                                l.codigo_local, 
+                                COALESCE(l.nombre_local, '') as nombre_local,
+                                COALESCE(l.tipo_via, '') as tipo_via, 
+                                COALESCE(l.direccion, '') as direccion, 
+                                COALESCE(l.local_numero, '') as local_numero, 
+                                COALESCE(l.escalera, '') as escalera, 
+                                COALESCE(l.piso, '') as piso,
+                                COALESCE(l.codigo_postal, '') as codigo_postal, 
+                                COALESCE(l.pais, '') as pais, 
+                                COALESCE(l.telefono, '') as telefono, 
+                                COALESCE(l.email, '') as email,
+                                c.id_comercio
+                        FROM locales l
+                        INNER JOIN usuario_locales ul ON l.id_local = ul.id_local
+                        INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                        WHERE ul.id_usuario = @IdUsuario
+                        ORDER BY ul.es_principal DESC, l.nombre_local";
+
+            using var cmd = new NpgsqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
+
+            LocalesAsignados.Clear();
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                LocalesAsignados.Add(new LocalFormModel
+                {
+                    IdLocal = reader.GetInt32(0),
+                    CodigoLocal = reader.GetString(1),
+                    NombreLocal = reader.GetString(2),
+                    TipoVia = reader.GetString(3),
+                    Direccion = reader.GetString(4),
+                    LocalNumero = reader.GetString(5),
+                    Escalera = string.IsNullOrEmpty(reader.GetString(6)) ? null : reader.GetString(6),
+                    Piso = string.IsNullOrEmpty(reader.GetString(7)) ? null : reader.GetString(7),
+                    CodigoPostal = reader.GetString(8),
+                    Pais = reader.GetString(9),
+                    Telefono = string.IsNullOrEmpty(reader.GetString(10)) ? null : reader.GetString(10),
+                    Email = string.IsNullOrEmpty(reader.GetString(11)) ? null : reader.GetString(11),
+                    IdComercio = reader.GetInt32(12)
+                });
+            }
+
+            ActualizarTipoEmpleado();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar locales asignados: {ex.Message}");
+        }
+    }
+
+    private async Task InicializarFiltros()
+    {
+        await Task.Delay(100);
+
+        UsuariosFiltrados.Clear();
+        foreach (var usuario in Usuarios.OrderBy(u => u.NombreCompleto))
+        {
+            UsuariosFiltrados.Add(usuario);
+        }
+    }
+
+    private async void MostrarMensajeExitoNotificacion(string mensaje)
+    {
+        MensajeExitoColor = "#28a745";
+        MensajeExito = mensaje;
+        MostrarMensajeExito = true;
+        await Task.Delay(3000);
+        MostrarMensajeExito = false;
+    }
+
+    private async void MostrarMensajeError(string mensaje)
+    {
+        MensajeExitoColor = "#dc3545";
+        MensajeExito = $"❌ {mensaje}";
+        MostrarMensajeExito = true;
+        await Task.Delay(5000);
+        MostrarMensajeExito = false;
+    }
+}
