@@ -12,7 +12,7 @@ using BCrypt.Net;
 namespace Allva.Desktop.ViewModels.Admin;
 
 /// <summary>
-/// ViewModel para la gestión de usuarios normales y flooters
+/// ViewModel para la gestión de usuarios normales y floaters
 /// VERSIÓN COMPLETA Y CORREGIDA
 /// </summary>
 public partial class ManageUsersViewModel : ObservableObject
@@ -47,6 +47,10 @@ public partial class ManageUsersViewModel : ObservableObject
 
     [ObservableProperty]
     private string _mensajeExitoColor = "#28a745";
+
+    // Propiedades para ventana de confirmación de eliminación
+    [ObservableProperty]
+    private bool _mostrarDialogoConfirmacion = false;
 
     // ============================================
     // PROPIEDADES PARA PANEL DERECHO
@@ -218,7 +222,7 @@ public partial class ManageUsersViewModel : ObservableObject
         }
         else
         {
-            TipoEmpleadoTexto = $"FLOOTER ({cantidadLocales} locales asignados)";
+            TipoEmpleadoTexto = $"FLOATER ({cantidadLocales} locales asignados)";
         }
     }
 
@@ -244,7 +248,7 @@ public partial class ManageUsersViewModel : ObservableObject
             }
             
             await CargarMapeoUsuariosLocales(connection);
-            await CargarDatosFlooters(connection);
+            await CargarDatosFloaters(connection);
 
             OnPropertyChanged(nameof(TotalUsuarios));
             OnPropertyChanged(nameof(UsuariosActivos));
@@ -309,7 +313,7 @@ public partial class ManageUsersViewModel : ObservableObject
     }
     
     /// <summary>
-    /// Carga todos los locales donde trabaja cada usuario (incluyendo flooters)
+    /// Carga todos los locales donde trabaja cada usuario (incluyendo floaters)
     /// </summary>
     private async Task CargarMapeoUsuariosLocales(NpgsqlConnection connection)
     {
@@ -338,9 +342,9 @@ public partial class ManageUsersViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Carga los códigos de locales y nombre del comercio para usuarios flooters
+    /// Carga los códigos de locales y nombre del comercio para usuarios floaters
     /// </summary>
-    private async Task CargarDatosFlooters(NpgsqlConnection connection)
+    private async Task CargarDatosFloaters(NpgsqlConnection connection)
     {
         foreach (var usuario in Usuarios.Where(u => u.EsFlotante))
         {
@@ -713,8 +717,24 @@ public partial class ManageUsersViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task EliminarUsuario(UserModel usuario)
+    private void EliminarUsuario(UserModel usuario)
     {
+        UsuarioSeleccionado = usuario;
+        MostrarDialogoConfirmacion = true;
+    }
+
+    [RelayCommand]
+    private void CancelarEliminarUsuario()
+    {
+        MostrarDialogoConfirmacion = false;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmarEliminarUsuario()
+    {
+        if (UsuarioSeleccionado == null) return;
+
+        MostrarDialogoConfirmacion = false;
         Cargando = true;
 
         try
@@ -728,7 +748,7 @@ public partial class ManageUsersViewModel : ObservableObject
             {
                 var queryDeleteAsignaciones = "DELETE FROM usuario_locales WHERE id_usuario = @Id";
                 using var cmdAsignaciones = new NpgsqlCommand(queryDeleteAsignaciones, connection, transaction);
-                cmdAsignaciones.Parameters.AddWithValue("@Id", usuario.IdUsuario);
+                cmdAsignaciones.Parameters.AddWithValue("@Id", UsuarioSeleccionado.IdUsuario);
                 await cmdAsignaciones.ExecuteNonQueryAsync();
             }
             catch
@@ -737,14 +757,14 @@ public partial class ManageUsersViewModel : ObservableObject
 
             var query = "DELETE FROM usuarios WHERE id_usuario = @Id";
             using var cmd = new NpgsqlCommand(query, connection, transaction);
-            cmd.Parameters.AddWithValue("@Id", usuario.IdUsuario);
+            cmd.Parameters.AddWithValue("@Id", UsuarioSeleccionado.IdUsuario);
             await cmd.ExecuteNonQueryAsync();
 
             await transaction.CommitAsync();
 
             await CargarDatosDesdeBaseDatos();
 
-            MostrarMensajeExitoNotificacion("✓ Usuario eliminado correctamente");
+            MostrarMensajeExitoNotificacion($"✓ Usuario {UsuarioSeleccionado.NombreCompleto} eliminado correctamente");
         }
         catch (Exception ex)
         {
@@ -752,6 +772,7 @@ public partial class ManageUsersViewModel : ObservableObject
         }
         finally
         {
+            UsuarioSeleccionado = null;
             Cargando = false;
         }
     }
@@ -831,7 +852,7 @@ public partial class ManageUsersViewModel : ObservableObject
                     u.NombreComercio.Contains(FiltroComercio, StringComparison.OrdinalIgnoreCase))
                     return true;
                 
-                // Para flooters, buscar en NombreComercioFlooter
+                // Para floaters, buscar en NombreComercioFlooter
                 if (u.EsFlotante && !string.IsNullOrEmpty(u.NombreComercioFlooter))
                 {
                     return u.NombreComercioFlooter.Contains(FiltroComercio, StringComparison.OrdinalIgnoreCase);
@@ -849,7 +870,7 @@ public partial class ManageUsersViewModel : ObservableObject
 
         if (!string.IsNullOrEmpty(FiltroTipoUsuario) && FiltroTipoUsuario != "Todos")
         {
-            var esFlotante = FiltroTipoUsuario == "Flooter";
+            var esFlotante = FiltroTipoUsuario == "Floater";
             filtrados = filtrados.Where(u => u.EsFlotante == esFlotante);
         }
 

@@ -291,7 +291,7 @@
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" Spacing="8">
-                                                <TextBlock Text="Teléfono" FontSize="15" Foreground="#666"/>
+                                                <TextBlock Text="Móvil" FontSize="15" Foreground="#666"/>
                                                 <TextBlock Text="{Binding Telefono}" FontSize="17" FontWeight="SemiBold"/>
                                             </StackPanel>
 
@@ -474,7 +474,7 @@
                                                      Watermark="admin@allva.com"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                            <TextBlock Text="Teléfono" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                            <TextBlock Text="Móvil" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                             <TextBox Text="{Binding FormTelefono}" 
                                                      Watermark="+00 000 000 000"/>
                                         </StackPanel>
@@ -595,7 +595,7 @@
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Correo:" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AdministradorSeleccionado.Correo}" FontSize="16" Margin="0,0,0,10"/>
                                         
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Teléfono:" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Móvil:" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                                         <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AdministradorSeleccionado.Telefono}" FontSize="16" Margin="0,0,0,10"/>
                                         
                                         <TextBlock Grid.Row="4" Grid.Column="0" Text="Nivel:" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>

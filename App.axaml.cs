@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Threading.Tasks;
@@ -43,7 +44,7 @@ namespace Allva.Desktop
                     var licenseView = new LicenseActivationView
                     {
                         DataContext = new LicenseActivationViewModel(),
-                        WindowState = WindowState.Maximized  // ← PANTALLA COMPLETA
+                        WindowState = WindowState.Maximized
                     };
 
                     desktop.MainWindow = licenseView;
@@ -51,15 +52,16 @@ namespace Allva.Desktop
                 else
                 {
                     // YA ACTIVADA - Ir directo al login EN PANTALLA COMPLETA
+                    var loginViewModel = new LoginViewModel();
                     var loginView = new LoginView
                     {
-                        DataContext = new LoginViewModel()
+                        DataContext = loginViewModel
                     };
 
                     var mainWindow = new Window
                     {
                         Title = "Allva System - Login",
-                        WindowState = WindowState.Maximized,  // ← PANTALLA COMPLETA
+                        WindowState = WindowState.Maximized,
                         WindowStartupLocation = WindowStartupLocation.CenterScreen,
                         CanResize = true,
                         Content = loginView,
@@ -68,8 +70,8 @@ namespace Allva.Desktop
 
                     desktop.MainWindow = mainWindow;
                     
-                    // Verificar actualizaciones en segundo plano
-                    Task.Run(CheckForUpdatesInBackground);
+                    // Verificar actualizaciones INMEDIATAMENTE
+                    Task.Run(() => CheckAndDownloadUpdates(loginViewModel));
                 }
             }
 
@@ -91,23 +93,70 @@ namespace Allva.Desktop
             Services = services.BuildServiceProvider();
         }
 
-        private async Task CheckForUpdatesInBackground()
+        private async Task CheckAndDownloadUpdates(LoginViewModel loginViewModel)
         {
-            await Task.Delay(5000);
-
             try
             {
+                await Task.Delay(1000);
+
                 var updateService = new UpdateService();
+                
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    loginViewModel.ActivarMensajeActualizacion("Verificando actualizaciones...", 0);
+                });
+
                 var updateInfo = await updateService.CheckForUpdatesAsync();
 
                 if (updateInfo != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Actualización disponible: {updateInfo.TargetFullRelease.Version}");
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        loginViewModel.ActivarMensajeActualizacion(
+                            $"Descargando actualización v{updateInfo.TargetFullRelease.Version}...", 
+                            0
+                        );
+                    });
+
+                    await updateService.DownloadUpdatesAsync(updateInfo, (progreso) =>
+                    {
+                        Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            loginViewModel.ActivarMensajeActualizacion(
+                                $"Descargando actualización v{updateInfo.TargetFullRelease.Version}...", 
+                                progreso
+                            );
+                        });
+                    });
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        loginViewModel.ActivarMensajeActualizacion(
+                            "Actualización lista. Reiniciando aplicación...", 
+                            100
+                        );
+                    });
+
+                    await Task.Delay(2000);
+
+                    updateService.ApplyUpdatesAndRestart(updateInfo);
+                }
+                else
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        loginViewModel.DesactivarMensajeActualizacion();
+                    });
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error verificando actualizaciones: {ex.Message}");
+                
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    loginViewModel.DesactivarMensajeActualizacion();
+                });
             }
         }
 

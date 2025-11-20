@@ -56,6 +56,13 @@ public partial class ManageComerciosViewModel : ObservableObject
     [ObservableProperty]
     private string _mensajeExito = string.Empty;
 
+    // Propiedades para ventana de confirmación de eliminación
+    [ObservableProperty]
+    private bool _mostrarDialogoConfirmacion = false;
+
+    [ObservableProperty]
+    private ComercioModel? _comercioAEliminar;
+
     // ============================================
     // PROPIEDADES PARA PANEL DERECHO
     // ============================================
@@ -276,7 +283,7 @@ public partial class ManageComerciosViewModel : ObservableObject
         var query = @"SELECT id_local, codigo_local, nombre_local,
                              pais, codigo_postal, tipo_via,
                              direccion, local_numero, escalera, piso, 
-                             telefono, email, observaciones,
+                             movil, telefono, email, observaciones,
                              activo, modulo_divisas, modulo_pack_alimentos, 
                              modulo_billetes_avion, modulo_pack_viajes
                       FROM locales 
@@ -302,14 +309,15 @@ public partial class ManageComerciosViewModel : ObservableObject
                 LocalNumero = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
                 Escalera = reader.IsDBNull(8) ? null : reader.GetString(8),
                 Piso = reader.IsDBNull(9) ? null : reader.GetString(9),
-                Telefono = reader.IsDBNull(10) ? null : reader.GetString(10),
-                Email = reader.IsDBNull(11) ? null : reader.GetString(11),
-                Observaciones = reader.IsDBNull(12) ? null : reader.GetString(12),
-                Activo = reader.GetBoolean(13),
-                ModuloDivisas = reader.GetBoolean(14),
-                ModuloPackAlimentos = reader.GetBoolean(15),
-                ModuloBilletesAvion = reader.GetBoolean(16),
-                ModuloPackViajes = reader.GetBoolean(17),
+                Movil = reader.IsDBNull(10) ? null : reader.GetString(10),
+                Telefono = reader.IsDBNull(11) ? null : reader.GetString(11),
+                Email = reader.IsDBNull(12) ? null : reader.GetString(12),
+                Observaciones = reader.IsDBNull(13) ? null : reader.GetString(13),
+                Activo = reader.GetBoolean(14),
+                ModuloDivisas = reader.GetBoolean(15),
+                ModuloPackAlimentos = reader.GetBoolean(16),
+                ModuloBilletesAvion = reader.GetBoolean(17),
+                ModuloPackViajes = reader.GetBoolean(18),
                 Usuarios = new List<UserSimpleModel>()
             });
         }
@@ -591,14 +599,14 @@ public partial class ManageComerciosViewModel : ObservableObject
                 var queryLocal = @"
                     INSERT INTO locales (
                         id_comercio, codigo_local, nombre_local, direccion, local_numero,
-                        escalera, piso, telefono, email, observaciones, numero_usuarios_max,
+                        escalera, piso, movil, telefono, email, observaciones, numero_usuarios_max,
                         activo, modulo_divisas, modulo_pack_alimentos, 
                         modulo_billetes_avion, modulo_pack_viajes,
                         pais, codigo_postal, tipo_via
                     )
                     VALUES (
                         @IdComercio, @CodigoLocal, @NombreLocal, @Direccion, @LocalNumero,
-                        @Escalera, @Piso, @Telefono, @Email, @Observaciones, @NumeroUsuariosMax,
+                        @Escalera, @Piso, @Movil, @Telefono, @Email, @Observaciones, @NumeroUsuariosMax,
                         @Activo, @ModuloDivisas, @ModuloPackAlimentos,
                         @ModuloBilletesAvion, @ModuloPackViajes,
                         @Pais, @CodigoPostal, @TipoVia
@@ -614,6 +622,8 @@ public partial class ManageComerciosViewModel : ObservableObject
                     string.IsNullOrWhiteSpace(local.Escalera) ? DBNull.Value : local.Escalera);
                 cmdLocal.Parameters.AddWithValue("@Piso", 
                     string.IsNullOrWhiteSpace(local.Piso) ? DBNull.Value : local.Piso);
+                cmdLocal.Parameters.AddWithValue("@Movil", 
+                    string.IsNullOrWhiteSpace(local.Movil) ? DBNull.Value : local.Movil);
                 cmdLocal.Parameters.AddWithValue("@Telefono", 
                     string.IsNullOrWhiteSpace(local.Telefono) ? DBNull.Value : local.Telefono);
                 cmdLocal.Parameters.AddWithValue("@Email", 
@@ -735,14 +745,14 @@ public partial class ManageComerciosViewModel : ObservableObject
                 var queryUpsert = @"
                     INSERT INTO locales (
                         id_comercio, codigo_local, nombre_local, direccion, local_numero,
-                        escalera, piso, telefono, email, observaciones, numero_usuarios_max,
+                        escalera, piso, movil, telefono, email, observaciones, numero_usuarios_max,
                         activo, modulo_divisas, modulo_pack_alimentos, 
                         modulo_billetes_avion, modulo_pack_viajes,
                         pais, codigo_postal, tipo_via
                     )
                     VALUES (
                         @IdComercio, @CodigoLocal, @NombreLocal, @Direccion, @LocalNumero,
-                        @Escalera, @Piso, @Telefono, @Email, @Observaciones, @NumeroUsuariosMax,
+                        @Escalera, @Piso, @Movil, @Telefono, @Email, @Observaciones, @NumeroUsuariosMax,
                         @Activo, @ModuloDivisas, @ModuloPackAlimentos,
                         @ModuloBilletesAvion, @ModuloPackViajes,
                         @Pais, @CodigoPostal, @TipoVia
@@ -754,6 +764,7 @@ public partial class ManageComerciosViewModel : ObservableObject
                         local_numero = EXCLUDED.local_numero,
                         escalera = EXCLUDED.escalera,
                         piso = EXCLUDED.piso,
+                        movil = EXCLUDED.movil,
                         telefono = EXCLUDED.telefono,
                         email = EXCLUDED.email,
                         observaciones = EXCLUDED.observaciones,
@@ -777,6 +788,8 @@ public partial class ManageComerciosViewModel : ObservableObject
                     string.IsNullOrWhiteSpace(local.Escalera) ? DBNull.Value : local.Escalera);
                 cmdLocal.Parameters.AddWithValue("@Piso", 
                     string.IsNullOrWhiteSpace(local.Piso) ? DBNull.Value : local.Piso);
+                cmdLocal.Parameters.AddWithValue("@Movil", 
+                    string.IsNullOrWhiteSpace(local.Movil) ? DBNull.Value : local.Movil);
                 cmdLocal.Parameters.AddWithValue("@Telefono", 
                     string.IsNullOrWhiteSpace(local.Telefono) ? DBNull.Value : local.Telefono);
                 cmdLocal.Parameters.AddWithValue("@Email", 
@@ -823,8 +836,26 @@ public partial class ManageComerciosViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task EliminarComercio(ComercioModel comercio)
+    private void EliminarComercio(ComercioModel comercio)
     {
+        ComercioAEliminar = comercio;
+        ComercioSeleccionado = comercio;
+        MostrarDialogoConfirmacion = true;
+    }
+
+    [RelayCommand]
+    private void CancelarEliminarComercio()
+    {
+        MostrarDialogoConfirmacion = false;
+        ComercioAEliminar = null;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmarEliminarComercio()
+    {
+        if (ComercioAEliminar == null) return;
+
+        MostrarDialogoConfirmacion = false;
         Cargando = true;
 
         try
@@ -835,23 +866,23 @@ public partial class ManageComerciosViewModel : ObservableObject
             using var transaction = await connection.BeginTransactionAsync();
 
             // Liberar números de todos los locales del comercio
-            foreach (var local in comercio.Locales)
+            foreach (var local in ComercioAEliminar.Locales)
             {
                 await LiberarNumeroLocal(connection, transaction, local.CodigoLocal);
             }
 
-            await _archivoService.EliminarArchivosDeComercio(comercio.IdComercio);
+            await _archivoService.EliminarArchivosDeComercio(ComercioAEliminar.IdComercio);
 
             var query = "DELETE FROM comercios WHERE id_comercio = @IdComercio";
             using var cmd = new NpgsqlCommand(query, connection, transaction);
-            cmd.Parameters.AddWithValue("@IdComercio", comercio.IdComercio);
+            cmd.Parameters.AddWithValue("@IdComercio", ComercioAEliminar.IdComercio);
             
             await cmd.ExecuteNonQueryAsync();
             await transaction.CommitAsync();
 
             await CargarDatosDesdeBaseDatos();
 
-            MensajeExito = $"Comercio {comercio.NombreComercio} eliminado correctamente";
+            MensajeExito = $"Comercio {ComercioAEliminar.NombreComercio} eliminado correctamente";
             MostrarMensajeExito = true;
             await Task.Delay(3000);
             MostrarMensajeExito = false;
@@ -865,6 +896,7 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
         finally
         {
+            ComercioAEliminar = null;
             Cargando = false;
         }
     }
@@ -983,6 +1015,7 @@ public partial class ManageComerciosViewModel : ObservableObject
                             (l.NombreLocal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.Direccion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.Email?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                            (l.Movil?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.Telefono?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.CodigoPostal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.TipoVia?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false)
@@ -1010,6 +1043,7 @@ public partial class ManageComerciosViewModel : ObservableObject
                             (l.NombreLocal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.Direccion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.Email?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                            (l.Movil?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.Telefono?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.CodigoPostal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
                             (l.TipoVia?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
@@ -1517,6 +1551,7 @@ public partial class ManageComerciosViewModel : ObservableObject
                 LocalNumero = local.LocalNumero,
                 Escalera = local.Escalera,
                 Piso = local.Piso,
+                Movil = local.Movil,
                 Telefono = local.Telefono,
                 Email = local.Email,
                 Observaciones = local.Observaciones,

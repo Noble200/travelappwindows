@@ -16,7 +16,7 @@ namespace Allva.Desktop.Services
         
         // ⚠️ IMPORTANTE: Reemplaza esta URL por la que Railway te generó
         // Después de hacer "Generate Domain" en Railway, copia la URL aquí
-        private const string RAILWAY_UPDATE_URL = "https://create-allva-updates-server-production.up.railway.app";
+        private const string RAILWAY_UPDATE_URL = "https://allva-updates-server-production.up.railway.app";
         
         private static string GetUpdateUrl()
         {

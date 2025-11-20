@@ -67,6 +67,40 @@ namespace Allva.Desktop.ViewModels
         private bool _mostrarMensajeError;
 
         // ============================================
+        // PROPIEDADES PARA ACTUALIZACIÓN
+        // ============================================
+
+        [ObservableProperty]
+        private string _mensajeActualizacion = string.Empty;
+
+        // Propiedad manual para MostrarMensajeActualizacion (sin ObservableProperty)
+        private bool _mostrarMensajeActualizacion;
+        public bool MostrarMensajeActualizacion
+        {
+            get => _mostrarMensajeActualizacion;
+            set => SetProperty(ref _mostrarMensajeActualizacion, value);
+        }
+
+        [ObservableProperty]
+        private int _progresoActualizacion;
+
+        public void ActivarMensajeActualizacion(string mensaje, int progreso)
+        {
+            MensajeActualizacion = mensaje;
+            ProgresoActualizacion = progreso;
+            MostrarMensajeActualizacion = true;
+            Cargando = true;
+        }
+
+        public void DesactivarMensajeActualizacion()
+        {
+            MostrarMensajeActualizacion = false;
+            MensajeActualizacion = string.Empty;
+            ProgresoActualizacion = 0;
+            Cargando = false;
+        }
+
+        // ============================================
         // COMANDOS
         // ============================================
 

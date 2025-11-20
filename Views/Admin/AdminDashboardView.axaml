@@ -43,7 +43,7 @@
                     <Border Classes="admin-menu-separator"/>
 
                     <!-- Sección: Panel de Administración -->
-                    <TextBlock Text="Panel de putos Administración"
+                    <TextBlock Text="Panel De test Administración"
                                Classes="admin-section-title"/>
 
                     <!-- Menú de navegación - 3 módulos -->
