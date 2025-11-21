@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -19,6 +20,30 @@ namespace Allva.Desktop.ViewModels
         // ============================================
         
         private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
+        
+        // ============================================
+        // CONFIGURACIÓN DE LOGS
+        // ============================================
+        
+        private static readonly string LogFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+            "AllvaSystem_Login_Debug.log"
+        );
+        
+        private static void WriteLog(string message)
+        {
+            try
+            {
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                var logMessage = $"[{timestamp}] {message}{Environment.NewLine}";
+                File.AppendAllText(LogFilePath, logMessage);
+            }
+            catch (Exception ex)
+            {
+                // Si falla el log, no hacer nada para no interrumpir el flujo
+                Console.WriteLine($"Error escribiendo log: {ex.Message}");
+            }
+        }
 
         // ============================================
         // LOCALIZACIÓN
@@ -106,39 +131,55 @@ namespace Allva.Desktop.ViewModels
 
         /// <summary>
         /// Comando para iniciar sesión
+        /// LÓGICA:
+        /// - Admin Allva: código local = "CENTRAL"
+        /// - Usuario Floater: código local = "FLOATER"  
+        /// - Usuario Fijo: código local = código real del local
         /// </summary>
         [RelayCommand]
         private async Task IniciarSesion()
         {
+            WriteLog("========================================");
+            WriteLog("INICIO DE PROCESO DE LOGIN");
+            WriteLog($"Usuario ingresado: '{NumeroUsuario}'");
+            WriteLog($"Código local ingresado: '{CodigoLocal}'");
+            WriteLog($"Longitud password: {Password?.Length ?? 0}");
+            
             // Limpiar mensajes anteriores
             MensajeError = string.Empty;
             MostrarMensajeError = false;
 
             // Validar campos básicos
             if (!ValidarCampos())
+            {
+                WriteLog("Validación de campos falló");
                 return;
+            }
 
+            WriteLog("Validación de campos exitosa");
             Cargando = true;
 
             try
             {
-                // PASO 1: Intentar autenticar como Administrador Allva PRIMERO
-                // Los nombres de usuario de admins NO son numéricos (ej: jose_noble, maria_gonzalez)
-                bool esNumerico = int.TryParse(NumeroUsuario, out _);
+                var codigoLocalUpper = CodigoLocal.Trim().ToUpper();
                 
-                if (!esNumerico)
+                // =============================================
+                // CASO 1: ADMINISTRADOR ALLVA (código = CENTRAL)
+                // =============================================
+                if (codigoLocalUpper == "CENTRAL")
                 {
-                    // Es un nombre de usuario texto → buscar en administradores_allva
-                    var resultadoAdmin = await AutenticarAdministradorAllva(NumeroUsuario, Password);
+                    WriteLog("Código 'CENTRAL' detectado - Intentando como Administrador Allva...");
+                    
+                    var resultadoAdmin = await AutenticarAdministradorAllva(NumeroUsuario!, Password!);
                     
                     if (resultadoAdmin.Exitoso)
                     {
-                        // Login exitoso como admin
+                        WriteLog("✓ Login exitoso como Administrador Allva");
                         var loginData = new LoginSuccessData
                         {
                             UserName = resultadoAdmin.NombreCompleto,
                             UserNumber = NumeroUsuario,
-                            LocalCode = "SYSTEM",
+                            LocalCode = "CENTRAL",
                             Token = $"token-{Guid.NewGuid()}",
                             IsSystemAdmin = true,
                             UserType = "ADMIN_ALLVA",
@@ -156,60 +197,101 @@ namespace Allva.Desktop.ViewModels
                             }
                         };
 
+                        WriteLog("Navegando a AdminDashboard...");
                         var navigationService = new NavigationService();
                         navigationService.NavigateToAdminDashboard(loginData);
                         return;
                     }
                     else
                     {
-                        // No se encontró como admin
+                        WriteLog($"✗ Falló autenticación como Admin: {resultadoAdmin.MensajeError}");
                         MostrarError(resultadoAdmin.MensajeError);
                         return;
                     }
                 }
                 
-                // PASO 2: Usuario numérico (0001, 1001, etc) → buscar como usuario normal
-                // Requiere código de local
-                if (string.IsNullOrWhiteSpace(CodigoLocal))
+                // =============================================
+                // CASO 2: USUARIO FLOATER (código = FLOATER)
+                // =============================================
+                if (codigoLocalUpper == "FLOATER")
                 {
-                    MostrarError("El código de local es requerido para usuarios normales");
-                    return;
+                    WriteLog("Código 'FLOATER' detectado - Intentando como usuario Floater...");
+                    
+                    var resultadoFloater = await AutenticarUsuarioFloater(NumeroUsuario!, Password!);
+                    
+                    if (resultadoFloater.Exitoso)
+                    {
+                        WriteLog($"✓ Login exitoso como Floater: {resultadoFloater.NombreCompleto}");
+                        var loginData = new LoginSuccessData
+                        {
+                            UserName = resultadoFloater.NombreCompleto,
+                            UserNumber = NumeroUsuario,
+                            LocalCode = "FLOATER",
+                            Token = $"token-{Guid.NewGuid()}",
+                            IsSystemAdmin = false,
+                            UserType = "FLOATER",
+                            RoleName = "Usuario_Floater"
+                        };
+
+                        WriteLog("Navegando a MainDashboard...");
+                        var navigationService = new NavigationService();
+                        navigationService.NavigateTo("MainDashboard", loginData);
+                        return;
+                    }
+                    else
+                    {
+                        WriteLog($"✗ Falló autenticación como Floater: {resultadoFloater.MensajeError}");
+                        MostrarError(resultadoFloater.MensajeError);
+                        return;
+                    }
                 }
                 
-                var resultadoNormal = await AutenticarUsuarioNormal(NumeroUsuario, Password, CodigoLocal);
+                // =============================================
+                // CASO 3: USUARIO FIJO (código = código real del local)
+                // =============================================
+                WriteLog($"Código '{codigoLocalUpper}' detectado - Intentando como usuario fijo...");
+                
+                var resultadoNormal = await AutenticarUsuarioFijo(NumeroUsuario!, Password!, codigoLocalUpper);
                 
                 if (resultadoNormal.Exitoso)
                 {
-                    // Login exitoso como usuario normal
+                    WriteLog($"✓ Login exitoso como usuario fijo: {resultadoNormal.NombreCompleto}");
                     var loginData = new LoginSuccessData
                     {
                         UserName = resultadoNormal.NombreCompleto,
                         UserNumber = NumeroUsuario,
-                        LocalCode = CodigoLocal,
+                        LocalCode = codigoLocalUpper,
                         Token = $"token-{Guid.NewGuid()}",
                         IsSystemAdmin = false,
                         UserType = "USUARIO_LOCAL",
                         RoleName = "Usuario_Local"
                     };
 
+                    WriteLog("Navegando a MainDashboard...");
                     var navigationService = new NavigationService();
                     navigationService.NavigateTo("MainDashboard", loginData);
                 }
                 else
                 {
+                    WriteLog($"✗ Falló autenticación usuario fijo: {resultadoNormal.MensajeError}");
                     MostrarError(resultadoNormal.MensajeError);
                 }
             }
             catch (Exception ex)
             {
+                WriteLog($"✗✗✗ EXCEPCIÓN CRÍTICA: {ex.GetType().Name}");
+                WriteLog($"Mensaje: {ex.Message}");
+                WriteLog($"StackTrace: {ex.StackTrace}");
                 MostrarError($"Error de conexión: {ex.Message}");
             }
             finally
             {
                 Cargando = false;
+                WriteLog("FIN DE PROCESO DE LOGIN");
+                WriteLog("========================================");
             }
         }
-        
+                
         /// <summary>
         /// Alias para LoginCommand (compatibilidad con LoginView.axaml)
         /// </summary>
@@ -253,10 +335,13 @@ namespace Allva.Desktop.ViewModels
         /// </summary>
         private async Task<ResultadoAutenticacion> AutenticarAdministradorAllva(string nombreUsuario, string password)
         {
+            WriteLog($"  → AutenticarAdministradorAllva iniciado para: {nombreUsuario}");
             try
             {
+                WriteLog("  → Abriendo conexión a BD...");
                 using var connection = new NpgsqlConnection(ConnectionString);
                 await connection.OpenAsync();
+                WriteLog("  → Conexión BD abierta exitosamente");
 
                 var query = @"
                     SELECT 
@@ -275,6 +360,7 @@ namespace Allva.Desktop.ViewModels
                     FROM administradores_allva
                     WHERE nombre_usuario = @NombreUsuario";
 
+                WriteLog($"  → Ejecutando query para admin: {nombreUsuario}");
                 using var cmd = new NpgsqlCommand(query, connection);
                 cmd.Parameters.AddWithValue("@NombreUsuario", nombreUsuario);
 
@@ -282,6 +368,7 @@ namespace Allva.Desktop.ViewModels
 
                 if (!await reader.ReadAsync())
                 {
+                    WriteLog("  → No se encontró el usuario en administradores_allva");
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
@@ -289,8 +376,12 @@ namespace Allva.Desktop.ViewModels
                     };
                 }
 
+                WriteLog("  → Usuario encontrado en BD");
+
                 // Verificar si está activo (índice 4)
-                if (!reader.GetBoolean(4))
+                bool activo = reader.GetBoolean(4);
+                WriteLog($"  → Usuario activo: {activo}");
+                if (!activo)
                 {
                     return new ResultadoAutenticacion
                     {
@@ -301,7 +392,13 @@ namespace Allva.Desktop.ViewModels
 
                 // Verificar contraseña con BCrypt (índice 3)
                 var passwordHash = reader.GetString(3);
-                if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
+                WriteLog($"  → Hash almacenado: {passwordHash.Substring(0, 20)}...");
+                WriteLog("  → Verificando contraseña con BCrypt...");
+                
+                bool passwordCorrecta = BCrypt.Net.BCrypt.Verify(password, passwordHash);
+                WriteLog($"  → Resultado verificación BCrypt: {passwordCorrecta}");
+                
+                if (!passwordCorrecta)
                 {
                     return new ResultadoAutenticacion
                     {
@@ -314,6 +411,7 @@ namespace Allva.Desktop.ViewModels
                 var nombre = reader.GetString(1);
                 var apellidos = reader.GetString(2);
                 var nombreCompleto = $"{nombre} {apellidos}";
+                WriteLog($"  → Login exitoso para: {nombreCompleto}");
 
                 // Login exitoso
                 return new ResultadoAutenticacion
@@ -332,6 +430,9 @@ namespace Allva.Desktop.ViewModels
             }
             catch (Exception ex)
             {
+                WriteLog($"  → ✗✗✗ ERROR en AutenticarAdministradorAllva: {ex.GetType().Name}");
+                WriteLog($"  → Mensaje: {ex.Message}");
+                WriteLog($"  → StackTrace: {ex.StackTrace}");
                 return new ResultadoAutenticacion
                 {
                     Exitoso = false,
@@ -341,48 +442,55 @@ namespace Allva.Desktop.ViewModels
         }
 
         /// <summary>
-        /// Autentica usuarios normales (1001, 1002, 9999, etc)
-        /// Busca en tabla usuarios
+        /// Autentica usuarios FLOATER (código local = "FLOATER")
+        /// Busca en tabla usuarios donde es_flooter = true
         /// </summary>
-        private async Task<ResultadoAutenticacion> AutenticarUsuarioNormal(string numeroUsuario, string password, string codigoLocal)
+        private async Task<ResultadoAutenticacion> AutenticarUsuarioFloater(string numeroUsuario, string password)
         {
+            WriteLog($"  → AutenticarUsuarioFloater iniciado para: {numeroUsuario}");
+            
             try
             {
+                WriteLog("  → Abriendo conexión a BD...");
                 using var connection = new NpgsqlConnection(ConnectionString);
                 await connection.OpenAsync();
+                WriteLog("  → Conexión BD abierta exitosamente");
 
+                // Buscar usuario floater por numero_usuario
                 var query = @"
                     SELECT 
+                        u.id_usuario,
                         u.numero_usuario,
-                        u.nombre_completo,
+                        CONCAT(u.nombre, ' ', u.apellidos) as nombre_completo,
                         u.password_hash,
                         u.activo,
-                        u.id_local,
-                        l.codigo_local,
-                        l.nombre_local,
-                        l.activo AS local_activo
+                        u.es_flooter
                     FROM usuarios u
-                    INNER JOIN locales l ON u.id_local = l.id_local
                     WHERE u.numero_usuario = @NumeroUsuario
-                    AND l.codigo_local = @CodigoLocal";
+                    AND u.es_flooter = true";
 
+                WriteLog($"  → Ejecutando query para usuario floater...");
                 using var cmd = new NpgsqlCommand(query, connection);
                 cmd.Parameters.AddWithValue("@NumeroUsuario", numeroUsuario);
-                cmd.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
 
                 using var reader = await cmd.ExecuteReaderAsync();
 
                 if (!await reader.ReadAsync())
                 {
+                    WriteLog("  → No se encontró usuario floater con ese número");
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Usuario no encontrado o código de local incorrecto"
+                        MensajeError = "Usuario floater no encontrado"
                     };
                 }
 
-                // Verificar si el usuario está activo
-                if (!reader.GetBoolean(3))
+                WriteLog("  → Usuario floater encontrado en BD");
+
+                // Verificar si está activo (índice 4)
+                bool usuarioActivo = reader.GetBoolean(4);
+                WriteLog($"  → Usuario activo: {usuarioActivo}");
+                if (!usuarioActivo)
                 {
                     return new ResultadoAutenticacion
                     {
@@ -391,19 +499,15 @@ namespace Allva.Desktop.ViewModels
                     };
                 }
 
-                // Verificar si el local está activo
-                if (!reader.GetBoolean(7))
-                {
-                    return new ResultadoAutenticacion
-                    {
-                        Exitoso = false,
-                        MensajeError = "Local inactivo"
-                    };
-                }
-
-                // Verificar contraseña con BCrypt
-                var passwordHash = reader.GetString(2);
-                if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
+                // Verificar contraseña con BCrypt (índice 3)
+                var passwordHash = reader.GetString(3);
+                WriteLog($"  → Hash almacenado: {passwordHash.Substring(0, Math.Min(20, passwordHash.Length))}...");
+                WriteLog("  → Verificando contraseña con BCrypt...");
+                
+                bool passwordCorrecta = BCrypt.Net.BCrypt.Verify(password, passwordHash);
+                WriteLog($"  → Resultado verificación BCrypt: {passwordCorrecta}");
+                
+                if (!passwordCorrecta)
                 {
                     return new ResultadoAutenticacion
                     {
@@ -413,21 +517,153 @@ namespace Allva.Desktop.ViewModels
                 }
 
                 // Login exitoso
+                var nombreCompleto = reader.GetString(2);
+                WriteLog($"  → ✓ Login exitoso para floater: {nombreCompleto}");
+                
                 return new ResultadoAutenticacion
                 {
                     Exitoso = true,
-                    NombreCompleto = reader.GetString(1),
+                    NombreCompleto = nombreCompleto,
                     EsAdministradorAllva = false
                 };
             }
             catch (Exception ex)
             {
+                WriteLog($"  → ✗✗✗ ERROR en AutenticarUsuarioFloater: {ex.GetType().Name}");
+                WriteLog($"  → Mensaje: {ex.Message}");
+                WriteLog($"  → StackTrace: {ex.StackTrace}");
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = $"Error al autenticar floater: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Autentica usuarios FIJOS (código local = código real del local)
+        /// Busca en tabla usuarios donde es_flooter = false y id_local coincide
+        /// </summary>
+        private async Task<ResultadoAutenticacion> AutenticarUsuarioFijo(string numeroUsuario, string password, string codigoLocal)
+        {
+            WriteLog($"  → AutenticarUsuarioFijo iniciado");
+            WriteLog($"  → Parámetros: Usuario={numeroUsuario}, Local={codigoLocal}");
+            
+            try
+            {
+                WriteLog("  → Abriendo conexión a BD...");
+                using var connection = new NpgsqlConnection(ConnectionString);
+                await connection.OpenAsync();
+                WriteLog("  → Conexión BD abierta exitosamente");
+
+                // Buscar usuario FIJO en el local especificado
+                var query = @"
+                    SELECT 
+                        u.id_usuario,
+                        u.numero_usuario,
+                        CONCAT(u.nombre, ' ', u.apellidos) as nombre_completo,
+                        u.password_hash,
+                        u.activo,
+                        l.codigo_local,
+                        l.nombre_local,
+                        l.activo AS local_activo
+                    FROM usuarios u
+                    INNER JOIN locales l ON u.id_local = l.id_local
+                    WHERE u.numero_usuario = @NumeroUsuario
+                    AND l.codigo_local = @CodigoLocal
+                    AND (u.es_flooter = false OR u.es_flooter IS NULL)";
+
+                WriteLog($"  → Ejecutando query para usuario fijo...");
+                using var cmd = new NpgsqlCommand(query, connection);
+                cmd.Parameters.AddWithValue("@NumeroUsuario", numeroUsuario);
+                cmd.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
+
+                using var reader = await cmd.ExecuteReaderAsync();
+
+                if (!await reader.ReadAsync())
+                {
+                    WriteLog("  → No se encontró usuario fijo en ese local");
+                    return new ResultadoAutenticacion
+                    {
+                        Exitoso = false,
+                        MensajeError = "Usuario no encontrado o no tiene acceso a este local"
+                    };
+                }
+
+                WriteLog("  → Usuario fijo encontrado en BD");
+                return ProcesarResultadoUsuarioConLocal(reader, password);
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"  → ✗✗✗ ERROR en AutenticarUsuarioFijo: {ex.GetType().Name}");
+                WriteLog($"  → Mensaje: {ex.Message}");
+                WriteLog($"  → StackTrace: {ex.StackTrace}");
                 return new ResultadoAutenticacion
                 {
                     Exitoso = false,
                     MensajeError = $"Error al autenticar usuario: {ex.Message}"
                 };
             }
+        }
+
+        /// <summary>
+        /// Procesa el resultado de la query de usuario fijo (con validación de local)
+        /// Índices: 0=id_usuario, 1=numero_usuario, 2=nombre_completo, 3=password_hash, 
+        ///          4=activo, 5=codigo_local, 6=nombre_local, 7=local_activo
+        /// </summary>
+        private ResultadoAutenticacion ProcesarResultadoUsuarioConLocal(NpgsqlDataReader reader, string password)
+        {
+            // Verificar si el usuario está activo (índice 4)
+            bool usuarioActivo = reader.GetBoolean(4);
+            WriteLog($"  → Usuario activo: {usuarioActivo}");
+            if (!usuarioActivo)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = "Usuario inactivo"
+                };
+            }
+
+            // Verificar si el local está activo (índice 7)
+            bool localActivo = reader.GetBoolean(7);
+            WriteLog($"  → Local activo: {localActivo}");
+            if (!localActivo)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = "Local inactivo"
+                };
+            }
+
+            // Verificar contraseña con BCrypt (índice 3)
+            var passwordHash = reader.GetString(3);
+            WriteLog($"  → Hash almacenado: {passwordHash.Substring(0, Math.Min(20, passwordHash.Length))}...");
+            WriteLog("  → Verificando contraseña con BCrypt...");
+            
+            bool passwordCorrecta = BCrypt.Net.BCrypt.Verify(password, passwordHash);
+            WriteLog($"  → Resultado verificación BCrypt: {passwordCorrecta}");
+            
+            if (!passwordCorrecta)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = "Contraseña incorrecta"
+                };
+            }
+
+            // Login exitoso
+            var nombreCompleto = reader.GetString(2);
+            WriteLog($"  → ✓ Login exitoso para: {nombreCompleto}");
+            
+            return new ResultadoAutenticacion
+            {
+                Exitoso = true,
+                NombreCompleto = nombreCompleto,
+                EsAdministradorAllva = false
+            };
         }
 
         // ============================================
@@ -438,27 +674,33 @@ namespace Allva.Desktop.ViewModels
         {
             if (string.IsNullOrWhiteSpace(NumeroUsuario))
             {
+                WriteLog("  → Validación falló: NumeroUsuario vacío");
                 MostrarError("El número de usuario es requerido");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(Password))
             {
+                WriteLog("  → Validación falló: Password vacío");
                 MostrarError("La contraseña es requerida");
                 return false;
             }
 
             if (Password.Length < 6)
             {
+                WriteLog($"  → Validación falló: Password muy corto ({Password.Length} caracteres)");
                 MostrarError("La contraseña debe tener al menos 6 caracteres");
                 return false;
             }
 
-            // Solo requerir código de local si es usuario numérico (no admin)
-            bool esNumerico = int.TryParse(NumeroUsuario, out _);
-            if (esNumerico && string.IsNullOrWhiteSpace(CodigoLocal))
+            // SIEMPRE requerir código de local/tipo
+            // - Admin Allva: debe poner "CENTRAL"
+            // - Floater: debe poner "FLOATER"
+            // - Usuario fijo: debe poner el código real de su local
+            if (string.IsNullOrWhiteSpace(CodigoLocal))
             {
-                MostrarError("El código de local es requerido para usuarios normales");
+                WriteLog("  → Validación falló: CodigoLocal vacío");
+                MostrarError("El código de oficina es requerido");
                 return false;
             }
 
