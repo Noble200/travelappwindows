@@ -8,122 +8,281 @@
         <vm:AdminDashboardViewModel />
     </Design.DataContext>
 
-    <!-- Importar estilos específicos del admin -->
     <UserControl.Styles>
         <StyleInclude Source="AdminDashboardView.Styles.axaml"/>
     </UserControl.Styles>
 
-    <!-- ============================================ -->
-    <!-- PANEL DE ADMINISTRACIÓN -->
-    <!-- 3 módulos: Gestión de Comercios, Usuarios y Usuarios Allva -->
-    <!-- ============================================ -->
-
     <Grid>
-        <!-- Fondo amarillo corporativo -->
-        <Border Classes="admin-background" />
+        <!-- Fondo neutro gris claro -->
+        <Border Background="#F0F2F5" />
 
-        <!-- Grid principal: Sidebar + Contenido -->
-        <Grid ColumnDefinitions="220,*">
+        <Grid ColumnDefinitions="240,*">
             
-            <!-- ═══════════════════════════════════════════ -->
-            <!-- SIDEBAR BLANCO (Menu lateral izquierdo) -->
-            <!-- ═══════════════════════════════════════════ -->
-            <Border Grid.Column="0" Classes="admin-sidebar">
-                <StackPanel>
+            <!-- SIDEBAR -->
+            <Border Grid.Column="0" 
+                    Background="White"
+                    BoxShadow="2 0 8 0 #15000000">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
                     
-                    <!-- Logo Allva (imagen PNG completa) -->
-                    <Border Classes="admin-logo-container">
-                        <Image Source="/Assets/logo.png" 
-                               Width="140" 
-                               Height="65"
-                               Stretch="Uniform"/>
+                    <!-- Logo Allva -->
+                    <Border Grid.Row="0" 
+                            Padding="24,28,24,20"
+                            HorizontalAlignment="Center">
+                        <Border Background="#FAFAFA"
+                                CornerRadius="12"
+                                Padding="16,12"
+                                BorderBrush="#E8E8E8"
+                                BorderThickness="1">
+                            <Image Source="/Assets/logo.png" 
+                                   Width="160" 
+                                   Height="70"
+                                   Stretch="Uniform"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        </Border>
                     </Border>
 
-                    <!-- Separador -->
-                    <Border Classes="admin-menu-separator"/>
+                    <!-- Separador simple -->
+                    <Border Grid.Row="1" 
+                            Height="1"
+                            Background="#E0E0E0"
+                            Margin="20,0,20,8"/>
 
-                    <!-- Sección: Panel de Administración -->
-                    <TextBlock Text="Panel De test Administración"
-                               Classes="admin-section-title"/>
-
-                    <!-- Menú de navegación - 3 módulos -->
-                    <StackPanel>
+                    <!-- Menú de navegación -->
+                    <StackPanel Grid.Row="2" Margin="0,8,0,0">
                         
+                        <TextBlock Text="MENÚ PRINCIPAL"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#999999"
+                                   Padding="24,12,24,10"/>
+
                         <!-- Gestión de comercios -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='comercios'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="comercios"
-                                IsVisible="{Binding MostrarGestionComercios}">
+                                IsVisible="{Binding MostrarGestionComercios}"
+                                Margin="12,2,12,2"
+                                CornerRadius="8">
                             <TextBlock Text="Gestión de comercios" Classes="admin-menu-text"/>
                         </Button>
 
-                        <!-- Gestión de usuarios (locales) -->
+                        <!-- Gestión de usuarios -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='usuarios'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="usuarios"
-                                IsVisible="{Binding MostrarGestionUsuarios}">
+                                IsVisible="{Binding MostrarGestionUsuarios}"
+                                Margin="12,2,12,2"
+                                CornerRadius="8">
                             <TextBlock Text="Gestión de usuarios" Classes="admin-menu-text"/>
                         </Button>
 
-                        <!-- Usuarios Allva (administradores) -->
+                        <!-- Usuarios Allva -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='usuarios_allva'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="usuarios_allva"
-                                IsVisible="{Binding MostrarUsuariosAllva}">
+                                IsVisible="{Binding MostrarUsuariosAllva}"
+                                Margin="12,2,12,2"
+                                CornerRadius="8">
                             <TextBlock Text="Usuarios Allva" Classes="admin-menu-text"/>
                         </Button>
 
                     </StackPanel>
 
-                    <!-- Espaciador para empujar el botón de cerrar sesión al fondo -->
-                    <Border Height="1" Margin="0,30,0,0"/>
-
-                    <!-- Botón Cerrar Sesión al final -->
-                    <Button Classes="admin-menu-item"
-                            Command="{Binding LogoutCommand}"
-                            VerticalAlignment="Bottom"
-                            Margin="0,20,0,20">
-                        <TextBlock Text="Cerrar Sesión" Classes="admin-menu-text"/>
-                    </Button>
-
-                </StackPanel>
-            </Border>
-
-            <!-- ═══════════════════════════════════════════ -->
-            <!-- CONTENIDO PRINCIPAL (Área de trabajo) -->
-            <!-- ═══════════════════════════════════════════ -->
-            <Border Grid.Column="1" Classes="admin-content-panel">
-                
-                <Grid ColumnDefinitions="*" RowDefinitions="*">
-
-                    <!-- ═══════════════════════════════════════════ -->
-                    <!-- ÁREA DE CONTENIDO PRINCIPAL -->
-                    <!-- ═══════════════════════════════════════════ -->
-                    <Grid Grid.Column="1" RowDefinitions="Auto,*">
-                        
-                        <!-- Header del módulo (azul oscuro) -->
-                        <Border Grid.Row="0" Classes="admin-module-header">
-                            <TextBlock Text="{Binding SelectedModuleTitle}" 
-                                       Classes="admin-module-title"/>
-                        </Border>
-
-                        <!-- Contenido dinámico del módulo -->
-                        <ScrollViewer Grid.Row="1" 
-                                      VerticalScrollBarVisibility="Auto"
-                                      Padding="0">
-                            <ContentControl Content="{Binding CurrentView}"
-                                            HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch"/>
-                        </ScrollViewer>
-
-                    </Grid>
+                    <!-- Cerrar Sesión al fondo -->
+                    <Border Grid.Row="3" 
+                            Margin="12,0,12,16"
+                            Padding="0,12,0,0"
+                            BorderThickness="0,1,0,0"
+                            BorderBrush="#EEEEEE">
+                        <Button Classes="admin-menu-item"
+                                Command="{Binding LogoutCommand}"
+                                CornerRadius="8"
+                                Margin="0">
+                            <TextBlock Text="Cerrar Sesión" Classes="admin-menu-text"/>
+                        </Button>
+                    </Border>
 
                 </Grid>
-
             </Border>
+
+            <!-- CONTENIDO PRINCIPAL -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                
+                <!-- Header superior -->
+                <Border Grid.Row="0" 
+                        Background="#0b5394"
+                        Padding="28,14"
+                        Margin="24,24,24,0"
+                        CornerRadius="12,12,0,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                        
+                        <!-- Título del módulo -->
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding SelectedModuleTitle}" 
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   VerticalAlignment="Center"/>
+
+                        <!-- Botones de usuario y menú -->
+                        <StackPanel Grid.Column="1" 
+                                    Orientation="Horizontal" 
+                                    Spacing="10"
+                                    VerticalAlignment="Center">
+                            
+                            <!-- Botón Usuario -->
+                            <Panel>
+                                <Button x:Name="UserButton"
+                                        Click="UserButton_Click"
+                                        Background="White"
+                                        Width="38"
+                                        Height="38"
+                                        CornerRadius="8"
+                                        Padding="0"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center">
+                                    <Viewbox Width="20" Height="20">
+                                        <Canvas Width="24" Height="24">
+                                            <!-- Cabeza centrada -->
+                                            <Ellipse Width="10" Height="10" 
+                                                     Canvas.Left="7" 
+                                                     Canvas.Top="2"
+                                                     Stroke="#0b5394" 
+                                                     StrokeThickness="2"
+                                                     Fill="Transparent"/>
+                                            <!-- Cuerpo centrado -->
+                                            <Path Data="M4,22 C4,17 8,14 12,14 C16,14 20,17 20,22" 
+                                                  Stroke="#0b5394" 
+                                                  StrokeThickness="2"
+                                                  StrokeLineCap="Round"/>
+                                        </Canvas>
+                                    </Viewbox>
+                                </Button>
+                                
+                                <Popup x:Name="UserPopup" 
+                                       PlacementTarget="{Binding #UserButton}"
+                                       Placement="BottomEdgeAlignedRight"
+                                       IsLightDismissEnabled="True"
+                                       HorizontalOffset="0"
+                                       VerticalOffset="6">
+                                    <Border Background="White"
+                                            CornerRadius="10"
+                                            BoxShadow="0 8 24 0 #30000000"
+                                            MinWidth="200"
+                                            Padding="0">
+                                        <StackPanel>
+                                            <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding AdminName}" 
+                                                               FontSize="15"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#0b5394"/>
+                                                    <TextBlock Text="Administrador" 
+                                                               FontSize="12"
+                                                               Foreground="#888888"
+                                                               Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Height="1" Background="#EEEEEE"/>
+                                            <Button Background="White"
+                                                    BorderThickness="0"
+                                                    Padding="16,12"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Left"
+                                                    IsEnabled="False"
+                                                    Opacity="0.5"
+                                                    CornerRadius="0,0,10,10">
+                                                <TextBlock Text="Mi perfil" 
+                                                           FontSize="14" 
+                                                           Foreground="#444444"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
+                            </Panel>
+
+                            <!-- Botón Menú Hamburguesa -->
+                            <Panel>
+                                <Button x:Name="MenuButton"
+                                        Click="MenuButton_Click"
+                                        Background="White"
+                                        Width="38"
+                                        Height="38"
+                                        CornerRadius="8"
+                                        Padding="0"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center">
+                                    <StackPanel Spacing="5" 
+                                                VerticalAlignment="Center" 
+                                                HorizontalAlignment="Center">
+                                        <Border Width="18" Height="2" Background="#0b5394" CornerRadius="1"/>
+                                        <Border Width="18" Height="2" Background="#0b5394" CornerRadius="1"/>
+                                        <Border Width="18" Height="2" Background="#0b5394" CornerRadius="1"/>
+                                    </StackPanel>
+                                </Button>
+                                
+                                <Popup x:Name="MenuPopup" 
+                                       PlacementTarget="{Binding #MenuButton}"
+                                       Placement="BottomEdgeAlignedRight"
+                                       IsLightDismissEnabled="True"
+                                       HorizontalOffset="0"
+                                       VerticalOffset="6">
+                                    <Border Background="White"
+                                            CornerRadius="10"
+                                            BoxShadow="0 8 24 0 #30000000"
+                                            MinWidth="200"
+                                            Padding="0">
+                                        <StackPanel>
+                                            <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
+                                                <TextBlock Text="Opciones" 
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#0b5394"/>
+                                            </Border>
+                                            <Border Height="1" Background="#EEEEEE"/>
+                                            <Button Background="White"
+                                                    BorderThickness="0"
+                                                    Padding="16,12"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Left"
+                                                    IsEnabled="False"
+                                                    Opacity="0.5"
+                                                    CornerRadius="0,0,10,10">
+                                                <TextBlock Text="Configuración" 
+                                                           FontSize="14" 
+                                                           Foreground="#444444"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
+                            </Panel>
+
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Área de contenido -->
+                <Border Grid.Row="1" 
+                        Background="White"
+                        Margin="24,0,24,24"
+                        CornerRadius="0,0,12,12"
+                        Padding="0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ContentControl Content="{Binding CurrentView}"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"/>
+                    </ScrollViewer>
+                </Border>
+
+            </Grid>
 
         </Grid>
     </Grid>

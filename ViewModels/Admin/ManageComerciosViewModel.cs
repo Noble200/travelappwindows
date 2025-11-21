@@ -16,33 +16,32 @@ using Avalonia.Platform.Storage;
 namespace Allva.Desktop.ViewModels.Admin;
 
 /// <summary>
-/// ViewModel para la gestión de comercios en el panel de administración
-/// VERSIÓN CORREGIDA CON SISTEMA GLOBAL DE NUMERACIÓN DE LOCALES
+/// ViewModel para la gestion de comercios en el panel de administracion
 /// 
-/// LÓGICA DE CÓDIGOS DE LOCAL:
-/// - Prefijo (4 letras): Único por comercio, compartido por todos sus locales
-/// - Número (4 dígitos): Correlativo GLOBAL del sistema (0001, 0002, 0003...)
-/// - Al eliminar un local, su número queda disponible para reutilizarse
-/// - Ejemplo: Local 1 de Comercio A = ABCD0001, Local 2 de Comercio A = ABCD0002
-///           Local 1 de Comercio B = WXYZ0003 (continúa numeración global)
+/// LOGICA DE CODIGOS DE LOCAL:
+/// - Prefijo (4 letras): Basado en el nombre del comercio, compartido por todos sus locales
+/// - Numero (4 digitos): Secuencial GLOBAL del sistema (0001, 0002, 0003...)
+/// - Al eliminar un local, su numero queda disponible para reutilizarse
+/// - Ejemplo: Local 1 de Comercio "Allva" = ALLV0001, Local 2 = ALLV0002
+///           Local 1 de Comercio "Beta" = BETA0003 (continua numeracion global)
 /// </summary>
 public partial class ManageComerciosViewModel : ObservableObject
 {
-    // ============================================
-    // CONFIGURACIÓN DE BASE DE DATOS
-    // ============================================
-    
     private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
-
-    // ============================================
-    // PROPIEDADES OBSERVABLES - DATOS PRINCIPALES
-    // ============================================
 
     [ObservableProperty]
     private ObservableCollection<ComercioModel> _comercios = new();
 
     [ObservableProperty]
     private ObservableCollection<ComercioModel> _comerciosFiltrados = new();
+
+    // Nueva coleccion para mostrar locales cuando se busca por Local o Codigo
+    [ObservableProperty]
+    private ObservableCollection<LocalConComercioModel> _localesFiltrados = new();
+
+    // Indica si se esta mostrando lista de locales o de comercios
+    [ObservableProperty]
+    private bool _mostrandoLocales = false;
 
     [ObservableProperty]
     private ComercioModel? _comercioSeleccionado;
@@ -56,16 +55,11 @@ public partial class ManageComerciosViewModel : ObservableObject
     [ObservableProperty]
     private string _mensajeExito = string.Empty;
 
-    // Propiedades para ventana de confirmación de eliminación
     [ObservableProperty]
     private bool _mostrarDialogoConfirmacion = false;
 
     [ObservableProperty]
     private ComercioModel? _comercioAEliminar;
-
-    // ============================================
-    // PROPIEDADES PARA PANEL DERECHO
-    // ============================================
 
     [ObservableProperty]
     private bool _mostrarPanelDerecho = false;
@@ -80,10 +74,6 @@ public partial class ManageComerciosViewModel : ObservableObject
     private bool _esModoCreacion = false;
 
     public string TituloBotonGuardar => EsModoCreacion ? "CREAR COMERCIO" : "GUARDAR CAMBIOS";
-
-    // ============================================
-    // PROPIEDADES PARA FORMULARIO
-    // ============================================
 
     [ObservableProperty]
     private bool _mostrarFormulario;
@@ -124,12 +114,8 @@ public partial class ManageComerciosViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<LocalFormModel> _localesComercio = new();
 
-    // Prefijo del comercio actual (compartido por todos sus locales)
+    // Prefijo del comercio actual (4 letras basadas en el nombre)
     private string _prefijoComercioActual = string.Empty;
-
-    // ============================================
-    // PROPIEDADES PARA FILTROS
-    // ============================================
 
     [ObservableProperty]
     private string _filtroBusqueda = string.Empty;
@@ -149,16 +135,34 @@ public partial class ManageComerciosViewModel : ObservableObject
         "Todos",
         "Compra divisa",
         "Packs de alimentos",
-        "Billetes de avión",
+        "Billetes de avion",
         "Packs de viajes"
     };
 
     [ObservableProperty]
-    private ObservableCollection<string> _paisesDisponibles = new();
+    private ObservableCollection<string> _tiposBusquedaDisponibles = new()
+    {
+        "Todos",
+        "Por Comercio",
+        "Por Local",
+        "Por Codigo"
+    };
 
-    // ============================================
-    // PROPIEDADES PARA ARCHIVOS
-    // ============================================
+    [ObservableProperty]
+    private string _filtroUltimaActividad = "Todos";
+
+    [ObservableProperty]
+    private ObservableCollection<string> _opcionesUltimaActividad = new()
+    {
+        "Todos",
+        "Compra divisa",
+        "Pack alimentos",
+        "Billetes de avion",
+        "Pack de viajes"
+    };
+
+    [ObservableProperty]
+    private ObservableCollection<string> _paisesDisponibles = new();
 
     [ObservableProperty]
     private ObservableCollection<ArchivoComercioModel> _archivosComercioSeleccionado = new();
@@ -166,34 +170,18 @@ public partial class ManageComerciosViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<string> _archivosParaSubir = new();
 
-    // ============================================
-    // SERVICIOS
-    // ============================================
-
     private readonly ArchivoService _archivoService = new();
-
-    // ============================================
-    // PROPIEDADES CALCULADAS
-    // ============================================
 
     public int TotalComercios => Comercios.Count;
     public int ComerciosActivos => Comercios.Count(c => c.Activo);
     public int ComerciosInactivos => Comercios.Count(c => !c.Activo);
     public int TotalLocales => Comercios.Sum(c => c.CantidadLocales);
 
-    // ============================================
-    // CONSTRUCTOR
-    // ============================================
-
     public ManageComerciosViewModel()
     {
-        _ = CargarDatosDesdeBaseDatos();
         _ = InicializarSistemaCorrelativos();
+        _ = CargarDatosDesdeBaseDatos();
     }
-
-    // ============================================
-    // MÉTODOS DE BASE DE DATOS - CARGAR
-    // ============================================
 
     private async Task CargarDatosDesdeBaseDatos()
     {
@@ -370,10 +358,6 @@ public partial class ManageComerciosViewModel : ObservableObject
         return result != null ? Convert.ToInt32(result) : 0;
     }
 
-    // ============================================
-    // COMANDOS - PANEL DERECHO
-    // ============================================
-
     [RelayCommand]
     private void MostrarFormularioComercio()
     {
@@ -446,10 +430,33 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Ver detalles de un local desde la lista de locales filtrados
+    /// </summary>
+    [RelayCommand]
+    private async Task VerDetallesLocal(LocalConComercioModel localConComercio)
+    {
+        try
+        {
+            // Buscar el comercio al que pertenece el local
+            var comercio = Comercios.FirstOrDefault(c => c.IdComercio == localConComercio.IdComercio);
+            if (comercio != null)
+            {
+                await VerDetallesComercio(comercio);
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeExito = $"Error al cargar detalles del local: {ex.Message}";
+            MostrarMensajeExito = true;
+            await Task.Delay(3000);
+            MostrarMensajeExito = false;
+        }
+    }
+
     [RelayCommand]
     private async Task CerrarPanelDerecho()
     {
-        // NO liberar números si todos los locales tienen ID (fueron guardados)
         bool hayLocalesNoGuardados = LocalesComercio.Any(l => l.IdLocal == 0);
         
         if (MostrarFormulario && hayLocalesNoGuardados)
@@ -465,9 +472,6 @@ public partial class ManageComerciosViewModel : ObservableObject
         LimpiarFormulario();
     }
 
-    /// <summary>
-    /// Libera los números de locales que se crearon en el formulario pero no se guardaron en la BD
-    /// </summary>
     private async Task LiberarNumerosLocalesNoGuardados()
     {
         try
@@ -478,11 +482,10 @@ public partial class ManageComerciosViewModel : ObservableObject
             
             foreach (var local in LocalesComercio)
             {
-                // Solo liberar si el local no existe en la base de datos (IdLocal == 0)
                 if (local.IdLocal == 0 && !string.IsNullOrEmpty(local.CodigoLocal) && local.CodigoLocal.Length >= 8)
                 {
                     await LiberarNumeroLocal(connection, transaction, local.CodigoLocal);
-                    Console.WriteLine($"Número liberado (local no guardado): {local.CodigoLocal}");
+                    Console.WriteLine($"Numero liberado (local no guardado): {local.CodigoLocal}");
                 }
             }
             
@@ -490,29 +493,23 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error al liberar números de locales no guardados: {ex.Message}");
+            Console.WriteLine($"Error al liberar numeros de locales no guardados: {ex.Message}");
         }
     }
 
     [RelayCommand]
     private async Task CancelarFormulario()
     {
-        // Liberar números de locales que se crearon pero no se guardaron
         await LiberarNumerosLocalesNoGuardados();
-        
         await CerrarPanelDerecho();
     }
-
-    // ============================================
-    // COMANDOS - ACCIONES CRUD
-    // ============================================
 
     [RelayCommand]
     private async Task GuardarComercio()
     {
         if (!ValidarFormulario(out string mensajeError))
         {
-            MensajeExito = $"⚠️ {mensajeError}";
+            MensajeExito = mensajeError;
             MostrarMensajeExito = true;
             await Task.Delay(4000);
             MostrarMensajeExito = false;
@@ -563,7 +560,6 @@ public partial class ManageComerciosViewModel : ObservableObject
         
         try
         {
-            // 1. Insertar comercio principal
             var queryComercio = @"
                 INSERT INTO comercios (
                     nombre_comercio, nombre_srl, direccion_central, 
@@ -593,7 +589,6 @@ public partial class ManageComerciosViewModel : ObservableObject
             
             var idComercio = Convert.ToInt32(await cmdComercio.ExecuteScalarAsync());
             
-            // 2. Insertar locales con sus códigos generados
             foreach (var local in LocalesComercio)
             {
                 var queryLocal = @"
@@ -645,7 +640,6 @@ public partial class ManageComerciosViewModel : ObservableObject
             
             await transaction.CommitAsync();
             
-            // 3. Subir archivos
             if (ArchivosParaSubir.Any())
             {
                 foreach (var rutaArchivo in ArchivosParaSubir)
@@ -678,7 +672,6 @@ public partial class ManageComerciosViewModel : ObservableObject
         
         try
         {
-            // 1. Actualizar comercio
             var queryComercio = @"
                 UPDATE comercios 
                 SET nombre_comercio = @NombreComercio,
@@ -709,7 +702,6 @@ public partial class ManageComerciosViewModel : ObservableObject
             
             await cmdComercio.ExecuteNonQueryAsync();
             
-            // 2. Obtener códigos existentes para detectar eliminaciones
             var queryExistentes = @"SELECT codigo_local FROM locales WHERE id_comercio = @IdComercio";
             var codigosExistentesEnBD = new List<string>();
             
@@ -723,23 +715,19 @@ public partial class ManageComerciosViewModel : ObservableObject
                 }
             }
             
-            // 3. Detectar locales eliminados y liberar sus números
             var codigosActuales = LocalesComercio.Select(l => l.CodigoLocal).ToList();
             var codigosEliminados = codigosExistentesEnBD.Except(codigosActuales).ToList();
             
             foreach (var codigoEliminado in codigosEliminados)
             {
-                // Liberar el número del local eliminado
                 await LiberarNumeroLocal(connection, transaction, codigoEliminado);
                 
-                // Eliminar el local de la BD
                 var queryEliminarLocal = "DELETE FROM locales WHERE codigo_local = @CodigoLocal";
                 using var cmdEliminar = new NpgsqlCommand(queryEliminarLocal, connection, transaction);
                 cmdEliminar.Parameters.AddWithValue("@CodigoLocal", codigoEliminado);
                 await cmdEliminar.ExecuteNonQueryAsync();
             }
             
-            // 4. Actualizar/Insertar locales
             foreach (var local in LocalesComercio)
             {
                 var queryUpsert = @"
@@ -811,7 +799,6 @@ public partial class ManageComerciosViewModel : ObservableObject
             
             await transaction.CommitAsync();
             
-            // 5. Subir nuevos archivos
             if (ArchivosParaSubir.Any())
             {
                 foreach (var rutaArchivo in ArchivosParaSubir)
@@ -865,7 +852,6 @@ public partial class ManageComerciosViewModel : ObservableObject
             
             using var transaction = await connection.BeginTransactionAsync();
 
-            // Liberar números de todos los locales del comercio
             foreach (var local in ComercioAEliminar.Locales)
             {
                 await LiberarNumeroLocal(connection, transaction, local.CodigoLocal);
@@ -976,6 +962,53 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Cambiar estado de un local desde la lista de locales filtrados
+    /// </summary>
+    [RelayCommand]
+    private async Task CambiarEstadoLocalFiltrado(LocalConComercioModel localConComercio)
+    {
+        try
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var nuevoEstado = !localConComercio.Activo;
+            var query = "UPDATE locales SET activo = @Activo WHERE codigo_local = @CodigoLocal";
+            
+            using var cmd = new NpgsqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@Activo", nuevoEstado);
+            cmd.Parameters.AddWithValue("@CodigoLocal", localConComercio.CodigoLocal);
+            
+            await cmd.ExecuteNonQueryAsync();
+
+            localConComercio.Activo = nuevoEstado;
+
+            // Actualizar tambien en la lista de comercios
+            var comercio = Comercios.FirstOrDefault(c => c.IdComercio == localConComercio.IdComercio);
+            if (comercio != null)
+            {
+                var localEnComercio = comercio.Locales.FirstOrDefault(l => l.CodigoLocal == localConComercio.CodigoLocal);
+                if (localEnComercio != null)
+                {
+                    localEnComercio.Activo = nuevoEstado;
+                }
+            }
+
+            MensajeExito = $"Local {localConComercio.NombreLocal} marcado como {(nuevoEstado ? "Activo" : "Inactivo")}";
+            MostrarMensajeExito = true;
+            await Task.Delay(2000);
+            MostrarMensajeExito = false;
+        }
+        catch (Exception ex)
+        {
+            MensajeExito = $"Error al cambiar estado: {ex.Message}";
+            MostrarMensajeExito = true;
+            await Task.Delay(3000);
+            MostrarMensajeExito = false;
+        }
+    }
+
     [RelayCommand]
     private void ToggleLocalDetalles(LocalSimpleModel local)
     {
@@ -985,73 +1018,41 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
     }
 
-    // ============================================
-    // COMANDOS - FILTROS
-    // ============================================
-
     [RelayCommand]
     private void AplicarFiltros()
     {
+        // Si el tipo de busqueda es "Por Local" o "Por Codigo", mostrar lista de locales
+        if (FiltroTipoBusqueda == "Por Local" || FiltroTipoBusqueda == "Por Codigo")
+        {
+            AplicarFiltrosLocales();
+        }
+        else
+        {
+            AplicarFiltrosComercios();
+        }
+    }
+
+    /// <summary>
+    /// Aplica filtros y muestra lista de COMERCIOS
+    /// </summary>
+    private void AplicarFiltrosComercios()
+    {
+        MostrandoLocales = false;
+        LocalesFiltrados.Clear();
+        
         var filtrados = Comercios.AsEnumerable();
         
         if (!string.IsNullOrWhiteSpace(FiltroBusqueda))
         {
             var busqueda = FiltroBusqueda.Trim();
             
-            switch (FiltroTipoBusqueda)
-            {
-                case "Por Comercio":
-                    filtrados = filtrados.Where(c =>
-                        c.NombreComercio.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                        c.MailContacto.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                        c.NumeroContacto.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                        c.DireccionCentral.Contains(busqueda, StringComparison.OrdinalIgnoreCase)
-                    );
-                    break;
-                    
-                case "Por Local":
-                    filtrados = filtrados.Where(c =>
-                        c.Locales.Any(l =>
-                            (l.NombreLocal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Direccion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Email?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Movil?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Telefono?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.CodigoPostal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.TipoVia?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false)
-                        )
-                    );
-                    break;
-                    
-                case "Por Código":
-                    filtrados = filtrados.Where(c =>
-                        c.Locales.Any(l =>
-                            l.CodigoLocal.Contains(busqueda, StringComparison.OrdinalIgnoreCase)
-                        )
-                    );
-                    break;
-                    
-                default:
-                    filtrados = filtrados.Where(c =>
-                        c.NombreComercio.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                        c.MailContacto.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                        (c.NumeroContacto?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (c.DireccionCentral?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        c.Pais.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                        c.Locales.Any(l =>
-                            l.CodigoLocal.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
-                            (l.NombreLocal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Direccion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Email?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Movil?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Telefono?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.CodigoPostal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.TipoVia?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                            (l.Pais?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false)
-                        )
-                    );
-                    break;
-            }
+            filtrados = filtrados.Where(c =>
+                c.NombreComercio.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                c.MailContacto.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                (c.NumeroContacto?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (c.DireccionCentral?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                c.Pais.Contains(busqueda, StringComparison.OrdinalIgnoreCase)
+            );
         }
         
         if (!string.IsNullOrWhiteSpace(FiltroPais))
@@ -1067,7 +1068,7 @@ public partial class ManageComerciosViewModel : ObservableObject
             filtrados = filtrados.Where(c => c.Locales.Any(l => 
                 (FiltroModulo == "Compra divisa" && l.ModuloDivisas) ||
                 (FiltroModulo == "Packs de alimentos" && l.ModuloPackAlimentos) ||
-                (FiltroModulo == "Billetes de avión" && l.ModuloBilletesAvion) ||
+                (FiltroModulo == "Billetes de avion" && l.ModuloBilletesAvion) ||
                 (FiltroModulo == "Packs de viajes" && l.ModuloPackViajes)
             ));
         }
@@ -1079,6 +1080,95 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Aplica filtros y muestra lista de LOCALES (con info del comercio padre)
+    /// </summary>
+    private void AplicarFiltrosLocales()
+    {
+        MostrandoLocales = true;
+        ComerciosFiltrados.Clear();
+        LocalesFiltrados.Clear();
+        
+        var busqueda = FiltroBusqueda?.Trim() ?? string.Empty;
+        
+        foreach (var comercio in Comercios)
+        {
+            foreach (var local in comercio.Locales)
+            {
+                bool coincide = false;
+                
+                if (FiltroTipoBusqueda == "Por Local")
+                {
+                    // Buscar por datos del local
+                    coincide = string.IsNullOrEmpty(busqueda) ||
+                        (local.CodigoLocal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.NombreLocal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.Direccion?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.Email?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.Movil?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.Telefono?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.CodigoPostal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.TipoVia?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (local.Pais?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false);
+                }
+                else if (FiltroTipoBusqueda == "Por Codigo")
+                {
+                    // Buscar por codigo del local
+                    coincide = string.IsNullOrEmpty(busqueda) ||
+                        (local.CodigoLocal?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false);
+                }
+                
+                // Filtro por pais
+                if (coincide && !string.IsNullOrWhiteSpace(FiltroPais))
+                {
+                    coincide = (local.Pais?.Contains(FiltroPais, StringComparison.OrdinalIgnoreCase) ?? false);
+                }
+                
+                // Filtro por modulo
+                if (coincide && !string.IsNullOrEmpty(FiltroModulo) && FiltroModulo != "Todos")
+                {
+                    coincide = 
+                        (FiltroModulo == "Compra divisa" && local.ModuloDivisas) ||
+                        (FiltroModulo == "Packs de alimentos" && local.ModuloPackAlimentos) ||
+                        (FiltroModulo == "Billetes de avion" && local.ModuloBilletesAvion) ||
+                        (FiltroModulo == "Packs de viajes" && local.ModuloPackViajes);
+                }
+                
+                if (coincide)
+                {
+                    LocalesFiltrados.Add(new LocalConComercioModel
+                    {
+                        // Datos del local
+                        IdLocal = local.IdLocal,
+                        CodigoLocal = local.CodigoLocal ?? string.Empty,
+                        NombreLocal = local.NombreLocal ?? string.Empty,
+                        Pais = local.Pais ?? string.Empty,
+                        CodigoPostal = local.CodigoPostal ?? string.Empty,
+                        TipoVia = local.TipoVia ?? string.Empty,
+                        Direccion = local.Direccion ?? string.Empty,
+                        LocalNumero = local.LocalNumero ?? string.Empty,
+                        Escalera = local.Escalera ?? string.Empty,
+                        Piso = local.Piso ?? string.Empty,
+                        Movil = local.Movil ?? string.Empty,
+                        Telefono = local.Telefono ?? string.Empty,
+                        Email = local.Email ?? string.Empty,
+                        Activo = local.Activo,
+                        ModuloDivisas = local.ModuloDivisas,
+                        ModuloPackAlimentos = local.ModuloPackAlimentos,
+                        ModuloBilletesAvion = local.ModuloBilletesAvion,
+                        ModuloPackViajes = local.ModuloPackViajes,
+                        CantidadUsuariosFijos = local.CantidadUsuariosFijos,
+                        CantidadUsuariosFlooter = local.CantidadUsuariosFlooter,
+                        // Datos del comercio padre
+                        IdComercio = comercio.IdComercio,
+                        NombreComercio = comercio.NombreComercio ?? string.Empty,
+                        PaisComercio = comercio.Pais ?? string.Empty
+                    });
+                }
+            }
+        }
+    }
+
     [RelayCommand]
     private void LimpiarFiltros()
     {
@@ -1086,17 +1176,16 @@ public partial class ManageComerciosViewModel : ObservableObject
         FiltroTipoBusqueda = "Todos";
         FiltroModulo = "Todos";
         FiltroPais = string.Empty;
+        FiltroUltimaActividad = "Todos";
+        MostrandoLocales = false;
         
+        LocalesFiltrados.Clear();
         ComerciosFiltrados.Clear();
         foreach (var comercio in Comercios.OrderBy(c => c.NombreComercio))
         {
             ComerciosFiltrados.Add(comercio);
         }
     }
-
-    // ============================================
-    // COMANDOS - LOCALES
-    // ============================================
 
     [RelayCommand]
     private async Task AgregarLocal()
@@ -1126,7 +1215,6 @@ public partial class ManageComerciosViewModel : ObservableObject
     {
         if (local == null) return;
         
-        // Liberar el número del local si tiene un código válido
         if (!string.IsNullOrEmpty(local.CodigoLocal) && local.CodigoLocal.Length >= 8)
         {
             try
@@ -1139,20 +1227,16 @@ public partial class ManageComerciosViewModel : ObservableObject
                 
                 await transaction.CommitAsync();
                 
-                Console.WriteLine($"Número liberado del local eliminado: {local.CodigoLocal}");
+                Console.WriteLine($"Numero liberado del local eliminado: {local.CodigoLocal}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al liberar número del local: {ex.Message}");
+                Console.WriteLine($"Error al liberar numero del local: {ex.Message}");
             }
         }
         
         LocalesComercio.Remove(local);
     }
-
-    // ============================================
-    // COMANDOS - ARCHIVOS
-    // ============================================
 
     [RelayCommand]
     private async Task SeleccionarArchivos()
@@ -1178,7 +1262,7 @@ public partial class ManageComerciosViewModel : ObservableObject
                     { 
                         Patterns = new[] { "*.pdf", "*.doc", "*.docx", "*.txt" } 
                     },
-                    new FilePickerFileType("Imágenes") 
+                    new FilePickerFileType("Imagenes") 
                     { 
                         Patterns = new[] { "*.jpg", "*.jpeg", "*.png", "*.gif" } 
                     },
@@ -1268,12 +1352,9 @@ public partial class ManageComerciosViewModel : ObservableObject
     }
 
     // ============================================
-    // SISTEMA DE CÓDIGOS DE LOCAL CON RECICLAJE GLOBAL
+    // SISTEMA DE CODIGOS DE LOCAL - 4 LETRAS + 4 DIGITOS SECUENCIALES GLOBALES
     // ============================================
 
-    /// <summary>
-    /// Inicializa el sistema de correlativos globales con tabla de números liberados
-    /// </summary>
     private async Task InicializarSistemaCorrelativos()
     {
         try
@@ -1281,7 +1362,6 @@ public partial class ManageComerciosViewModel : ObservableObject
             using var connection = new NpgsqlConnection(ConnectionString);
             await connection.OpenAsync();
 
-            // Tabla para números liberados (números reciclables)
             var queryCrearTablaLiberados = @"
                 CREATE TABLE IF NOT EXISTS numeros_locales_liberados (
                     numero INTEGER PRIMARY KEY,
@@ -1291,29 +1371,7 @@ public partial class ManageComerciosViewModel : ObservableObject
             using var cmd1 = new NpgsqlCommand(queryCrearTablaLiberados, connection);
             await cmd1.ExecuteNonQueryAsync();
 
-            // Tabla para el contador global
-            var queryCrearTablaContador = @"
-                CREATE TABLE IF NOT EXISTS correlativo_locales_global (
-                    id INTEGER PRIMARY KEY DEFAULT 1,
-                    ultimo_numero INTEGER NOT NULL DEFAULT 0,
-                    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    CONSTRAINT solo_una_fila CHECK (id = 1)
-                )";
-            
-            using var cmd2 = new NpgsqlCommand(queryCrearTablaContador, connection);
-            await cmd2.ExecuteNonQueryAsync();
-
-            // Inicializar contador si no existe
-            var queryVerificar = "SELECT COUNT(*) FROM correlativo_locales_global";
-            using var cmd3 = new NpgsqlCommand(queryVerificar, connection);
-            var count = Convert.ToInt32(await cmd3.ExecuteScalarAsync());
-            
-            if (count == 0)
-            {
-                var queryInsertar = "INSERT INTO correlativo_locales_global (id, ultimo_numero) VALUES (1, 0)";
-                using var cmd4 = new NpgsqlCommand(queryInsertar, connection);
-                await cmd4.ExecuteNonQueryAsync();
-            }
+            Console.WriteLine("Sistema de correlativos globales inicializado correctamente");
         }
         catch (Exception ex)
         {
@@ -1321,169 +1379,197 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Genera un código de local con prefijo del comercio + número global
-    /// ESTRATEGIA: Busca primero números liberados, si no hay, genera uno nuevo
-    /// </summary>
     private async Task<string> GenerarCodigoLocal()
     {
+        var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "AllvaLog_CodigoLocal.txt");
+        
+        void Log(string mensaje)
+        {
+            var linea = $"[{DateTime.Now:HH:mm:ss}] {mensaje}";
+            Console.WriteLine(linea);
+            try { File.AppendAllText(logPath, linea + Environment.NewLine); } catch { }
+        }
+        
+        Log("========== INICIO GenerarCodigoLocal ==========");
+        Log($"FormNombreComercio: '{FormNombreComercio}'");
+        
         if (string.IsNullOrEmpty(FormNombreComercio))
         {
+            Log("FormNombreComercio vacio, retornando TEMP0001");
             return "TEMP0001";
         }
 
         using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
+        Log("Conexion abierta");
 
-        using var transaction = await connection.BeginTransactionAsync();
-        
         try
         {
-            // 1. Obtener o generar el prefijo del comercio
             if (string.IsNullOrEmpty(_prefijoComercioActual))
             {
-                _prefijoComercioActual = await ObtenerPrefijoComercio(connection, transaction);
-            }
-
-            // 2. Intentar obtener un número liberado (reciclaje)
-            int numeroLocal;
-            var queryBuscarLiberado = @"
-                SELECT numero 
-                FROM numeros_locales_liberados 
-                ORDER BY numero ASC 
-                LIMIT 1";
-            
-            using var cmdBuscar = new NpgsqlCommand(queryBuscarLiberado, connection, transaction);
-            var numeroLiberado = await cmdBuscar.ExecuteScalarAsync();
-            
-            if (numeroLiberado != null)
-            {
-                // Usar número reciclado
-                numeroLocal = Convert.ToInt32(numeroLiberado);
-                
-                // Eliminar de la tabla de liberados
-                var queryEliminarLiberado = "DELETE FROM numeros_locales_liberados WHERE numero = @Numero";
-                using var cmdEliminar = new NpgsqlCommand(queryEliminarLiberado, connection, transaction);
-                cmdEliminar.Parameters.AddWithValue("@Numero", numeroLocal);
-                await cmdEliminar.ExecuteNonQueryAsync();
-                
-                Console.WriteLine($"Reciclando número liberado: {numeroLocal}");
+                _prefijoComercioActual = GenerarPrefijo4Letras(FormNombreComercio);
+                Log($"Prefijo generado: '{_prefijoComercioActual}'");
             }
             else
             {
-                // No hay números liberados, generar uno nuevo
-                var queryIncrementar = @"
-                    UPDATE correlativo_locales_global 
-                    SET ultimo_numero = ultimo_numero + 1,
-                        fecha_actualizacion = CURRENT_TIMESTAMP
-                    WHERE id = 1
-                    RETURNING ultimo_numero";
-                
-                using var cmdIncrementar = new NpgsqlCommand(queryIncrementar, connection, transaction);
-                numeroLocal = Convert.ToInt32(await cmdIncrementar.ExecuteScalarAsync());
-                
-                Console.WriteLine($"Generando nuevo número global: {numeroLocal}");
+                Log($"Prefijo existente: '{_prefijoComercioActual}'");
             }
 
-            // 3. Formar código: PREFIJO + NUMERO (4 dígitos con padding)
-            var codigo = $"{_prefijoComercioActual}{numeroLocal:D4}";
-
-            await transaction.CommitAsync();
+            int numeroLocal = 0;
             
-            return codigo;
+            try
+            {
+                var queryBuscarLiberado = @"
+                    SELECT nl.numero 
+                    FROM numeros_locales_liberados nl
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM locales l 
+                        WHERE SUBSTRING(l.codigo_local FROM '.{4}$') = LPAD(nl.numero::TEXT, 4, '0')
+                    )
+                    ORDER BY nl.numero ASC 
+                    LIMIT 1";
+                
+                using var cmdBuscar = new NpgsqlCommand(queryBuscarLiberado, connection);
+                var numeroLiberado = await cmdBuscar.ExecuteScalarAsync();
+                
+                if (numeroLiberado != null && numeroLiberado != DBNull.Value)
+                {
+                    numeroLocal = Convert.ToInt32(numeroLiberado);
+                    Log($"Numero liberado encontrado (verificado que no existe): {numeroLocal}");
+                    
+                    var queryEliminarLiberado = "DELETE FROM numeros_locales_liberados WHERE numero = @Numero";
+                    using var cmdEliminar = new NpgsqlCommand(queryEliminarLiberado, connection);
+                    cmdEliminar.Parameters.AddWithValue("@Numero", numeroLocal);
+                    await cmdEliminar.ExecuteNonQueryAsync();
+                    Log($"Numero {numeroLocal} eliminado de tabla liberados");
+                }
+                else
+                {
+                    Log("No hay numeros liberados disponibles (o todos ya existen en locales)");
+                    
+                    var queryLimpiar = @"
+                        DELETE FROM numeros_locales_liberados nl
+                        WHERE EXISTS (
+                            SELECT 1 FROM locales l 
+                            WHERE SUBSTRING(l.codigo_local FROM '.{4}$') = LPAD(nl.numero::TEXT, 4, '0')
+                        )";
+                    using var cmdLimpiar = new NpgsqlCommand(queryLimpiar, connection);
+                    var eliminados = await cmdLimpiar.ExecuteNonQueryAsync();
+                    if (eliminados > 0)
+                    {
+                        Log($"Limpieza: {eliminados} numeros duplicados eliminados de tabla liberados");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Error buscando liberados (tabla puede no existir): {ex.Message}");
+            }
+            
+            if (numeroLocal == 0)
+            {
+                Log("Buscando maximo en BD...");
+                
+                var queryTodosLocales = "SELECT codigo_local FROM locales WHERE codigo_local IS NOT NULL";
+                using var cmdTodos = new NpgsqlCommand(queryTodosLocales, connection);
+                using var reader = await cmdTodos.ExecuteReaderAsync();
+                
+                int maximoActual = 0;
+                int contadorLocales = 0;
+                
+                while (await reader.ReadAsync())
+                {
+                    contadorLocales++;
+                    var codigo = reader.GetString(0);
+                    Log($"Local #{contadorLocales}: '{codigo}'");
+                    
+                    if (!string.IsNullOrEmpty(codigo) && codigo.Length >= 4)
+                    {
+                        var ultimosCuatro = codigo.Substring(codigo.Length - 4);
+                        Log($"  Ultimos 4: '{ultimosCuatro}'");
+                        
+                        if (int.TryParse(ultimosCuatro, out int num))
+                        {
+                            Log($"  Numero parseado: {num}");
+                            if (num > maximoActual)
+                            {
+                                maximoActual = num;
+                                Log($"  NUEVO MAXIMO: {maximoActual}");
+                            }
+                        }
+                        else
+                        {
+                            Log($"  ERROR: No se pudo parsear '{ultimosCuatro}'");
+                        }
+                    }
+                }
+                
+                await reader.CloseAsync();
+                Log($"Total locales en BD: {contadorLocales}, Maximo de BD: {maximoActual}");
+                
+                Log($"Locales en memoria (LocalesComercio): {LocalesComercio.Count}");
+                foreach (var localEnMemoria in LocalesComercio)
+                {
+                    Log($"  Memoria: '{localEnMemoria.CodigoLocal}'");
+                    if (!string.IsNullOrEmpty(localEnMemoria.CodigoLocal) && localEnMemoria.CodigoLocal.Length >= 4)
+                    {
+                        var ultimosCuatro = localEnMemoria.CodigoLocal.Substring(localEnMemoria.CodigoLocal.Length - 4);
+                        if (int.TryParse(ultimosCuatro, out int numEnMemoria))
+                        {
+                            Log($"    Numero en memoria: {numEnMemoria}");
+                            if (numEnMemoria > maximoActual)
+                            {
+                                maximoActual = numEnMemoria;
+                                Log($"    NUEVO MAXIMO desde memoria: {maximoActual}");
+                            }
+                        }
+                    }
+                }
+                
+                numeroLocal = maximoActual + 1;
+                Log($"CALCULO FINAL: maximoActual({maximoActual}) + 1 = {numeroLocal}");
+            }
+
+            var codigo_final = $"{_prefijoComercioActual}{numeroLocal:D4}";
+            
+            Log($"CODIGO GENERADO: {codigo_final}");
+            Log("========== FIN GenerarCodigoLocal ==========");
+            return codigo_final;
         }
-        catch
+        catch (Exception ex)
         {
-            await transaction.RollbackAsync();
+            Log($"ERROR GENERAL: {ex.Message}");
+            Log($"StackTrace: {ex.StackTrace}");
             throw;
         }
     }
 
-    /// <summary>
-    /// Obtiene el prefijo del comercio (4 letras fijas para todos sus locales)
-    /// </summary>
-    private async Task<string> ObtenerPrefijoComercio(NpgsqlConnection connection, NpgsqlTransaction transaction)
+    private string GenerarPrefijo4Letras(string nombreComercio)
     {
-        // Si ya tenemos el prefijo cargado (modo edición), usarlo
-        if (!string.IsNullOrEmpty(_prefijoComercioActual))
-        {
-            return _prefijoComercioActual;
-        }
-
-        // Si es nuevo comercio, generar prefijo único
-        return await GenerarPrefijoUnico(connection, transaction, FormNombreComercio);
-    }
-
-    /// <summary>
-    /// Genera un prefijo único de 4 letras basado en el nombre del comercio
-    /// </summary>
-    private async Task<string> GenerarPrefijoUnico(NpgsqlConnection connection, NpgsqlTransaction transaction, string nombreComercio)
-    {
-        // Limpiar nombre (solo letras)
         var letrasDisponibles = new string(nombreComercio
             .Where(char.IsLetter)
             .ToArray())
             .ToUpper();
 
-        if (letrasDisponibles.Length < 4)
+        if (letrasDisponibles.Length >= 4)
         {
-            letrasDisponibles = letrasDisponibles.PadRight(4, 'X');
+            return letrasDisponibles.Substring(0, 4);
         }
-
-        // Generar prefijo único
-        var random = new Random();
-        string prefijo;
-        int intentos = 0;
-        const int maxIntentos = 100;
-
-        do
+        else
         {
-            // Tomar 4 letras aleatorias del nombre
-            var indices = Enumerable.Range(0, letrasDisponibles.Length)
-                .OrderBy(x => random.Next())
-                .Take(4)
-                .ToList();
-
-            prefijo = new string(indices.Select(i => letrasDisponibles[i]).ToArray());
-
-            // Verificar si ya existe
-            var queryVerificar = "SELECT COUNT(*) FROM locales WHERE codigo_local LIKE @Prefijo || '%'";
-            using var cmd = new NpgsqlCommand(queryVerificar, connection, transaction);
-            cmd.Parameters.AddWithValue("@Prefijo", prefijo);
-            
-            var existe = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
-            
-            if (!existe)
-                break;
-
-            intentos++;
-            
-        } while (intentos < maxIntentos);
-
-        if (intentos >= maxIntentos)
-        {
-            // Fallback: usar hash del nombre
-            var hash = Math.Abs(nombreComercio.GetHashCode());
-            prefijo = $"L{hash % 999:D3}";
+            return letrasDisponibles.PadRight(4, 'X');
         }
-
-        return prefijo;
     }
 
-    /// <summary>
-    /// Libera el número de un local eliminado para que pueda ser reutilizado
-    /// </summary>
     private async Task LiberarNumeroLocal(NpgsqlConnection connection, NpgsqlTransaction transaction, string codigoLocal)
     {
         try
         {
-            // Extraer el número del código (últimos 4 dígitos)
             if (codigoLocal.Length >= 4)
             {
                 var numeroTexto = codigoLocal.Substring(codigoLocal.Length - 4);
                 if (int.TryParse(numeroTexto, out int numero))
                 {
-                    // Agregar a la tabla de números liberados
                     var query = @"
                         INSERT INTO numeros_locales_liberados (numero, fecha_liberacion)
                         VALUES (@Numero, CURRENT_TIMESTAMP)
@@ -1493,18 +1579,18 @@ public partial class ManageComerciosViewModel : ObservableObject
                     cmd.Parameters.AddWithValue("@Numero", numero);
                     await cmd.ExecuteNonQueryAsync();
                     
-                    Console.WriteLine($"Número {numero} liberado para reutilización");
+                    Console.WriteLine($"Numero {numero} liberado para reutilizacion (codigo: {codigoLocal})");
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error al liberar número del local {codigoLocal}: {ex.Message}");
+            Console.WriteLine($"Error al liberar numero del local {codigoLocal}: {ex.Message}");
         }
     }
 
     // ============================================
-    // MÉTODOS AUXILIARES - FORMULARIO
+    // METODOS AUXILIARES - FORMULARIO
     // ============================================
 
     private void LimpiarFormulario()
@@ -1566,7 +1652,6 @@ public partial class ManageComerciosViewModel : ObservableObject
         
         ArchivosParaSubir.Clear();
         
-        // CRÍTICO: Capturar el prefijo del comercio existente
         if (comercio.Locales.Any())
         {
             var primerLocal = comercio.Locales.First();
@@ -1578,14 +1663,11 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
         else
         {
-            // Si no tiene locales, generar uno nuevo
-            using var connection = new NpgsqlConnection(ConnectionString);
-            await connection.OpenAsync();
-            using var transaction = await connection.BeginTransactionAsync();
-            _prefijoComercioActual = await GenerarPrefijoUnico(connection, transaction, FormNombreComercio);
-            await transaction.CommitAsync();
+            _prefijoComercioActual = GenerarPrefijo4Letras(FormNombreComercio);
             Console.WriteLine($"Nuevo prefijo generado: {_prefijoComercioActual}");
         }
+        
+        await Task.CompletedTask;
     }
 
     private bool ValidarFormulario(out string mensajeError)
@@ -1606,7 +1688,7 @@ public partial class ManageComerciosViewModel : ObservableObject
         
         if (!FormMailContacto.Contains("@"))
         {
-            mensajeError = "El formato del email no es válido";
+            mensajeError = "El formato del email no es valido";
             return false;
         }
         
@@ -1626,41 +1708,37 @@ public partial class ManageComerciosViewModel : ObservableObject
             
             if (string.IsNullOrWhiteSpace(local.Pais))
             {
-                mensajeError = $"El local '{local.NombreLocal}' debe tener un país";
+                mensajeError = $"El local '{local.NombreLocal}' debe tener un pais";
                 return false;
             }
             
             if (string.IsNullOrWhiteSpace(local.CodigoPostal))
             {
-                mensajeError = $"El local '{local.NombreLocal}' debe tener código postal";
+                mensajeError = $"El local '{local.NombreLocal}' debe tener codigo postal";
                 return false;
             }
             
             if (string.IsNullOrWhiteSpace(local.TipoVia))
             {
-                mensajeError = $"El local '{local.NombreLocal}' debe tener tipo de vía";
+                mensajeError = $"El local '{local.NombreLocal}' debe tener tipo de via";
                 return false;
             }
             
             if (string.IsNullOrWhiteSpace(local.Direccion))
             {
-                mensajeError = $"El local '{local.NombreLocal}' debe tener una dirección";
+                mensajeError = $"El local '{local.NombreLocal}' debe tener una direccion";
                 return false;
             }
             
             if (string.IsNullOrWhiteSpace(local.LocalNumero))
             {
-                mensajeError = $"El local '{local.NombreLocal}' debe tener un número";
+                mensajeError = $"El local '{local.NombreLocal}' debe tener un numero";
                 return false;
             }
         }
         
         return true;
     }
-
-    // ============================================
-    // MÉTODOS AUXILIARES - ARCHIVOS
-    // ============================================
 
     private async Task CargarArchivosComercio(int idComercio)
     {
@@ -1685,10 +1763,6 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
     }
 
-    // ============================================
-    // MÉTODOS AUXILIARES - FILTROS
-    // ============================================
-
     private async Task InicializarFiltros()
     {
         await Task.Delay(100);
@@ -1699,4 +1773,57 @@ public partial class ManageComerciosViewModel : ObservableObject
             ComerciosFiltrados.Add(comercio);
         }
     }
+}
+
+/// <summary>
+/// Modelo de local con informacion del comercio padre para mostrar en busquedas
+/// </summary>
+public partial class LocalConComercioModel : ObservableObject
+{
+    // Datos del local
+    public int IdLocal { get; set; }
+    public string CodigoLocal { get; set; } = string.Empty;
+    public string NombreLocal { get; set; } = string.Empty;
+    public string Pais { get; set; } = string.Empty;
+    public string CodigoPostal { get; set; } = string.Empty;
+    public string TipoVia { get; set; } = string.Empty;
+    public string Direccion { get; set; } = string.Empty;
+    public string LocalNumero { get; set; } = string.Empty;
+    public string Escalera { get; set; } = string.Empty;
+    public string Piso { get; set; } = string.Empty;
+    public string Movil { get; set; } = string.Empty;
+    public string Telefono { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    
+    [ObservableProperty]
+    private bool _activo;
+    
+    public bool ModuloDivisas { get; set; }
+    public bool ModuloPackAlimentos { get; set; }
+    public bool ModuloBilletesAvion { get; set; }
+    public bool ModuloPackViajes { get; set; }
+    public int CantidadUsuariosFijos { get; set; }
+    public int CantidadUsuariosFlooter { get; set; }
+    
+    // Datos del comercio padre
+    public int IdComercio { get; set; }
+    public string NombreComercio { get; set; } = string.Empty;
+    public string PaisComercio { get; set; } = string.Empty;
+    
+    // Propiedades calculadas para UI
+    public string DireccionCompleta
+    {
+        get
+        {
+            var partes = new List<string>();
+            if (!string.IsNullOrEmpty(TipoVia)) partes.Add(TipoVia);
+            if (!string.IsNullOrEmpty(Direccion)) partes.Add(Direccion);
+            if (!string.IsNullOrEmpty(LocalNumero)) partes.Add($"Nº {LocalNumero}");
+            if (!string.IsNullOrEmpty(Escalera)) partes.Add($"Piso {Escalera}");
+            if (!string.IsNullOrEmpty(Piso)) partes.Add($"Pta {Piso}");
+            return partes.Count > 0 ? string.Join(", ", partes) : "Sin direccion";
+        }
+    }
+    
+    public int TotalUsuarios => CantidadUsuariosFijos + CantidadUsuariosFlooter;
 }

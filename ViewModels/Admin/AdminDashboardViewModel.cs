@@ -67,7 +67,6 @@ public partial class AdminDashboardViewModel : ObservableObject
 
     public AdminDashboardViewModel()
     {
-        // Cargar vista inicial: Gestión de Comercios
         NavigateToModule("comercios");
     }
 
@@ -116,7 +115,6 @@ public partial class AdminDashboardViewModel : ObservableObject
         var module = moduleName.ToLower();
         SelectedModule = module;
         
-        // Actualizar la vista según el módulo seleccionado
         CurrentView = module switch
         {
             "comercios" => new ManageComerciosView(),
@@ -125,7 +123,6 @@ public partial class AdminDashboardViewModel : ObservableObject
             _ => CurrentView
         };
         
-        // Notificar cambio en el título
         OnPropertyChanged(nameof(SelectedModuleTitle));
     }
 
@@ -135,16 +132,15 @@ public partial class AdminDashboardViewModel : ObservableObject
     [RelayCommand]
     private void Logout()
     {
-        // Si hay servicio de navegación, usarlo
         if (_navigationService != null)
         {
             _navigationService.NavigateTo("Login");
         }
         else
         {
-            // Implementación alternativa si no hay servicio de navegación
-            // Puedes lanzar un evento o usar otro mecanismo
-            System.Diagnostics.Debug.WriteLine("Logout solicitado - implementar navegación");
+            // Crear nueva instancia del servicio de navegación
+            var navigationService = new NavigationService();
+            navigationService.NavigateToLogin();
         }
     }
 }

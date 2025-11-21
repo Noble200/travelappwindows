@@ -118,6 +118,13 @@ public partial class ManageUsersViewModel : ObservableObject
     [ObservableProperty]
     private string _filtroTipoUsuario = "Todos";
 
+    // NUEVOS FILTROS ESTÉTICOS
+    [ObservableProperty]
+    private string _filtroModulo = "Todos";
+
+    [ObservableProperty]
+    private string _filtroUltimaActividad = "Todos";
+
     // ============================================
     // BÚSQUEDA Y ASIGNACIÓN DE LOCALES
     // ============================================
@@ -889,6 +896,8 @@ public partial class ManageUsersViewModel : ObservableObject
         FiltroComercio = string.Empty;
         FiltroEstado = "Todos";
         FiltroTipoUsuario = "Todos";
+        FiltroModulo = "Todos";
+        FiltroUltimaActividad = "Todos";
         
         UsuariosFiltrados.Clear();
         foreach (var usuario in Usuarios.OrderBy(u => u.NombreCompleto))
