@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 using Avalonia.Interactivity;
 using Allva.Desktop.ViewModels;
 
@@ -10,102 +9,120 @@ public partial class MainDashboardView : UserControl
     public MainDashboardView()
     {
         InitializeComponent();
+        // Inicializar con el primer botón seleccionado
+        Loaded += OnLoaded;
     }
 
-    private void InitializeComponent()
+    private void OnLoaded(object? sender, RoutedEventArgs e)
     {
-        AvaloniaXamlLoader.Load(this);
+        UpdateMenuSelection("dashboard");
+        UpdateModuleHeader("dashboard");
     }
+
+    private MainDashboardViewModel? ViewModel => DataContext as MainDashboardViewModel;
+
+    // ============================================
+    // NAVEGACIÓN DEL MENÚ PRINCIPAL
+    // ============================================
 
     private void NavigateToDashboard(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainDashboardViewModel vm)
-        {
-            vm.NavigateToModule("dashboard");
-            UpdateButtonStyles("dashboard");
-        }
+        ViewModel?.NavigateToModule("dashboard");
+        UpdateMenuSelection("dashboard");
+        UpdateModuleHeader("dashboard");
     }
 
     private void NavigateToDivisas(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainDashboardViewModel vm)
-        {
-            vm.NavigateToModule("divisas");
-            UpdateButtonStyles("divisas");
-        }
+        ViewModel?.NavigateToModule("divisas");
+        UpdateMenuSelection("divisas");
+        UpdateModuleHeader("divisas");
     }
 
     private void NavigateToAlimentos(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainDashboardViewModel vm)
-        {
-            vm.NavigateToModule("alimentos");
-            UpdateButtonStyles("alimentos");
-        }
+        ViewModel?.NavigateToModule("alimentos");
+        UpdateMenuSelection("alimentos");
+        UpdateModuleHeader("alimentos");
     }
 
     private void NavigateToBilletes(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainDashboardViewModel vm)
-        {
-            vm.NavigateToModule("billetes");
-            UpdateButtonStyles("billetes");
-        }
+        ViewModel?.NavigateToModule("billetes");
+        UpdateMenuSelection("billetes");
+        UpdateModuleHeader("billetes");
     }
 
     private void NavigateToViajes(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainDashboardViewModel vm)
-        {
-            vm.NavigateToModule("viajes");
-            UpdateButtonStyles("viajes");
-        }
+        ViewModel?.NavigateToModule("viajes");
+        UpdateMenuSelection("viajes");
+        UpdateModuleHeader("viajes");
     }
+
+    // ============================================
+    // BOTONES DE ACCIÓN DEL HEADER
+    // ============================================
+
+    private void OpenSettings(object? sender, RoutedEventArgs e)
+    {
+        // TODO: Implementar apertura de configuración
+    }
+
+    private void OpenNotifications(object? sender, RoutedEventArgs e)
+    {
+        // TODO: Implementar apertura de notificaciones
+    }
+
+    private void OpenUserProfile(object? sender, RoutedEventArgs e)
+    {
+        // TODO: Implementar apertura del perfil de usuario
+    }
+
+    // ============================================
+    // SESIÓN
+    // ============================================
 
     private void CerrarSesion(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainDashboardViewModel vm)
-        {
-            vm.Logout();
-        }
+        ViewModel?.Logout();
     }
 
-    private void UpdateButtonStyles(string selectedModule)
+    // ============================================
+    // UTILIDADES
+    // ============================================
+
+    private void UpdateMenuSelection(string selectedModule)
     {
-        // Resetear todos los botones
-        var btnDashboard = this.FindControl<Button>("BtnDashboard");
-        var btnDivisas = this.FindControl<Button>("BtnDivisas");
-        var btnAlimentos = this.FindControl<Button>("BtnAlimentos");
-        var btnBilletes = this.FindControl<Button>("BtnBilletes");
-        var btnViajes = this.FindControl<Button>("BtnViajes");
-
-        if (btnDashboard != null) btnDashboard.Background = Avalonia.Media.Brushes.Transparent;
-        if (btnDivisas != null) btnDivisas.Background = Avalonia.Media.Brushes.Transparent;
-        if (btnAlimentos != null) btnAlimentos.Background = Avalonia.Media.Brushes.Transparent;
-        if (btnBilletes != null) btnBilletes.Background = Avalonia.Media.Brushes.Transparent;
-        if (btnViajes != null) btnViajes.Background = Avalonia.Media.Brushes.Transparent;
-
-        // Marcar el seleccionado
-        var selectedBrush = Avalonia.Media.Brush.Parse("#FFC600");
+        BtnDashboard.Classes.Set("menu-item-selected", selectedModule == "dashboard");
+        BtnDashboard.Classes.Set("menu-item", selectedModule != "dashboard");
         
-        switch (selectedModule.ToLower())
+        BtnDivisas.Classes.Set("menu-item-selected", selectedModule == "divisas");
+        BtnDivisas.Classes.Set("menu-item", selectedModule != "divisas");
+        
+        BtnAlimentos.Classes.Set("menu-item-selected", selectedModule == "alimentos");
+        BtnAlimentos.Classes.Set("menu-item", selectedModule != "alimentos");
+        
+        BtnBilletes.Classes.Set("menu-item-selected", selectedModule == "billetes");
+        BtnBilletes.Classes.Set("menu-item", selectedModule != "billetes");
+        
+        BtnViajes.Classes.Set("menu-item-selected", selectedModule == "viajes");
+        BtnViajes.Classes.Set("menu-item", selectedModule != "viajes");
+    }
+
+    private void UpdateModuleHeader(string moduleName)
+    {
+        (string title, string description) = moduleName.ToLower() switch
         {
-            case "dashboard":
-            case "ultimasnoticias":
-                if (btnDashboard != null) btnDashboard.Background = selectedBrush;
-                break;
-            case "divisas":
-                if (btnDivisas != null) btnDivisas.Background = selectedBrush;
-                break;
-            case "alimentos":
-                if (btnAlimentos != null) btnAlimentos.Background = selectedBrush;
-                break;
-            case "billetes":
-                if (btnBilletes != null) btnBilletes.Background = selectedBrush;
-                break;
-            case "viajes":
-                if (btnViajes != null) btnViajes.Background = selectedBrush;
-                break;
-        }
+            "dashboard" => ("Últimas Noticias", "Mantente informado con las últimas novedades"),
+            "divisas" => ("Compra de Divisas", "Gestiona operaciones de cambio de moneda"),
+            "alimentos" => ("Pack de Alimentos", "Administra paquetes de alimentación"),
+            "billetes" => ("Billetes de Avión", "Reserva y gestión de vuelos"),
+            "viajes" => ("Packs de Viajes", "Paquetes turísticos completos"),
+            _ => ("Últimas Noticias", "Mantente informado con las últimas novedades")
+        };
+
+        TxtModuleTitle.Text = title;
+        TxtModuleDescription.Text = description;
     }
 }
