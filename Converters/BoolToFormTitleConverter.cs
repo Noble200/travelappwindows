@@ -1,26 +1,27 @@
-using Avalonia.Data.Converters;
 using System;
 using System.Globalization;
+using Avalonia.Data.Converters;
 
-namespace Allva.Desktop.Converters;
-
-public class BoolToFormTitleConverter : IValueConverter
+namespace Allva.Desktop.Converters
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public class BoolToFormTitleConverter : IValueConverter
     {
-        if (value is bool isNew && parameter is string param)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            var titles = param.Split('|');
-            if (titles.Length == 2)
+            if (value is bool isNew && parameter is string param)
             {
-                return isNew ? titles[0] : titles[1];
+                var titles = param.Split('|');
+                if (titles.Length == 2)
+                {
+                    return isNew ? titles[0] : titles[1];
+                }
             }
+            return "Formulario";
         }
-        return "Formulario";
-    }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

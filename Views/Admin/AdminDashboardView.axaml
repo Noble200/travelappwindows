@@ -229,36 +229,52 @@
                                 </Button>
                                 
                                 <Popup x:Name="MenuPopup" 
-                                       PlacementTarget="{Binding #MenuButton}"
-                                       Placement="BottomEdgeAlignedRight"
-                                       IsLightDismissEnabled="True"
-                                       HorizontalOffset="0"
-                                       VerticalOffset="6">
+                                    PlacementTarget="{Binding #MenuButton}"
+                                    Placement="BottomEdgeAlignedRight"
+                                    IsLightDismissEnabled="True"
+                                    HorizontalOffset="0"
+                                    VerticalOffset="6">
                                     <Border Background="White"
                                             CornerRadius="10"
                                             BoxShadow="0 8 24 0 #30000000"
-                                            MinWidth="200"
+                                            MinWidth="220"
                                             Padding="0">
                                         <StackPanel>
+                                            <!-- Encabezado del menú -->
                                             <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
                                                 <TextBlock Text="Opciones" 
-                                                           FontSize="15"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#0b5394"/>
+                                                        FontSize="15"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#0b5394"/>
                                             </Border>
+                                            
                                             <Border Height="1" Background="#EEEEEE"/>
-                                            <Button Background="White"
-                                                    BorderThickness="0"
-                                                    Padding="16,12"
-                                                    HorizontalAlignment="Stretch"
-                                                    HorizontalContentAlignment="Left"
-                                                    IsEnabled="False"
-                                                    Opacity="0.5"
-                                                    CornerRadius="0,0,10,10">
-                                                <TextBlock Text="Configuración" 
-                                                           FontSize="14" 
-                                                           Foreground="#444444"/>
-                                            </Button>
+                                            
+                                            <!-- Items dinámicos del menú hamburguesa -->
+                                            <ItemsControl ItemsSource="{Binding MenuHamburguesaItems}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Background="Transparent"
+                                                                BorderThickness="0"
+                                                                Padding="16,12"
+                                                                HorizontalAlignment="Stretch"
+                                                                HorizontalContentAlignment="Left"
+                                                                Cursor="Hand"
+                                                                Command="{Binding $parent[UserControl].((vm:AdminDashboardViewModel)DataContext).NavigateToMenuHamburguesaItemCommand}"
+                                                                CommandParameter="{Binding}">
+                                                            <Button.Styles>
+                                                                <Style Selector="Button:pointerover">
+                                                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                                                </Style>
+                                                            </Button.Styles>
+                                                            <TextBlock Text="{Binding Titulo}" 
+                                                                    FontSize="14" 
+                                                                    Foreground="#444444"/>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            
                                         </StackPanel>
                                     </Border>
                                 </Popup>

@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Allva.Desktop.ViewModels.Admin;
 
 namespace Allva.Desktop.Views.Admin
 {
@@ -16,6 +17,8 @@ namespace Allva.Desktop.Views.Admin
         {
             AvaloniaXamlLoader.Load(this);
         }
+
+        private AdminDashboardViewModel? ViewModel => DataContext as AdminDashboardViewModel;
 
         private void UserButton_Click(object? sender, RoutedEventArgs e)
         {
@@ -32,6 +35,18 @@ namespace Allva.Desktop.Views.Admin
             if (popup != null)
             {
                 popup.IsOpen = !popup.IsOpen;
+            }
+        }
+
+        /// <summary>
+        /// Cierra el popup del menú hamburguesa después de seleccionar una opción
+        /// </summary>
+        private void CloseMenuPopup()
+        {
+            var popup = this.FindControl<Popup>("MenuPopup");
+            if (popup != null)
+            {
+                popup.IsOpen = false;
             }
         }
     }

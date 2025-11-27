@@ -18,6 +18,7 @@
             <!-- CONVERTERS GENERALES (Converters.cs) -->
             <!-- ===================================== -->
             <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
+            <converters:BoolToApiResultColorConverter x:Key="BoolToApiResultColorConverter"/>
             <converters:NotEmptyConverter x:Key="NotEmptyConverter"/>
             <converters:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter"/>
             <converters:EqualToZeroConverter x:Key="EqualToZeroConverter"/>

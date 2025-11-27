@@ -1,7 +1,9 @@
 using System;
+using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Allva.Desktop.Models;
 using Allva.Desktop.Services;
 using Allva.Desktop.Views.Admin;
 
@@ -10,12 +12,13 @@ namespace Allva.Desktop.ViewModels.Admin;
 /// <summary>
 /// ViewModel para el Panel de Administración
 /// Exclusivo para administradores del sistema
-/// MÓDULOS: Gestión de Comercios, Gestión de Usuarios y Usuarios Allva
+/// Los módulos del menú hamburguesa se cargan dinámicamente desde MenuHamburguesaService
 /// </summary>
 public partial class AdminDashboardViewModel : ObservableObject
 {
     private readonly NavigationService? _navigationService;
-    private Allva.Desktop.Services.PermisosAdministrador? _permisos;
+    private readonly MenuHamburguesaService _menuService;
+    private PermisosAdministrador? _permisos;
     
     // ============================================
     // PROPIEDADES OBSERVABLES
@@ -31,34 +34,41 @@ public partial class AdminDashboardViewModel : ObservableObject
     private string _selectedModule = "comercios";
 
     /// <summary>
-    /// Título del módulo seleccionado en mayúsculas para mostrar en UI
+    /// Items del menú hamburguesa cargados dinámicamente
     /// </summary>
-    public string SelectedModuleTitle => SelectedModule switch
+    [ObservableProperty]
+    private ObservableCollection<MenuHamburguesaItem> _menuHamburguesaItems = new();
+
+    /// <summary>
+    /// Título del módulo seleccionado para mostrar en UI
+    /// </summary>
+    public string SelectedModuleTitle
     {
-        "comercios" => "GESTIÓN DE COMERCIOS",
-        "usuarios" => "GESTIÓN DE USUARIOS",
-        "usuarios_allva" => "USUARIOS ALLVA",
-        _ => "PANEL DE ADMINISTRACIÓN"
-    };
+        get
+        {
+            // Primero verificar si es un módulo del menú hamburguesa
+            if (_menuService.EsModuloMenuHamburguesa(SelectedModule))
+            {
+                return _menuService.ObtenerTituloModulo(SelectedModule);
+            }
+            
+            // Módulos principales del sidebar
+            return SelectedModule switch
+            {
+                "comercios" => "GESTIÓN DE COMERCIOS",
+                "usuarios" => "GESTIÓN DE USUARIOS",
+                "usuarios_allva" => "USUARIOS ALLVA",
+                _ => "PANEL DE ADMINISTRACIÓN"
+            };
+        }
+    }
 
     // ============================================
     // PROPIEDADES PARA VISIBILIDAD DE MÓDULOS
     // ============================================
 
-    /// <summary>
-    /// Controla si se muestra el módulo "Gestión de Comercios"
-    /// </summary>
     public bool MostrarGestionComercios => _permisos?.AccesoGestionComercios ?? true;
-
-    /// <summary>
-    /// Controla si se muestra el módulo "Gestión de Usuarios" (de locales)
-    /// </summary>
     public bool MostrarGestionUsuarios => _permisos?.AccesoGestionUsuariosLocales ?? true;
-
-    /// <summary>
-    /// Controla si se muestra el módulo "Usuarios Allva" (administradores)
-    /// Solo super administradores tienen acceso
-    /// </summary>
     public bool MostrarUsuariosAllva => _permisos?.AccesoGestionUsuariosAllva ?? false;
 
     // ============================================
@@ -67,36 +77,51 @@ public partial class AdminDashboardViewModel : ObservableObject
 
     public AdminDashboardViewModel()
     {
+        _menuService = MenuHamburguesaService.Instance;
+        CargarMenuHamburguesa();
         NavigateToModule("comercios");
     }
 
-    /// <summary>
-    /// Constructor con nombre del administrador (compatibilidad)
-    /// </summary>
     public AdminDashboardViewModel(string adminName)
     {
+        _menuService = MenuHamburguesaService.Instance;
         AdminName = adminName;
+        CargarMenuHamburguesa();
         NavigateToModule("comercios");
     }
     
-    /// <summary>
-    /// Constructor con datos completos de login (RECOMENDADO)
-    /// </summary>
     public AdminDashboardViewModel(LoginSuccessData loginData)
     {
+        _menuService = MenuHamburguesaService.Instance;
         AdminName = loginData.UserName;
         _permisos = loginData.Permisos;
+        CargarMenuHamburguesa();
         NavigateToModule("comercios");
     }
     
-    /// <summary>
-    /// Constructor con servicio de navegación
-    /// </summary>
     public AdminDashboardViewModel(string adminName, NavigationService navigationService)
     {
+        _menuService = MenuHamburguesaService.Instance;
         AdminName = adminName;
         _navigationService = navigationService;
+        CargarMenuHamburguesa();
         NavigateToModule("comercios");
+    }
+
+    // ============================================
+    // MÉTODOS PRIVADOS
+    // ============================================
+
+    /// <summary>
+    /// Carga los items del menú hamburguesa desde el servicio
+    /// </summary>
+    private void CargarMenuHamburguesa()
+    {
+        MenuHamburguesaItems.Clear();
+        foreach (var item in _menuService.ObtenerItemsHabilitados())
+        {
+            MenuHamburguesaItems.Add(item);
+        }
     }
 
     // ============================================
@@ -104,7 +129,7 @@ public partial class AdminDashboardViewModel : ObservableObject
     // ============================================
 
     /// <summary>
-    /// Navega a un módulo específico
+    /// Navega a un módulo específico (sidebar o menú hamburguesa)
     /// </summary>
     [RelayCommand]
     private void NavigateToModule(string? moduleName)
@@ -115,15 +140,34 @@ public partial class AdminDashboardViewModel : ObservableObject
         var module = moduleName.ToLower();
         SelectedModule = module;
         
-        CurrentView = module switch
+        // Verificar si es un módulo del menú hamburguesa
+        if (_menuService.EsModuloMenuHamburguesa(module))
         {
-            "comercios" => new ManageComerciosView(),
-            "usuarios" => new ManageUsersView(),
-            "usuarios_allva" => new ManageAdministradoresAllvaView(),
-            _ => CurrentView
-        };
+            CurrentView = _menuService.CrearVistaParaItem(module);
+        }
+        else
+        {
+            // Módulos principales del sidebar
+            CurrentView = module switch
+            {
+                "comercios" => new ManageComerciosView(),
+                "usuarios" => new ManageUsersView(),
+                "usuarios_allva" => new ManageAdministradoresAllvaView(),
+                _ => CurrentView
+            };
+        }
         
         OnPropertyChanged(nameof(SelectedModuleTitle));
+    }
+
+    /// <summary>
+    /// Navega a un item específico del menú hamburguesa
+    /// </summary>
+    [RelayCommand]
+    private void NavigateToMenuHamburguesaItem(MenuHamburguesaItem? item)
+    {
+        if (item == null) return;
+        NavigateToModule(item.Id);
     }
 
     /// <summary>
@@ -138,7 +182,6 @@ public partial class AdminDashboardViewModel : ObservableObject
         }
         else
         {
-            // Crear nueva instancia del servicio de navegación
             var navigationService = new NavigationService();
             navigationService.NavigateToLogin();
         }

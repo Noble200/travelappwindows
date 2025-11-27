@@ -9,16 +9,18 @@ namespace Allva.Desktop.Services
 {
     /// <summary>
     /// Servicio para obtener tasas de cambio de divisas en tiempo real
+    /// ACTUALIZADO: Ahora usa la configuración guardada desde el panel de APIs
     /// </summary>
     public class CurrencyExchangeService
     {
         private readonly HttpClient _httpClient;
+        private readonly ApiConfigurationService _configService;
         private Dictionary<string, decimal> _cachedRates;
         private DateTime _lastUpdate;
-        private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(10);
+        private TimeSpan _cacheExpiration;
         
-        private const string API_BASE_URL = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json";
-        private const string API_FALLBACK_URL = "https://latest.currency-api.pages.dev/v1/currencies/eur.json";
+        private string _apiBaseUrl = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json";
+        private string _apiFallbackUrl = "https://latest.currency-api.pages.dev/v1/currencies/eur.json";
         
         public CurrencyExchangeService()
         {
@@ -26,10 +28,50 @@ namespace Allva.Desktop.Services
             _httpClient.Timeout = TimeSpan.FromSeconds(10);
             _cachedRates = new Dictionary<string, decimal>();
             _lastUpdate = DateTime.MinValue;
+            _cacheExpiration = TimeSpan.FromMinutes(10);
+            _configService = new ApiConfigurationService();
+            
+            _ = LoadConfigurationAsync();
+        }
+        
+        private async Task LoadConfigurationAsync()
+        {
+            try
+            {
+                var config = await _configService.GetDivisasConfigAsync();
+                
+                if (!string.IsNullOrWhiteSpace(config.UrlBase))
+                {
+                    _apiBaseUrl = config.UrlBase;
+                }
+                
+                if (!string.IsNullOrWhiteSpace(config.UrlFallback))
+                {
+                    _apiFallbackUrl = config.UrlFallback;
+                }
+                
+                _cacheExpiration = TimeSpan.FromMinutes(config.TiempoCacheMinutos);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cargar configuración de API de divisas: {ex.Message}");
+            }
+        }
+        
+        public async Task ReloadConfigurationAsync()
+        {
+            await LoadConfigurationAsync();
+            _cachedRates.Clear();
+            _lastUpdate = DateTime.MinValue;
         }
         
         public async Task<Dictionary<string, decimal>> GetExchangeRatesAsync()
         {
+            if (string.IsNullOrWhiteSpace(_apiBaseUrl))
+            {
+                await LoadConfigurationAsync();
+            }
+            
             if (_cachedRates.Count > 0 && DateTime.Now - _lastUpdate < _cacheExpiration)
             {
                 return _cachedRates;
@@ -37,7 +79,7 @@ namespace Allva.Desktop.Services
             
             try
             {
-                var response = await _httpClient.GetStringAsync(API_BASE_URL);
+                var response = await _httpClient.GetStringAsync(_apiBaseUrl);
                 var rates = ParseApiResponse(response);
                 
                 if (rates.Count > 0)
@@ -47,12 +89,14 @@ namespace Allva.Desktop.Services
                     return rates;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine($"Error con API principal: {ex.Message}");
+                
                 try
                 {
-                    var response = await _httpClient.GetStringAsync(API_FALLBACK_URL);
-                    var rates = ParseApiResponse(response);
+                    var fallbackResponse = await _httpClient.GetStringAsync(_apiFallbackUrl);
+                    var rates = ParseApiResponse(fallbackResponse);
                     
                     if (rates.Count > 0)
                     {
@@ -61,147 +105,136 @@ namespace Allva.Desktop.Services
                         return rates;
                     }
                 }
-                catch (Exception)
+                catch (Exception fallbackEx)
                 {
+                    Console.WriteLine($"Error con API de fallback: {fallbackEx.Message}");
                 }
             }
             
-            return GetDefaultRates();
+            return _cachedRates.Count > 0 ? _cachedRates : GetDefaultRates();
         }
         
-        private Dictionary<string, decimal> ParseApiResponse(string jsonResponse)
-        {
-            var rates = new Dictionary<string, decimal>();
-            
-            try
-            {
-                using var doc = JsonDocument.Parse(jsonResponse);
-                var root = doc.RootElement;
-                
-                if (root.TryGetProperty("eur", out JsonElement eurRates))
-                {
-                    foreach (var property in eurRates.EnumerateObject())
-                    {
-                        string code = property.Name.ToUpper();
-                        if (property.Value.TryGetDecimal(out decimal rate) && rate > 0)
-                        {
-                            rates[code] = 1m / rate;
-                        }
-                    }
-                }
-            }
-            catch (Exception)
-            {
-            }
-            
-            return rates;
-        }
-        
-        public async Task<decimal> GetRateToEurAsync(string currencyCode)
-        {
-            var rates = await GetExchangeRatesAsync();
-            
-            if (rates.TryGetValue(currencyCode.ToUpper(), out decimal rate))
-            {
-                return rate;
-            }
-            
-            var defaults = GetDefaultRates();
-            if (defaults.TryGetValue(currencyCode.ToUpper(), out decimal defaultRate))
-            {
-                return defaultRate;
-            }
-            
-            return 1m;
-        }
-        
-        public async Task<decimal> ConvertToEurAsync(string currencyCode, decimal amount)
-        {
-            var rate = await GetRateToEurAsync(currencyCode);
-            return amount * rate;
-        }
-        
+        /// <summary>
+        /// Obtiene las divisas favoritas (método requerido por CurrencyExchangePanelViewModel)
+        /// </summary>
         public async Task<List<FavoriteCurrencyModel>> GetFavoriteCurrenciesAsync(List<string> favoriteCodes)
         {
             var rates = await GetExchangeRatesAsync();
-            var allCurrencies = AvailableCurrencies.GetAllCurrencies();
-            var defaults = GetDefaultRates();
             var result = new List<FavoriteCurrencyModel>();
             
             foreach (var code in favoriteCodes)
             {
-                var currency = allCurrencies.Find(c => c.Code == code);
+                var currency = AvailableCurrencies.GetAllCurrencies()
+                    .Find(c => c.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+                    
                 if (currency != null)
                 {
-                    decimal rate = 1m;
-                    if (rates.TryGetValue(code.ToUpper(), out decimal apiRate))
-                    {
-                        rate = apiRate;
-                    }
-                    else if (defaults.TryGetValue(code.ToUpper(), out decimal defaultRate))
-                    {
-                        rate = defaultRate;
-                    }
-                    
-                    result.Add(new FavoriteCurrencyModel
+                    var favorite = new FavoriteCurrencyModel
                     {
                         Code = currency.Code,
                         Name = currency.Name,
-                        Country = currency.Country,
-                        RateToEur = rate
-                    });
+                        Country = currency.Country
+                    };
+                    
+                    if (rates.TryGetValue(code, out var rate))
+                    {
+                        favorite.RateToEur = rate;
+                    }
+                    
+                    result.Add(favorite);
                 }
             }
             
             return result;
         }
         
+        /// <summary>
+        /// Refresca las tasas de cambio (método requerido por CurrencyExchangePanelViewModel)
+        /// </summary>
+        public async Task<Dictionary<string, decimal>> RefreshRatesAsync()
+        {
+            _cachedRates.Clear();
+            _lastUpdate = DateTime.MinValue;
+            return await GetExchangeRatesAsync();
+        }
+        
+        private Dictionary<string, decimal> ParseApiResponse(string json)
+        {
+            var rates = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                
+                if (root.TryGetProperty("eur", out var eurRates))
+                {
+                    foreach (var rate in eurRates.EnumerateObject())
+                    {
+                        if (rate.Value.TryGetDecimal(out var value))
+                        {
+                            rates[rate.Name.ToUpper()] = value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al parsear respuesta de API: {ex.Message}");
+            }
+            
+            return rates;
+        }
+        
         private Dictionary<string, decimal> GetDefaultRates()
         {
-            return new Dictionary<string, decimal>
+            return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                { "USD", 0.92m },
-                { "CAD", 0.67m },
-                { "CHF", 1.05m },
-                { "GBP", 1.17m },
-                { "CNY", 0.13m },
-                { "JPY", 0.0061m },
-                { "AUD", 0.60m },
-                { "MXN", 0.052m },
-                { "BRL", 0.17m },
-                { "ARS", 0.0010m },
-                { "CLP", 0.0010m },
-                { "COP", 0.00023m },
-                { "PEN", 0.25m },
-                { "UYU", 0.022m },
-                { "INR", 0.011m },
-                { "KRW", 0.00067m },
-                { "SGD", 0.69m },
-                { "HKD", 0.12m },
-                { "NZD", 0.56m },
-                { "SEK", 0.087m },
-                { "NOK", 0.084m },
-                { "DKK", 0.13m },
-                { "PLN", 0.23m },
-                { "CZK", 0.041m },
-                { "HUF", 0.0025m },
-                { "RUB", 0.010m },
-                { "TRY", 0.027m },
-                { "ZAR", 0.051m },
-                { "AED", 0.25m },
-                { "SAR", 0.24m }
+                { "USD", 1.08m },
+                { "GBP", 0.84m },
+                { "JPY", 162.50m },
+                { "CHF", 0.94m },
+                { "CAD", 1.47m },
+                { "AUD", 1.65m },
+                { "CNY", 7.82m },
+                { "MXN", 18.50m },
+                { "BRL", 5.35m },
+                { "ARS", 950.00m }
             };
         }
         
-        public async Task RefreshRatesAsync()
+        public async Task<decimal> ConvertToEuroAsync(string fromCurrency, decimal amount)
         {
-            _lastUpdate = DateTime.MinValue;
-            await GetExchangeRatesAsync();
+            var rates = await GetExchangeRatesAsync();
+            
+            if (rates.TryGetValue(fromCurrency.ToUpper(), out var rate) && rate > 0)
+            {
+                return amount / rate;
+            }
+            
+            return amount;
+        }
+        
+        public async Task<decimal> GetRateAsync(string currency)
+        {
+            var rates = await GetExchangeRatesAsync();
+            
+            if (rates.TryGetValue(currency.ToUpper(), out var rate))
+            {
+                return rate;
+            }
+            
+            return 1m;
         }
         
         public DateTime GetLastUpdateTime()
         {
             return _lastUpdate;
+        }
+        
+        public bool IsUsingCache()
+        {
+            return _cachedRates.Count > 0 && DateTime.Now - _lastUpdate < _cacheExpiration;
         }
     }
 }
