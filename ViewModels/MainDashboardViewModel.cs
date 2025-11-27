@@ -2,6 +2,7 @@ using System;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Allva.Desktop.Views;
+using Allva.Desktop.Views.PanelDivisas;
 using Allva.Desktop.Services;
 
 namespace Allva.Desktop.ViewModels;
@@ -79,8 +80,8 @@ public partial class MainDashboardViewModel : ObservableObject
 
     private UserControl CreateCurrencyExchangeView()
     {
-        var view = new CurrencyExchangeView();
-        view.DataContext = new CurrencyExchangeViewModel();
+        var view = new CurrencyExchangePanelView();
+        view.DataContext = new CurrencyExchangePanelViewModel();
         return view;
     }
 
