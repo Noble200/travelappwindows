@@ -21,6 +21,12 @@ namespace Allva.Desktop.Models
         [ObservableProperty]
         private decimal _rateToEur;
         
+        /// <summary>
+        /// Tasa con margen aplicado (INTERNO - el usuario ve esta tasa sin saber que tiene margen)
+        /// </summary>
+        [ObservableProperty]
+        private decimal _rateWithMargin;
+        
         [ObservableProperty]
         private bool _isFavorite;
         
@@ -28,7 +34,11 @@ namespace Allva.Desktop.Models
         private string _displayText = string.Empty;
         
         public string FullDisplay => $"{Country}, {Name}";
-        public string RateDisplay => $"1 {Code} = {RateToEur:F5} EUR";
+        
+        /// <summary>
+        /// Muestra la tasa CON margen (el usuario no sabe que tiene margen)
+        /// </summary>
+        public string RateDisplay => $"1 {Code} = {RateWithMargin:F5} EUR";
     }
     
     /// <summary>
@@ -48,8 +58,18 @@ namespace Allva.Desktop.Models
         [ObservableProperty]
         private decimal _rateToEur;
         
+        /// <summary>
+        /// Tasa con margen aplicado (INTERNO - el usuario ve esta tasa sin saber que tiene margen)
+        /// </summary>
+        [ObservableProperty]
+        private decimal _rateWithMargin;
+        
         public string FullDisplay => $"{Country}, {Name}";
-        public string RateDisplay => $"1 {Code} = {RateToEur:F5} EUR";
+        
+        /// <summary>
+        /// Muestra la tasa CON margen (el usuario no sabe que tiene margen)
+        /// </summary>
+        public string RateDisplay => $"1 {Code} = {RateWithMargin:F5} EUR";
     }
     
     /// <summary>
@@ -90,6 +110,9 @@ namespace Allva.Desktop.Models
                 new CurrencyModel { Code = "CLP", Name = "Peso Chileno", Country = "Chile" },
                 new CurrencyModel { Code = "COP", Name = "Peso Colombiano", Country = "Colombia" },
                 new CurrencyModel { Code = "PEN", Name = "Sol Peruano", Country = "Perú" },
+                new CurrencyModel { Code = "BOB", Name = "Boliviano", Country = "Bolivia" },
+                new CurrencyModel { Code = "VES", Name = "Bolívar", Country = "Venezuela" },
+                new CurrencyModel { Code = "DOP", Name = "Peso Dominicano", Country = "Rep. Dominicana" },
                 new CurrencyModel { Code = "UYU", Name = "Peso Uruguayo", Country = "Uruguay" },
                 new CurrencyModel { Code = "INR", Name = "Rupia India", Country = "India" },
                 new CurrencyModel { Code = "KRW", Name = "Won Surcoreano", Country = "Corea del Sur" },
@@ -102,11 +125,18 @@ namespace Allva.Desktop.Models
                 new CurrencyModel { Code = "PLN", Name = "Zloty Polaco", Country = "Polonia" },
                 new CurrencyModel { Code = "CZK", Name = "Corona Checa", Country = "República Checa" },
                 new CurrencyModel { Code = "HUF", Name = "Florín Húngaro", Country = "Hungría" },
-                new CurrencyModel { Code = "RUB", Name = "Rublo Ruso", Country = "Rusia" },
+                new CurrencyModel { Code = "RON", Name = "Leu Rumano", Country = "Rumania" },
                 new CurrencyModel { Code = "TRY", Name = "Lira Turca", Country = "Turquía" },
                 new CurrencyModel { Code = "ZAR", Name = "Rand Sudafricano", Country = "Sudáfrica" },
-                new CurrencyModel { Code = "AED", Name = "Dírham EAU", Country = "Emiratos Árabes" },
-                new CurrencyModel { Code = "SAR", Name = "Riyal Saudí", Country = "Arabia Saudita" }
+                new CurrencyModel { Code = "THB", Name = "Baht Tailandés", Country = "Tailandia" },
+                new CurrencyModel { Code = "MYR", Name = "Ringgit Malayo", Country = "Malasia" },
+                new CurrencyModel { Code = "PHP", Name = "Peso Filipino", Country = "Filipinas" },
+                new CurrencyModel { Code = "IDR", Name = "Rupia Indonesia", Country = "Indonesia" },
+                new CurrencyModel { Code = "AED", Name = "Dirham EAU", Country = "Emiratos Árabes" },
+                new CurrencyModel { Code = "SAR", Name = "Riyal Saudí", Country = "Arabia Saudita" },
+                new CurrencyModel { Code = "ILS", Name = "Shekel Israelí", Country = "Israel" },
+                new CurrencyModel { Code = "EGP", Name = "Libra Egipcia", Country = "Egipto" },
+                new CurrencyModel { Code = "MAD", Name = "Dirham Marroquí", Country = "Marruecos" }
             };
         }
         
