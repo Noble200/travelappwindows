@@ -9,7 +9,6 @@
     </UserControl.DataContext>
     
     <UserControl.Styles>
-        <!-- Estilos para el panel -->
         <Style Selector="TextBlock.header">
             <Setter Property="FontSize" Value="18"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -34,10 +33,12 @@
             <Setter Property="Padding" Value="15,12"/>
             <Setter Property="Margin" Value="0,2"/>
             <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderThickness" Value="0"/>
         </Style>
         
         <Style Selector="Border.rate-row:pointerover">
             <Setter Property="Background" Value="#e8f0f8"/>
+            <Setter Property="BorderThickness" Value="0"/>
         </Style>
         
         <Style Selector="Button.primary">
@@ -46,473 +47,611 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="20,12"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Cursor" Value="Hand"/>
         </Style>
         
         <Style Selector="Button.primary:pointerover">
-            <Setter Property="Background" Value="#094276"/>
+            <Setter Property="Background" Value="#094578"/>
         </Style>
         
         <Style Selector="Button.secondary">
             <Setter Property="Background" Value="#ffd966"/>
             <Setter Property="Foreground" Value="#0b5394"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="15,10"/>
+            <Setter Property="Padding" Value="12,8"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Cursor" Value="Hand"/>
         </Style>
         
         <Style Selector="Button.secondary:pointerover">
-            <Setter Property="Background" Value="#f0c846"/>
-        </Style>
-        
-        <Style Selector="Button.add-btn">
-            <Setter Property="Background" Value="#ffd966"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Width" Value="30"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        
-        <Style Selector="Button.remove-btn">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#999"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Padding" Value="5,2"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        
-        <Style Selector="Button.remove-btn:pointerover">
-            <Setter Property="Foreground" Value="#c00"/>
-        </Style>
-        
-        <Style Selector="ComboBox.currency-select">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#ddd"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="MinWidth" Value="280"/>
+            <Setter Property="Background" Value="#ffcc00"/>
         </Style>
         
         <Style Selector="TextBox.amount-input">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#ddd"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,10"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="BorderBrush" Value="#0b5394"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
         
-        <Style Selector="TextBox.amount-readonly">
-            <Setter Property="Background" Value="#f0f0f0"/>
-            <Setter Property="BorderBrush" Value="#ddd"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="FontSize" Value="16"/>
-            <Setter Property="IsReadOnly" Value="True"/>
+        <!-- Quitar líneas de botones transparentes -->
+        <Style Selector="Button.transparent-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.transparent-btn:pointerover">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.transparent-btn:pressed">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
     </UserControl.Styles>
-    
-    <Grid Background="#f5f5f5">
-        <ScrollViewer VerticalScrollBarVisibility="Auto" 
-                      HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Spacing="20" Margin="25">
-                
-                <!-- ═══════════════════════════════════════════════════════════ -->
-                <!-- SECCIÓN: Búsqueda de Cliente (Visual por ahora) -->
-                <!-- ═══════════════════════════════════════════════════════════ -->
-                <Border Classes="card">
-                    <StackPanel Orientation="Horizontal" Spacing="15">
-                        <TextBlock Text="Búsqueda de cliente:" 
-                                   VerticalAlignment="Center"
-                                   FontWeight="SemiBold"
-                                   Foreground="#0b5394"/>
-                        <TextBox Width="200" 
-                                 Watermark="Nombre..."
-                                 Classes="amount-input"/>
-                        <TextBox Width="200" 
-                                 Watermark="Documento..."
-                                 Classes="amount-input"/>
-                        <Button Content="Buscar" Classes="secondary"/>
-                        <TextBlock Text="Nuevo cliente +" 
-                                   Foreground="#0b5394"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center"
-                                   Cursor="Hand"
-                                   Margin="20,0,0,0"/>
+
+    <Grid>
+        <ScrollViewer>
+        <StackPanel Spacing="15" Margin="20">
+            
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- BARRA SUPERIOR: Búsqueda de Cliente -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <Border Classes="card" Padding="15">
+                <StackPanel Orientation="Horizontal" Spacing="15">
+                    <TextBlock Text="Búsqueda de cliente:" 
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Foreground="#0b5394"/>
+                    <TextBox Width="250" 
+                             Watermark="Nombre, DNI o teléfono..."
+                             Text="{Binding BusquedaCliente}"
+                             Classes="amount-input"/>
+                    <Button Content="Buscar" 
+                            Background="#ffd966"
+                            Foreground="#0b5394"
+                            FontWeight="SemiBold"
+                            FontSize="14"
+                            Padding="20,10"
+                            CornerRadius="6"
+                            Width="120"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding BuscarClientesManualCommand}"/>
+                    <Button Content="Nuevo cliente +"
+                            Background="#0b5394"
+                            Foreground="White"
+                            FontWeight="SemiBold"
+                            FontSize="14"
+                            Padding="20,10"
+                            CornerRadius="6"
+                            Width="150"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding MostrarNuevoClienteCommand}"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Cliente seleccionado (si hay) -->
+            <Border Classes="card" 
+                    Background="#E3F2FD"
+                    IsVisible="{Binding ClienteSeleccionado, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Grid RowDefinitions="Auto,Auto">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="40">
+                        <StackPanel MinWidth="150">
+                            <TextBlock Text="Cliente:" FontSize="11" Foreground="#666"/>
+                            <TextBlock Text="{Binding ClienteSeleccionado.NombreCompleto}" 
+                                       FontWeight="Bold" 
+                                       Foreground="#0b5394"
+                                       FontSize="14"/>
+                        </StackPanel>
+                        <StackPanel MinWidth="120">
+                            <TextBlock Text="Documento:" FontSize="11" Foreground="#666"/>
+                            <TextBlock Text="{Binding ClienteSeleccionado.DocumentoCompleto}"
+                                       FontSize="13"/>
+                        </StackPanel>
+                        <StackPanel MinWidth="100">
+                            <TextBlock Text="Teléfono:" FontSize="11" Foreground="#666"/>
+                            <TextBlock Text="{Binding ClienteSeleccionado.Telefono}"
+                                       FontSize="13"/>
+                        </StackPanel>
+                        <StackPanel MinWidth="100">
+                            <TextBlock Text="Nacionalidad:" FontSize="11" Foreground="#666"/>
+                            <TextBlock Text="{Binding ClienteSeleccionado.Nacionalidad, TargetNullValue='-'}"
+                                       FontSize="13"/>
+                        </StackPanel>
+                        <Button Content="Cambiar cliente" 
+                                Background="#ffd966"
+                                Foreground="#0b5394"
+                                FontWeight="SemiBold"
+                                Padding="15,8"
+                                CornerRadius="6"
+                                VerticalAlignment="Center"
+                                Command="{Binding LimpiarClienteCommand}"/>
                     </StackPanel>
-                </Border>
-                
-                <!-- ═══════════════════════════════════════════════════════════ -->
-                <!-- SECCIÓN: Cambio de Divisas (Tasas en tiempo real) -->
-                <!-- ═══════════════════════════════════════════════════════════ -->
-                <Border Classes="card">
-                    <StackPanel Spacing="15">
-                        
-                        <!-- Encabezado amarillo -->
-                        <Border Background="#ffd966" 
-                                CornerRadius="6" 
-                                Padding="15,10">
-                            <Grid>
-                                <TextBlock Text="Cambio de divisas" 
-                                           Classes="header"
-                                           Foreground="#0b5394"
-                                           HorizontalAlignment="Center"/>
-                                <Button Content="Actualizar" 
-                                        Classes="secondary"
-                                        HorizontalAlignment="Right"
-                                        Command="{Binding RefreshRatesCommand}"
-                                        IsEnabled="{Binding !IsLoading}"/>
-                            </Grid>
-                        </Border>
-                        
-                        <!-- Lista de divisas favoritas -->
-                        <ItemsControl ItemsSource="{Binding FavoriteCurrencies}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Classes="rate-row">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            
-                                            <TextBlock Grid.Column="0"
-                                                       Text="{Binding FullDisplay}"
-                                                       FontSize="14"
-                                                       Foreground="#333"
-                                                       VerticalAlignment="Center"/>
-                                            
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{Binding RateDisplay}"
-                                                       FontSize="14"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#0b5394"
-                                                       VerticalAlignment="Center"
-                                                       Margin="0,0,15,0"/>
-                                            
-                                            <Button Grid.Column="2"
-                                                    Content="x"
-                                                    Classes="remove-btn"
-                                                    Command="{Binding $parent[UserControl].((vm:CurrencyExchangePanelViewModel)DataContext).RemoveFromFavoritesCommand}"
-                                                    CommandParameter="{Binding}"
-                                                    ToolTip.Tip="Quitar de favoritos"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        
-                        <!-- Botón para agregar divisa -->
-                        <Border Background="#ffd966" 
-                                CornerRadius="4" 
-                                Padding="10,8"
-                                HorizontalAlignment="Stretch"
-                                Cursor="Hand">
-                            <TextBlock Text="+" 
-                                       FontSize="18" 
-                                       FontWeight="Bold"
-                                       Foreground="White"
+                </Grid>
+            </Border>
+            
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- SECCIÓN: Cambio de Divisas -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <Border Classes="card">
+                <StackPanel Spacing="15">
+                    
+                    <!-- Encabezado amarillo -->
+                    <Border Background="#ffd966" 
+                            CornerRadius="6" 
+                            Padding="15,10">
+                        <Grid>
+                            <TextBlock Text="Cambio de divisas" 
+                                       Classes="header"
+                                       Foreground="#0b5394"
                                        HorizontalAlignment="Center"/>
-                        </Border>
-                        
-                        <!-- Mensaje de última actualización -->
-                        <TextBlock Text="{Binding LastUpdateText}"
-                                   FontSize="11"
-                                   Foreground="#888"
-                                   HorizontalAlignment="Right"/>
-                        
-                    </StackPanel>
-                </Border>
-                
-                <!-- ═══════════════════════════════════════════════════════════ -->
-                <!-- SECCIÓN: Calculadora de Compra -->
-                <!-- ═══════════════════════════════════════════════════════════ -->
-                <Border Classes="card">
-                    <StackPanel Spacing="20">
-                        
-                        <TextBlock Text="¿Qué moneda compras?" 
-                                   Classes="header"/>
-                        
-                        <!-- Selector de divisa -->
-                        <ComboBox Classes="currency-select"
-                                  ItemsSource="{Binding AvailableCurrencies}"
-                                  SelectedItem="{Binding SelectedCurrency}">
+                            <Button Content="Actualizar" 
+                                    Classes="secondary"
+                                    HorizontalAlignment="Right"
+                                    Command="{Binding RefreshRatesCommand}"
+                                    IsEnabled="{Binding !IsLoading}"/>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Lista de tasas de cambio -->
+                    <ItemsControl ItemsSource="{Binding FavoriteCurrencies}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="rate-row">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <Button Grid.Column="0"
+                                                Classes="transparent-btn"
+                                                Padding="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                Command="{Binding $parent[ItemsControl].((vm:CurrencyExchangePanelViewModel)DataContext).SeleccionarDivisaFavoritaCommand}"
+                                                CommandParameter="{Binding}">
+                                            <TextBlock Text="{Binding FullDisplay}" 
+                                                       VerticalAlignment="Center"/>
+                                        </Button>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding RateDisplay}" 
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#0b5394"
+                                                   FontWeight="SemiBold"
+                                                   Margin="10,0"/>
+                                        <Button Grid.Column="2"
+                                                Content="X"
+                                                Classes="transparent-btn"
+                                                Foreground="#999"
+                                                FontSize="12"
+                                                Padding="8,4"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding $parent[ItemsControl].((vm:CurrencyExchangePanelViewModel)DataContext).QuitarDeFavoritasCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    
+                    <!-- Botón agregar divisa -->
+                    <Button Background="#ffd966" 
+                            CornerRadius="6" 
+                            Padding="12,10"
+                            Cursor="Hand"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding MostrarAgregarDivisaCommand}">
+                        <TextBlock Text="+" 
+                                   HorizontalAlignment="Center"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#0b5394"/>
+                    </Button>
+                    
+                    <!-- Última actualización -->
+                    <TextBlock Text="{Binding LastUpdateText}"
+                               FontSize="11"
+                               Foreground="#888"
+                               HorizontalAlignment="Right"/>
+                    
+                </StackPanel>
+            </Border>
+            
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- SECCIÓN: Calculadora -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <Border Classes="card">
+                <StackPanel Spacing="20">
+                    
+                    <TextBlock Text="¿Qué moneda compras?" Classes="subheader"/>
+                    
+                    <!-- Selector de divisa -->
+                    <Panel>
+                        <ComboBox ItemsSource="{Binding AvailableCurrencies}"
+                                  SelectedItem="{Binding SelectedCurrency}"
+                                  HorizontalAlignment="Stretch">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding DisplayText}"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        
-                        <!-- Tasa de cambio actual -->
-                        <TextBlock Text="{Binding RateDisplayText}"
-                                   FontSize="13"
-                                   Foreground="#666"
-                                   Margin="0,-10,0,0"/>
-                        
-                        <!-- Cantidad recibida -->
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Cantidad recibida" 
-                                       Classes="subheader"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <TextBox Grid.Column="0"
-                                         Classes="amount-input"
-                                         Text="{Binding AmountReceived, Mode=TwoWay}"
-                                         Watermark="0"
-                                         MaxWidth="200"
-                                         HorizontalAlignment="Left"/>
-                                
-                                <Border Grid.Column="1"
-                                        Background="#f0f0f0"
-                                        CornerRadius="6"
-                                        Padding="15,10"
-                                        Margin="10,0,0,0">
-                                    <TextBlock Text="{Binding SelectedCurrency.Code, FallbackValue='---'}"
-                                               FontWeight="SemiBold"
-                                               Foreground="#0b5394"/>
-                                </Border>
-                            </Grid>
-                        </StackPanel>
-                        
-                        <!-- Total entregado -->
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Total entregado" 
-                                       Classes="subheader"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <TextBox Grid.Column="0"
-                                         Classes="amount-readonly"
-                                         Text="{Binding TotalInEuros, StringFormat={}{0:F2}}"
-                                         MaxWidth="200"
-                                         HorizontalAlignment="Left"/>
-                                
-                                <Border Grid.Column="1"
-                                        Background="#0b5394"
-                                        CornerRadius="6"
-                                        Padding="15,10"
-                                        Margin="10,0,0,0">
-                                    <TextBlock Text="EUR"
-                                               FontWeight="SemiBold"
-                                               Foreground="White"/>
-                                </Border>
-                            </Grid>
-                        </StackPanel>
-                        
-                        <!-- Mensaje de error -->
-                        <TextBlock Text="{Binding ErrorMessage}"
-                                   Foreground="#c00"
-                                   FontSize="13"
-                                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                        
-                        <!-- Botón confirmar -->
-                        <Button Content="CONFIRMAR TRANSACCIÓN"
-                                Classes="primary"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                Command="{Binding ConfirmTransactionCommand}"
-                                Margin="0,10,0,0"/>
-                        
-                    </StackPanel>
-                </Border>
-                
-                <!-- Indicador de carga -->
-                <Border Background="#fff8"
-                        IsVisible="{Binding IsLoading}"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        CornerRadius="8"
-                        Padding="20">
-                    <TextBlock Text="Cargando..."
-                               FontSize="14"
-                               Foreground="#666"/>
-                </Border>
-                
-            </StackPanel>
-        </ScrollViewer>
-        
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- DIÁLOGO: Confirmación de Transacción -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <Border Background="#0008"
-                IsVisible="{Binding ShowTransactionDialog}"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch">
-            <Border Background="White"
-                    CornerRadius="12"
-                    MaxWidth="450"
-                    MaxHeight="500"
-                    Padding="30"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    BoxShadow="0 8 30 0 #40000000">
-                <StackPanel Spacing="20">
+                    </Panel>
                     
-                    <!-- Título -->
-                    <TextBlock Text="Transacción Realizada"
-                               FontSize="22"
-                               FontWeight="Bold"
-                               Foreground="#0b5394"
-                               HorizontalAlignment="Center"/>
+                    <!-- Tasa de cambio -->
+                    <TextBlock Text="{Binding RateDisplayText}"
+                               FontSize="13"
+                               Foreground="#666"
+                               IsVisible="{Binding SelectedCurrency, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                     
-                    <!-- Separador -->
-                    <Border Height="2" Background="#ffd966" CornerRadius="1"/>
-                    
-                    <!-- Detalles de la transacción -->
-                    <StackPanel Spacing="12" IsVisible="{Binding TransactionResult, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="ID Transacción:" Foreground="#666"/>
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding TransactionResult.TransactionId}" 
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Right"/>
+                    <!-- Cantidad recibida -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Cantidad recibida" Classes="subheader"/>
+                        <Grid ColumnDefinitions="*,60" MaxWidth="400" HorizontalAlignment="Left">
+                            <TextBox Grid.Column="0" 
+                                     Text="{Binding AmountReceived}"
+                                     Watermark="0.00"
+                                     Classes="amount-input"/>
+                            <Border Grid.Column="1" 
+                                    Background="#f0f0f0" 
+                                    CornerRadius="0,6,6,0"
+                                    Padding="12,10"
+                                    Margin="-1,0,0,0"
+                                    BorderBrush="#0b5394"
+                                    BorderThickness="1">
+                                <TextBlock Text="{Binding SelectedCurrency.Code, FallbackValue='---'}"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
                         </Grid>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="Fecha:" Foreground="#666"/>
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding TransactionResult.TransactionDate, StringFormat={}{0:dd/MM/yyyy}}" 
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Right"/>
-                        </Grid>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="Hora:" Foreground="#666"/>
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding TransactionResult.TransactionTime}" 
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Right"/>
-                        </Grid>
-                        
-                        <Border Height="1" Background="#eee"/>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="Divisa:" Foreground="#666"/>
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding TransactionResult.CurrencyName}" 
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Right"/>
-                        </Grid>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="Cantidad recibida:" Foreground="#666"/>
-                            <TextBlock Grid.Column="1" 
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Right">
-                                <TextBlock.Text>
-                                    <MultiBinding StringFormat="{}{0:F2} {1}">
-                                        <Binding Path="TransactionResult.AmountReceived"/>
-                                        <Binding Path="TransactionResult.CurrencyCode"/>
-                                    </MultiBinding>
-                                </TextBlock.Text>
-                            </TextBlock>
-                        </Grid>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="Tasa de cambio:" Foreground="#666"/>
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding TransactionResult.ExchangeRate, StringFormat={}{0:F5}}" 
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Right"/>
-                        </Grid>
-                        
-                        <Border Height="1" Background="#eee"/>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" 
-                                       Text="TOTAL ENTREGADO:" 
-                                       FontWeight="Bold"
-                                       Foreground="#0b5394"/>
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding TransactionResult.AmountInEuros, StringFormat={}{0:F2} EUR}" 
-                                       FontWeight="Bold"
-                                       FontSize="16"
-                                       Foreground="#0b5394"
-                                       HorizontalAlignment="Right"/>
-                        </Grid>
-                        
-                        <Border Height="1" Background="#eee"/>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="2*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0" Text="Lugar:" Foreground="#666"/>
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding TransactionResult.Location}" 
-                                       TextWrapping="Wrap"
-                                       HorizontalAlignment="Right"
-                                       TextAlignment="Right"/>
-                        </Grid>
-                        
                     </StackPanel>
                     
-                    <!-- Botón cerrar -->
-                    <Button Content="ACEPTAR"
-                            Classes="primary"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Command="{Binding CloseTransactionDialogCommand}"
-                            Margin="0,10,0,0"/>
+                    <!-- Total entregado -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Total entregado" Classes="subheader"/>
+                        <Grid ColumnDefinitions="*,60" MaxWidth="400" HorizontalAlignment="Left">
+                            <Border Grid.Column="0" 
+                                    Background="White" 
+                                    CornerRadius="6,0,0,6"
+                                    Padding="12,10"
+                                    BorderBrush="#0b5394"
+                                    BorderThickness="1">
+                                <TextBlock Text="{Binding TotalInEuros, StringFormat='{}{0:N2}'}"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" 
+                                    Background="#f0f0f0" 
+                                    CornerRadius="0,6,6,0"
+                                    Padding="12,10"
+                                    Margin="-1,0,0,0"
+                                    BorderBrush="#0b5394"
+                                    BorderThickness="1">
+                                <TextBlock Text="EUR"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                    
+                    <!-- Estado de operación -->
+                    <Border Background="#E8F5E9"
+                            CornerRadius="6"
+                            Padding="12"
+                            IsVisible="{Binding PuedeRealizarOperacion}">
+                        <TextBlock Text="Listo para realizar operación"
+                                   HorizontalAlignment="Center"
+                                   Foreground="#2E7D32"
+                                   FontWeight="SemiBold"/>
+                    </Border>
+                    
+                    <Border Background="#FFF3E0"
+                            CornerRadius="6"
+                            Padding="12"
+                            IsVisible="{Binding !PuedeRealizarOperacion}">
+                        <TextBlock Text="Seleccione un cliente para continuar"
+                                   HorizontalAlignment="Center"
+                                   Foreground="#E65100"
+                                   FontWeight="SemiBold"/>
+                    </Border>
                     
                 </StackPanel>
             </Border>
-        </Border>
-        
-    </Grid>
+            
+            <!-- Error -->
+            <Border Background="#FFEBEE"
+                    CornerRadius="6"
+                    Padding="15"
+                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}" 
+                           Foreground="#C62828"
+                           FontWeight="SemiBold"/>
+            </Border>
+            
+        </StackPanel>
+    </ScrollViewer>
     
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- POPUP FLOTANTE: Resultados de Búsqueda de Clientes -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <Border IsVisible="{Binding MostrarResultadosBusqueda}"
+            Background="White"
+            CornerRadius="8"
+            BoxShadow="0 4 16 0 #50000000"
+            Margin="190,75,0,0"
+            Padding="8"
+            Width="380"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top">
+        <StackPanel>
+            <TextBlock Text="Resultados:" 
+                       FontSize="11" 
+                       Foreground="#888" 
+                       Margin="8,4,8,8"/>
+            <ScrollViewer MaxHeight="250">
+                <ItemsControl ItemsSource="{Binding ClientesEncontrados}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Padding="12,10"
+                                    Margin="2"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    CornerRadius="4"
+                                    Command="{Binding $parent[ItemsControl].((vm:CurrencyExchangePanelViewModel)DataContext).SeleccionarClienteCommand}"
+                                    CommandParameter="{Binding}">
+                                <Button.Styles>
+                                    <Style Selector="Button:pointerover">
+                                        <Setter Property="Background" Value="#F0F7FF"/>
+                                    </Style>
+                                </Button.Styles>
+                                <Grid ColumnDefinitions="150,100,90">
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding NombreCompleto}" 
+                                               FontWeight="SemiBold"
+                                               Foreground="#333"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding DocumentoCompleto}"
+                                               FontSize="12" 
+                                               Foreground="#666"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Telefono}"
+                                               FontSize="12"
+                                               Foreground="#888"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <Button Content="Cerrar"
+                    Background="#f0f0f0"
+                    Foreground="#666"
+                    FontSize="11"
+                    Padding="8,4"
+                    Margin="4,8,4,0"
+                    HorizontalAlignment="Right"
+                    CornerRadius="4"
+                    Command="{Binding CerrarBusquedaCommand}"/>
+        </StackPanel>
+    </Border>
+    
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- POPUP FLOTANTE: Nuevo Cliente -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <Border IsVisible="{Binding MostrarFormularioCliente}"
+            Background="#80000000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Border Background="White"
+                CornerRadius="12"
+                Padding="25"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                MinWidth="500"
+                MaxWidth="600"
+                BoxShadow="0 8 24 0 #40000000">
+            <StackPanel Spacing="15">
+                <Grid>
+                    <TextBlock Text="Nuevo Cliente" Classes="header"/>
+                    <Button Content="X" 
+                            Background="Transparent"
+                            Foreground="#666"
+                            FontWeight="Bold"
+                            HorizontalAlignment="Right"
+                            Command="{Binding CancelarNuevoClienteCommand}"/>
+                </Grid>
+                
+                <Border Height="1" Background="#E0E0E0"/>
+                
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    
+                    <!-- Fila 1 -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4" Margin="0,0,10,10">
+                        <TextBlock Text="Nombre *" FontSize="12" Foreground="#666"/>
+                        <TextBox Text="{Binding NuevoNombre}" Classes="amount-input"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4" Margin="10,0,0,10">
+                        <TextBlock Text="Apellido" FontSize="12" Foreground="#666"/>
+                        <TextBox Text="{Binding NuevoApellido}" Classes="amount-input"/>
+                    </StackPanel>
+                    
+                    <!-- Fila 2 -->
+                    <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4" Margin="0,0,10,10">
+                        <TextBlock Text="Teléfono" FontSize="12" Foreground="#666"/>
+                        <TextBox Text="{Binding NuevoTelefono}" Classes="amount-input"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4" Margin="10,0,0,10">
+                        <TextBlock Text="Dirección" FontSize="12" Foreground="#666"/>
+                        <TextBox Text="{Binding NuevaDireccion}" Classes="amount-input"/>
+                    </StackPanel>
+                    
+                    <!-- Fila 3 -->
+                    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4" Margin="0,0,10,10">
+                        <TextBlock Text="Nacionalidad" FontSize="12" Foreground="#666"/>
+                        <TextBox Text="{Binding NuevaNacionalidad}" Classes="amount-input"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4" Margin="10,0,0,10">
+                        <TextBlock Text="Tipo documento" FontSize="12" Foreground="#666"/>
+                        <ComboBox ItemsSource="{Binding TiposDocumento}"
+                                  SelectedItem="{Binding NuevoTipoDocumento}"
+                                  HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    
+                    <!-- Fila 4 -->
+                    <StackPanel Grid.Row="3" Grid.Column="0" Spacing="4" Margin="0,0,10,10">
+                        <TextBlock Text="Nº documento *" FontSize="12" Foreground="#666"/>
+                        <TextBox Text="{Binding NuevoNumeroDocumento}" Classes="amount-input"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4" Margin="10,0,0,10">
+                        <TextBlock Text="Caducidad doc." FontSize="12" Foreground="#666"/>
+                        <DatePicker SelectedDate="{Binding NuevaCaducidadDocumento}"
+                                    HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    
+                    <!-- Fila 5 -->
+                    <StackPanel Grid.Row="4" Grid.Column="0" Spacing="4" Margin="0,0,10,10">
+                        <TextBlock Text="Fecha nacimiento" FontSize="12" Foreground="#666"/>
+                        <DatePicker SelectedDate="{Binding NuevaFechaNacimiento}"
+                                    HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="4" Grid.Column="1" Spacing="4" Margin="10,0,0,10">
+                        <TextBlock Text="Imagen documento" FontSize="12" Foreground="#666"/>
+                        <Button Content="Seleccionar archivo..."
+                                Classes="secondary"
+                                HorizontalAlignment="Stretch"
+                                x:Name="BtnSeleccionarImagen"/>
+                    </StackPanel>
+                    
+                </Grid>
+                
+                <!-- Previsualización de imagen -->
+                <Border IsVisible="{Binding TieneImagenDocumento}"
+                        Background="#F5F5F5"
+                        CornerRadius="8"
+                        Padding="10"
+                        HorizontalAlignment="Center">
+                    <StackPanel Spacing="8">
+                        <Image Source="{Binding ImagenDocumentoPreview}"
+                               MaxWidth="300"
+                               MaxHeight="200"
+                               Stretch="Uniform"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding NuevoNombreArchivoDocumento}"
+                                       FontSize="11"
+                                       Foreground="#666"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="Quitar"
+                                    Background="#FFEBEE"
+                                    Foreground="#C62828"
+                                    FontSize="11"
+                                    Padding="8,4"
+                                    CornerRadius="4"
+                                    Command="{Binding QuitarImagenDocumentoCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                
+                <Grid ColumnDefinitions="*,*">
+                    <Button Grid.Column="0"
+                            Content="Cancelar"
+                            Classes="secondary"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,0,5,0"
+                            Command="{Binding CancelarNuevoClienteCommand}"/>
+                    <Button Grid.Column="1"
+                            Content="Guardar Cliente"
+                            Classes="primary"
+                            HorizontalAlignment="Stretch"
+                            Margin="5,0,0,0"
+                            Command="{Binding GuardarNuevoClienteCommand}"/>
+                </Grid>
+                
+            </StackPanel>
+        </Border>
+    </Border>
+    
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- POPUP FLOTANTE: Agregar Divisa -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <Border IsVisible="{Binding MostrarSelectorDivisas}"
+            Background="#80000000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Border Background="White"
+                CornerRadius="12"
+                Padding="25"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                MinWidth="400"
+                MaxWidth="500"
+                MaxHeight="500"
+                BoxShadow="0 8 24 0 #40000000">
+            <StackPanel Spacing="15">
+                <Grid>
+                    <TextBlock Text="Agregar Divisa" Classes="header"/>
+                    <Button Content="X" 
+                            Background="Transparent"
+                            Foreground="#666"
+                            FontWeight="Bold"
+                            HorizontalAlignment="Right"
+                            Command="{Binding CerrarSelectorDivisasCommand}"/>
+                </Grid>
+                
+                <Border Height="1" Background="#E0E0E0"/>
+                
+                <TextBox Text="{Binding BusquedaDivisa}"
+                         Watermark="Buscar divisa..."
+                         Classes="amount-input"/>
+                
+                <ScrollViewer MaxHeight="300">
+                    <ItemsControl ItemsSource="{Binding DivisasBusqueda}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        Margin="0,2"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Command="{Binding $parent[ItemsControl].((vm:CurrencyExchangePanelViewModel)DataContext).AgregarAFavoritasCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Border Classes="rate-row">
+                                        <Grid>
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold">
+                                                    <Run Text="{Binding Code}"/>
+                                                    <Run Text=" - "/>
+                                                    <Run Text="{Binding Name}"/>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Country}" 
+                                                           FontSize="11" 
+                                                           Foreground="#888"/>
+                                            </StackPanel>
+                                            <TextBlock Text="+" 
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="18"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0b5394"/>
+                                        </Grid>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                
+            </StackPanel>
+        </Border>
+    </Border>
+    
+    </Grid>
+
 </UserControl>

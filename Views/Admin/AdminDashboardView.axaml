@@ -54,7 +54,7 @@
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    Foreground="#999999"
-                                   Padding="24,12,24,10"/>
+                                   Margin="24,0,24,12"/>
 
                         <!-- Gestión de comercios -->
                         <Button Classes="admin-menu-item"
@@ -62,7 +62,7 @@
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="comercios"
                                 IsVisible="{Binding MostrarGestionComercios}"
-                                Margin="12,2,12,2"
+                                Margin="12,0"
                                 CornerRadius="8">
                             <TextBlock Text="Gestión de comercios" Classes="admin-menu-text"/>
                         </Button>
@@ -73,20 +73,31 @@
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="usuarios"
                                 IsVisible="{Binding MostrarGestionUsuarios}"
-                                Margin="12,2,12,2"
+                                Margin="12,0"
                                 CornerRadius="8">
                             <TextBlock Text="Gestión de usuarios" Classes="admin-menu-text"/>
                         </Button>
 
-                        <!-- Usuarios Allva -->
+                        <!-- Usuarios Allva (solo nivel 3-4) -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='usuarios_allva'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="usuarios_allva"
                                 IsVisible="{Binding MostrarUsuariosAllva}"
-                                Margin="12,2,12,2"
+                                Margin="12,0"
                                 CornerRadius="8">
                             <TextBlock Text="Usuarios Allva" Classes="admin-menu-text"/>
+                        </Button>
+
+                        <!-- Divisas - NUEVO -->
+                        <Button Classes="admin-menu-item"
+                                Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='divisas'}"
+                                Command="{Binding NavigateToModuleCommand}"
+                                CommandParameter="divisas"
+                                IsVisible="{Binding MostrarDivisas}"
+                                Margin="12,0"
+                                CornerRadius="8">
+                            <TextBlock Text="Divisas" Classes="admin-menu-text"/>
                         </Button>
 
                     </StackPanel>
@@ -140,28 +151,18 @@
                                         Background="White"
                                         Width="38"
                                         Height="38"
-                                        CornerRadius="8"
+                                        CornerRadius="19"
                                         Padding="0"
                                         BorderThickness="0"
                                         Cursor="Hand"
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center">
-                                    <Viewbox Width="20" Height="20">
-                                        <Canvas Width="24" Height="24">
-                                            <!-- Cabeza centrada -->
-                                            <Ellipse Width="10" Height="10" 
-                                                     Canvas.Left="7" 
-                                                     Canvas.Top="2"
-                                                     Stroke="#0b5394" 
-                                                     StrokeThickness="2"
-                                                     Fill="Transparent"/>
-                                            <!-- Cuerpo centrado -->
-                                            <Path Data="M4,22 C4,17 8,14 12,14 C16,14 20,17 20,22" 
-                                                  Stroke="#0b5394" 
-                                                  StrokeThickness="2"
-                                                  StrokeLineCap="Round"/>
-                                        </Canvas>
-                                    </Viewbox>
+                                    <TextBlock Text="A"
+                                               FontSize="16"
+                                               FontWeight="Bold"
+                                               Foreground="#0b5394"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
                                 </Button>
                                 
                                 <Popup x:Name="UserPopup" 
@@ -176,27 +177,34 @@
                                             MinWidth="200"
                                             Padding="0">
                                         <StackPanel>
+                                            <!-- Encabezado -->
                                             <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
-                                                <StackPanel>
+                                                <StackPanel Spacing="2">
                                                     <TextBlock Text="{Binding AdminName}" 
                                                                FontSize="15"
                                                                FontWeight="SemiBold"
                                                                Foreground="#0b5394"/>
                                                     <TextBlock Text="Administrador" 
                                                                FontSize="12"
-                                                               Foreground="#888888"
-                                                               Margin="0,2,0,0"/>
+                                                               Foreground="#888888"/>
                                                 </StackPanel>
                                             </Border>
+                                            
                                             <Border Height="1" Background="#EEEEEE"/>
-                                            <Button Background="White"
+                                            
+                                            <!-- Opciones -->
+                                            <Button Background="Transparent"
                                                     BorderThickness="0"
                                                     Padding="16,12"
                                                     HorizontalAlignment="Stretch"
                                                     HorizontalContentAlignment="Left"
-                                                    IsEnabled="False"
-                                                    Opacity="0.5"
-                                                    CornerRadius="0,0,10,10">
+                                                    Cursor="Hand"
+                                                    IsEnabled="False">
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover">
+                                                        <Setter Property="Background" Value="#F5F5F5"/>
+                                                    </Style>
+                                                </Button.Styles>
                                                 <TextBlock Text="Mi perfil" 
                                                            FontSize="14" 
                                                            Foreground="#444444"/>
@@ -229,11 +237,11 @@
                                 </Button>
                                 
                                 <Popup x:Name="MenuPopup" 
-                                    PlacementTarget="{Binding #MenuButton}"
-                                    Placement="BottomEdgeAlignedRight"
-                                    IsLightDismissEnabled="True"
-                                    HorizontalOffset="0"
-                                    VerticalOffset="6">
+                                       PlacementTarget="{Binding #MenuButton}"
+                                       Placement="BottomEdgeAlignedRight"
+                                       IsLightDismissEnabled="True"
+                                       HorizontalOffset="0"
+                                       VerticalOffset="6">
                                     <Border Background="White"
                                             CornerRadius="10"
                                             BoxShadow="0 8 24 0 #30000000"
@@ -243,9 +251,9 @@
                                             <!-- Encabezado del menú -->
                                             <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
                                                 <TextBlock Text="Opciones" 
-                                                        FontSize="15"
-                                                        FontWeight="SemiBold"
-                                                        Foreground="#0b5394"/>
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#0b5394"/>
                                             </Border>
                                             
                                             <Border Height="1" Background="#EEEEEE"/>
@@ -268,8 +276,8 @@
                                                                 </Style>
                                                             </Button.Styles>
                                                             <TextBlock Text="{Binding Titulo}" 
-                                                                    FontSize="14" 
-                                                                    Foreground="#444444"/>
+                                                                       FontSize="14" 
+                                                                       Foreground="#444444"/>
                                                         </Button>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>

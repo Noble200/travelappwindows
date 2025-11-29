@@ -9,20 +9,11 @@ using Allva.Desktop.Views.Admin;
 
 namespace Allva.Desktop.ViewModels.Admin;
 
-/// <summary>
-/// ViewModel para el Panel de Administración
-/// Exclusivo para administradores del sistema
-/// Los módulos del menú hamburguesa se cargan dinámicamente desde MenuHamburguesaService
-/// </summary>
 public partial class AdminDashboardViewModel : ObservableObject
 {
     private readonly NavigationService? _navigationService;
     private readonly MenuHamburguesaService _menuService;
-    private PermisosAdministrador? _permisos;
-    
-    // ============================================
-    // PROPIEDADES OBSERVABLES
-    // ============================================
+    private Services.PermisosAdministrador? _permisos;
 
     [ObservableProperty]
     private UserControl? _currentView;
@@ -33,47 +24,33 @@ public partial class AdminDashboardViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedModule = "comercios";
 
-    /// <summary>
-    /// Items del menú hamburguesa cargados dinámicamente
-    /// </summary>
     [ObservableProperty]
     private ObservableCollection<MenuHamburguesaItem> _menuHamburguesaItems = new();
 
-    /// <summary>
-    /// Título del módulo seleccionado para mostrar en UI
-    /// </summary>
     public string SelectedModuleTitle
     {
         get
         {
-            // Primero verificar si es un módulo del menú hamburguesa
             if (_menuService.EsModuloMenuHamburguesa(SelectedModule))
             {
                 return _menuService.ObtenerTituloModulo(SelectedModule);
             }
             
-            // Módulos principales del sidebar
             return SelectedModule switch
             {
                 "comercios" => "GESTIÓN DE COMERCIOS",
                 "usuarios" => "GESTIÓN DE USUARIOS",
                 "usuarios_allva" => "USUARIOS ALLVA",
+                "divisas" => "CONFIGURACIÓN DE DIVISAS",
                 _ => "PANEL DE ADMINISTRACIÓN"
             };
         }
     }
 
-    // ============================================
-    // PROPIEDADES PARA VISIBILIDAD DE MÓDULOS
-    // ============================================
-
     public bool MostrarGestionComercios => _permisos?.AccesoGestionComercios ?? true;
     public bool MostrarGestionUsuarios => _permisos?.AccesoGestionUsuariosLocales ?? true;
     public bool MostrarUsuariosAllva => _permisos?.AccesoGestionUsuariosAllva ?? false;
-
-    // ============================================
-    // CONSTRUCTORES
-    // ============================================
+    public bool MostrarDivisas => true;
 
     public AdminDashboardViewModel()
     {
@@ -108,13 +85,6 @@ public partial class AdminDashboardViewModel : ObservableObject
         NavigateToModule("comercios");
     }
 
-    // ============================================
-    // MÉTODOS PRIVADOS
-    // ============================================
-
-    /// <summary>
-    /// Carga los items del menú hamburguesa desde el servicio
-    /// </summary>
     private void CargarMenuHamburguesa()
     {
         MenuHamburguesaItems.Clear();
@@ -124,13 +94,6 @@ public partial class AdminDashboardViewModel : ObservableObject
         }
     }
 
-    // ============================================
-    // COMANDOS
-    // ============================================
-
-    /// <summary>
-    /// Navega a un módulo específico (sidebar o menú hamburguesa)
-    /// </summary>
     [RelayCommand]
     private void NavigateToModule(string? moduleName)
     {
@@ -140,19 +103,18 @@ public partial class AdminDashboardViewModel : ObservableObject
         var module = moduleName.ToLower();
         SelectedModule = module;
         
-        // Verificar si es un módulo del menú hamburguesa
         if (_menuService.EsModuloMenuHamburguesa(module))
         {
             CurrentView = _menuService.CrearVistaParaItem(module);
         }
         else
         {
-            // Módulos principales del sidebar
             CurrentView = module switch
             {
                 "comercios" => new ManageComerciosView(),
                 "usuarios" => new ManageUsersView(),
                 "usuarios_allva" => new ManageAdministradoresAllvaView(),
+                "divisas" => new ManageDivisasView(),
                 _ => CurrentView
             };
         }
@@ -160,9 +122,6 @@ public partial class AdminDashboardViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedModuleTitle));
     }
 
-    /// <summary>
-    /// Navega a un item específico del menú hamburguesa
-    /// </summary>
     [RelayCommand]
     private void NavigateToMenuHamburguesaItem(MenuHamburguesaItem? item)
     {
@@ -170,9 +129,6 @@ public partial class AdminDashboardViewModel : ObservableObject
         NavigateToModule(item.Id);
     }
 
-    /// <summary>
-    /// Cierra sesión y vuelve al login
-    /// </summary>
     [RelayCommand]
     private void Logout()
     {
