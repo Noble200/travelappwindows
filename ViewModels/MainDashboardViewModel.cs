@@ -9,6 +9,7 @@ namespace Allva.Desktop.ViewModels;
 
 /// <summary>
 /// ViewModel para el Dashboard principal con menú de navegación
+/// Almacena los datos de sesión del usuario logueado
 /// </summary>
 public partial class MainDashboardViewModel : ObservableObject
 {
@@ -24,6 +25,20 @@ public partial class MainDashboardViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedModule = "dashboard";
 
+    // ============================================
+    // DATOS DE SESIÓN DEL USUARIO
+    // ============================================
+    
+    private int _idUsuario = 0;
+    private int _idLocal = 0;
+    private int _idComercio = 0;
+    private string _numeroUsuario = "";
+    
+    public int IdUsuario => _idUsuario;
+    public int IdLocal => _idLocal;
+    public int IdComercio => _idComercio;
+    public string NumeroUsuario => _numeroUsuario;
+
     public MainDashboardViewModel()
     {
         // Cargar vista inicial (Últimas Noticias)
@@ -31,13 +46,47 @@ public partial class MainDashboardViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Constructor con datos de usuario
+    /// Constructor con datos de usuario (básico)
     /// </summary>
     public MainDashboardViewModel(string userName, string localCode)
     {
         UserName = userName;
         LocalCode = localCode;
         NavigateToModule("dashboard");
+    }
+    
+    /// <summary>
+    /// Constructor COMPLETO con todos los datos de sesión
+    /// Este es el que debe usarse desde el Login
+    /// </summary>
+    public MainDashboardViewModel(int idUsuario, string nombreUsuario, string numeroUsuario, 
+                                   int idLocal, string codigoLocal, int idComercio)
+    {
+        _idUsuario = idUsuario;
+        _idLocal = idLocal;
+        _idComercio = idComercio;
+        _numeroUsuario = numeroUsuario;
+        
+        UserName = nombreUsuario;
+        LocalCode = codigoLocal;
+        
+        NavigateToModule("dashboard");
+    }
+
+    /// <summary>
+    /// Método para establecer los datos de sesión después de crear el ViewModel
+    /// Útil si se usa el constructor vacío
+    /// </summary>
+    public void SetSesionData(int idUsuario, string nombreUsuario, string numeroUsuario,
+                               int idLocal, string codigoLocal, int idComercio)
+    {
+        _idUsuario = idUsuario;
+        _idLocal = idLocal;
+        _idComercio = idComercio;
+        _numeroUsuario = numeroUsuario;
+        
+        UserName = nombreUsuario;
+        LocalCode = codigoLocal;
     }
 
     /// <summary>
@@ -81,7 +130,15 @@ public partial class MainDashboardViewModel : ObservableObject
     private UserControl CreateCurrencyExchangeView()
     {
         var view = new CurrencyExchangePanelView();
-        view.DataContext = new CurrencyExchangePanelViewModel();
+        // CAMBIO: Pasar los datos de sesión al ViewModel de divisas
+        var viewModel = new CurrencyExchangePanelViewModel(
+            _idLocal, 
+            _idComercio, 
+            _idUsuario, 
+            UserName, 
+            _numeroUsuario
+        );
+        view.DataContext = viewModel;
         return view;
     }
 

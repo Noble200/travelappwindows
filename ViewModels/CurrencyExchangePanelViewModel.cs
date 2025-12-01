@@ -572,7 +572,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     }
 
     // ═══════════════════════════════════════════════════════════
-    // BÚSQUEDA DE CLIENTES
+    // BÚSQUEDA DE CLIENTES - FILTRADO POR COMERCIO
     // ═══════════════════════════════════════════════════════════
     
     [RelayCommand]
@@ -594,6 +594,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         await BuscarClientesAsync(null);
     }
 
+    /// <summary>
+    /// Busca clientes FILTRADOS POR COMERCIO
+    /// Los clientes pertenecen al comercio, se comparten entre locales del mismo comercio
+    /// </summary>
     private async Task BuscarClientesAsync(string? termino)
     {
         try
@@ -609,11 +613,17 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             {
                 whereClause = TipoBusquedaSeleccionado switch
                 {
-                    "Nombre" => "(nombre ILIKE @termino OR apellidos ILIKE @termino OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)",
+                    "Nombre" => @"(nombre ILIKE @termino OR apellidos ILIKE @termino 
+                                  OR COALESCE(segundo_nombre, '') ILIKE @termino 
+                                  OR COALESCE(segundo_apellido, '') ILIKE @termino
+                                  OR CONCAT(nombre, ' ', apellidos) ILIKE @termino
+                                  OR CONCAT(nombre, ' ', COALESCE(segundo_nombre, ''), ' ', apellidos, ' ', COALESCE(segundo_apellido, '')) ILIKE @termino)",
                     "Documento" => "documento_numero ILIKE @termino",
                     "Teléfono" => "telefono ILIKE @termino",
                     _ => @"(documento_numero ILIKE @termino OR telefono ILIKE @termino OR nombre ILIKE @termino 
-                           OR apellidos ILIKE @termino OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)"
+                           OR apellidos ILIKE @termino OR COALESCE(segundo_nombre, '') ILIKE @termino
+                           OR COALESCE(segundo_apellido, '') ILIKE @termino
+                           OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)"
                 };
             }
             else
@@ -621,8 +631,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 whereClause = "1=1";
             }
 
-            var localFilter = _idLocalActual > 0 
-                ? $" AND (id_local_registro = {_idLocalActual} OR id_local_registro IS NULL)" 
+            // CAMBIO PRINCIPAL: Filtrar por COMERCIO en lugar de local
+            // Los clientes son unicos por comercio, compartidos entre locales del mismo comercio
+            var comercioFilter = _idComercioActual > 0 
+                ? " AND id_comercio_registro = @idComercio" 
                 : "";
 
             var sql = $@"SELECT DISTINCT id_cliente, nombre, apellidos, telefono, direccion,
@@ -633,13 +645,15 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                                segundo_nombre, segundo_apellido,
                                imagen_documento_frontal, imagen_documento_trasera
                         FROM clientes
-                        WHERE activo = true AND {whereClause}{localFilter}
+                        WHERE activo = true AND {whereClause}{comercioFilter}
                         ORDER BY nombre, apellidos
                         LIMIT 50";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
             if (usarTermino)
                 cmd.Parameters.AddWithValue("termino", $"%{termino}%");
+            if (_idComercioActual > 0)
+                cmd.Parameters.AddWithValue("idComercio", _idComercioActual);
 
             ClientesEncontrados.Clear();
             var idsAgregados = new HashSet<int>();
@@ -673,7 +687,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             }
 
             if (!ClientesEncontrados.Any())
-                ErrorMessage = usarTermino ? "No se encontraron clientes" : "No hay clientes registrados";
+                ErrorMessage = usarTermino ? "No se encontraron clientes con ese criterio en este comercio" : "No hay clientes registrados en este comercio";
         }
         catch (Exception ex)
         {
@@ -720,6 +734,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         ImagenDocumentoTraseraPreview = null;
     }
 
+    /// <summary>
+    /// Guarda nuevo cliente ASOCIADO AL COMERCIO
+    /// Se registra id_comercio_registro, id_local_registro e id_usuario_registro
+    /// </summary>
     [RelayCommand]
     private async Task GuardarNuevoClienteAsync()
     {
@@ -731,18 +749,19 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
 
+            // CAMBIO: Agregar id_comercio_registro e id_usuario_registro
             var sql = @"INSERT INTO clientes 
                         (nombre, segundo_nombre, apellidos, segundo_apellido, 
                          telefono, direccion, nacionalidad,
                          documento_tipo, documento_numero, caducidad_documento,
                          fecha_nacimiento, imagen_documento_frontal, imagen_documento_trasera,
-                         id_local_registro, activo)
+                         id_comercio_registro, id_local_registro, id_usuario_registro, activo)
                         VALUES 
                         (@nombre, @segundoNombre, @apellido, @segundoApellido,
                          @telefono, @direccion, @nacionalidad,
                          @tipoDoc, @numDoc, @caducidad, @fechaNac, 
                          @imagenFrontal, @imagenTrasera,
-                         @idLocal, true)
+                         @idComercio, @idLocal, @idUsuario, true)
                         RETURNING id_cliente";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
@@ -759,7 +778,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmd.Parameters.AddWithValue("fechaNac", (object?)NuevaFechaNacimiento?.DateTime ?? DBNull.Value);
             cmd.Parameters.AddWithValue("imagenFrontal", (object?)NuevaImagenDocumentoFrontal ?? DBNull.Value);
             cmd.Parameters.AddWithValue("imagenTrasera", (object?)NuevaImagenDocumentoTrasera ?? DBNull.Value);
+            // NUEVOS CAMPOS: comercio, local y usuario
+            cmd.Parameters.AddWithValue("idComercio", _idComercioActual > 0 ? _idComercioActual : DBNull.Value);
             cmd.Parameters.AddWithValue("idLocal", _idLocalActual > 0 ? _idLocalActual : DBNull.Value);
+            cmd.Parameters.AddWithValue("idUsuario", _idUsuarioActual > 0 ? _idUsuarioActual : DBNull.Value);
 
             var idCliente = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 
@@ -778,7 +800,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 CaducidadDocumento = NuevaCaducidadDocumento?.DateTime,
                 FechaNacimiento = NuevaFechaNacimiento?.DateTime,
                 ImagenDocumentoFrontal = NuevaImagenDocumentoFrontal,
-                ImagenDocumentoTrasera = NuevaImagenDocumentoTrasera
+                ImagenDocumentoTrasera = NuevaImagenDocumentoTrasera,
+                IdComercioRegistro = _idComercioActual > 0 ? _idComercioActual : null,
+                IdLocalRegistro = _idLocalActual > 0 ? _idLocalActual : null,
+                IdUsuarioRegistro = _idUsuarioActual > 0 ? _idUsuarioActual : null
             };
 
             ClienteSeleccionado = nuevoCliente;
@@ -1016,6 +1041,35 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmdDet.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
             
             await cmdDet.ExecuteNonQueryAsync();
+            
+            // Registrar las divisas recibidas por el local/comercio (balance de divisas)
+            var sqlBalance = @"INSERT INTO balance_divisas 
+                              (id_comercio, id_local, id_usuario, id_operacion,
+                               codigo_divisa, nombre_divisa,
+                               cantidad_recibida, cantidad_entregada_eur,
+                               tasa_cambio_momento, tasa_cambio_aplicada,
+                               tipo_movimiento, observaciones)
+                              VALUES 
+                              (@idComercio, @idLocal, @idUsuario, @idOperacion,
+                               @codigoDivisa, @nombreDivisa,
+                               @cantidadRecibida, @cantidadEntregada,
+                               @tasaMomento, @tasaAplicada,
+                               'ENTRADA', @obs)";
+            
+            await using var cmdBalance = new NpgsqlCommand(sqlBalance, conn);
+            cmdBalance.Parameters.AddWithValue("idComercio", idComercioParaOperacion);
+            cmdBalance.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
+            cmdBalance.Parameters.AddWithValue("idUsuario", idUsuarioParaOperacion);
+            cmdBalance.Parameters.AddWithValue("idOperacion", NumeroOperacion);
+            cmdBalance.Parameters.AddWithValue("codigoDivisa", SelectedCurrency.Code);
+            cmdBalance.Parameters.AddWithValue("nombreDivisa", SelectedCurrency.Name);
+            cmdBalance.Parameters.AddWithValue("cantidadRecibida", cantidadOrigen);
+            cmdBalance.Parameters.AddWithValue("cantidadEntregada", TotalInEuros);
+            cmdBalance.Parameters.AddWithValue("tasaMomento", SelectedCurrency.RateToEur);
+            cmdBalance.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
+            cmdBalance.Parameters.AddWithValue("obs", $"Compra de {cantidadOrigen} {SelectedCurrency.Code} - Cliente: {nombreCliente}");
+            
+            await cmdBalance.ExecuteNonQueryAsync();
             
             // Usar el número generado para mostrar
             NumeroOperacionDisplay = numeroOperacionGenerado;

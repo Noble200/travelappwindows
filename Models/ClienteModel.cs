@@ -7,6 +7,8 @@ namespace Allva.Desktop.Models;
 
 /// <summary>
 /// Modelo de Cliente para operaciones de divisas
+/// ACTUALIZADO: Agregado IdComercioRegistro e IdUsuarioRegistro
+/// Los clientes pertenecen a un comercio (compartidos entre locales del mismo comercio)
 /// </summary>
 public class ClienteModel
 {
@@ -29,7 +31,11 @@ public class ClienteModel
     
     public bool Activo { get; set; } = true;
     public DateTime FechaRegistro { get; set; } = DateTime.Now;
+    
+    // Registro: comercio, local y usuario que creó el cliente
+    public int? IdComercioRegistro { get; set; }
     public int? IdLocalRegistro { get; set; }
+    public int? IdUsuarioRegistro { get; set; }
     
     // Propiedades calculadas
     public string NombreCompleto
