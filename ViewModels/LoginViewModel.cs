@@ -9,22 +9,19 @@ using BCrypt.Net;
 namespace Allva.Desktop.ViewModels
 {
     /// <summary>
-    /// ViewModel para la pantalla de inicio de sesión
+    /// ViewModel para la pantalla de inicio de sesion
+    /// 
     /// Soporta login de:
-    /// - Administradores Allva (código = CENTRAL)
-    /// - Usuarios Floater (código = FLOATER)
-    /// - Usuarios Fijos (código = código real del local)
+    /// - Administradores Allva (codigo = CENTRAL)
+    /// - Usuarios Floater (codigo = codigo de uno de sus locales asignados)
+    /// - Usuarios Fijos (codigo = codigo de su local asignado)
     /// </summary>
     public partial class LoginViewModel : ObservableObject
     {
-        // ============================================
-        // CONFIGURACIÓN DE BASE DE DATOS
-        // ============================================
-        
         private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
 
         // ============================================
-        // LOCALIZACIÓN
+        // LOCALIZACION
         // ============================================
 
         public LocalizationService Localization => LocalizationService.Instance;
@@ -68,7 +65,7 @@ namespace Allva.Desktop.ViewModels
         private bool _mostrarMensajeError;
 
         // ============================================
-        // PROPIEDADES PARA ACTUALIZACIÓN
+        // PROPIEDADES PARA ACTUALIZACION
         // ============================================
 
         [ObservableProperty]
@@ -104,13 +101,6 @@ namespace Allva.Desktop.ViewModels
         // COMANDOS
         // ============================================
 
-        /// <summary>
-        /// Comando para iniciar sesión
-        /// LÓGICA:
-        /// - Admin Allva: código local = "CENTRAL"
-        /// - Usuario Floater: código local = "FLOATER"  
-        /// - Usuario Fijo: código local = código real del local
-        /// </summary>
         [RelayCommand]
         private async Task IniciarSesion()
         {
@@ -127,7 +117,7 @@ namespace Allva.Desktop.ViewModels
                 var codigoLocalUpper = CodigoLocal.Trim().ToUpper();
                 
                 // =============================================
-                // CASO 1: ADMINISTRADOR ALLVA (código = CENTRAL)
+                // CASO 1: ADMINISTRADOR ALLVA (codigo = CENTRAL)
                 // =============================================
                 if (codigoLocalUpper == "CENTRAL")
                 {
@@ -140,10 +130,15 @@ namespace Allva.Desktop.ViewModels
                             UserName = resultadoAdmin.NombreCompleto,
                             UserNumber = NumeroUsuario,
                             LocalCode = "CENTRAL",
+                            LocalName = "Central Allva",
+                            IdLocal = 0,
+                            IdComercio = 0,
+                            IdUsuario = resultadoAdmin.IdUsuario,
                             Token = $"token-{Guid.NewGuid()}",
                             IsSystemAdmin = true,
                             UserType = "ADMIN_ALLVA",
                             RoleName = "Administrador_Allva",
+                            EsFloater = false,
                             
                             Permisos = new PermisosAdministrador
                             {
@@ -169,65 +164,45 @@ namespace Allva.Desktop.ViewModels
                 }
                 
                 // =============================================
-                // CASO 2: USUARIO FLOATER (código = FLOATER)
+                // CASO 2 y 3: USUARIO NORMAL O FLOATER
                 // =============================================
-                if (codigoLocalUpper == "FLOATER")
-                {
-                    var resultadoFloater = await AutenticarUsuarioFloater(NumeroUsuario!, Password!);
-                    
-                    if (resultadoFloater.Exitoso)
-                    {
-                        var loginData = new LoginSuccessData
-                        {
-                            UserName = resultadoFloater.NombreCompleto,
-                            UserNumber = NumeroUsuario,
-                            LocalCode = "FLOATER",
-                            Token = $"token-{Guid.NewGuid()}",
-                            IsSystemAdmin = false,
-                            UserType = "FLOATER",
-                            RoleName = "Usuario_Floater"
-                        };
-
-                        var navigationService = new NavigationService();
-                        navigationService.NavigateTo("MainDashboard", loginData);
-                        return;
-                    }
-                    else
-                    {
-                        MostrarError(resultadoFloater.MensajeError);
-                        return;
-                    }
-                }
+                var resultadoUsuario = await AutenticarUsuario(NumeroUsuario!, Password!, codigoLocalUpper);
                 
-                // =============================================
-                // CASO 3: USUARIO FIJO (código = código real del local)
-                // =============================================
-                var resultadoNormal = await AutenticarUsuarioFijo(NumeroUsuario!, Password!, codigoLocalUpper);
-                
-                if (resultadoNormal.Exitoso)
+                if (resultadoUsuario.Exitoso)
                 {
                     var loginData = new LoginSuccessData
                     {
-                        UserName = resultadoNormal.NombreCompleto,
+                        UserName = resultadoUsuario.NombreCompleto,
                         UserNumber = NumeroUsuario,
                         LocalCode = codigoLocalUpper,
+                        LocalName = resultadoUsuario.NombreLocal,
+                        IdLocal = resultadoUsuario.IdLocal,
+                        IdComercio = resultadoUsuario.IdComercio,
+                        IdUsuario = resultadoUsuario.IdUsuario,
                         Token = $"token-{Guid.NewGuid()}",
                         IsSystemAdmin = false,
-                        UserType = "USUARIO_LOCAL",
-                        RoleName = "Usuario_Local"
+                        UserType = resultadoUsuario.EsFloater ? "FLOATER" : "USUARIO_LOCAL",
+                        RoleName = resultadoUsuario.EsFloater ? "Usuario_Floater" : "Usuario_Local",
+                        EsFloater = resultadoUsuario.EsFloater
                     };
+
+                    await RegistrarSesion(resultadoUsuario.IdUsuario, resultadoUsuario.IdLocal, loginData.Token);
 
                     var navigationService = new NavigationService();
                     navigationService.NavigateTo("MainDashboard", loginData);
                 }
                 else
                 {
-                    MostrarError(resultadoNormal.MensajeError);
+                    MostrarError(resultadoUsuario.MensajeError);
                 }
             }
-            catch (Exception ex)
+            catch (NpgsqlException)
             {
-                MostrarError($"Error de conexión: {ex.Message}");
+                MostrarError("No se pudo conectar con el servidor. Verifica tu conexion a internet e intenta nuevamente.");
+            }
+            catch (Exception)
+            {
+                MostrarError("Ocurrio un error inesperado. Por favor, intenta nuevamente.");
             }
             finally
             {
@@ -246,23 +221,19 @@ namespace Allva.Desktop.ViewModels
         [RelayCommand]
         private void CambiarIdioma(string idioma)
         {
-            // TODO: Implementar cambio de idioma
+            Localization.SetLanguage(idioma);
         }
         
         [RelayCommand]
         private async Task RecuperarPassword()
         {
-            // TODO: Implementar recuperación de contraseña
             await Task.CompletedTask;
         }
 
         // ============================================
-        // MÉTODOS DE AUTENTICACIÓN
+        // METODOS DE AUTENTICACION
         // ============================================
 
-        /// <summary>
-        /// Autentica administradores de Allva
-        /// </summary>
         private async Task<ResultadoAutenticacion> AutenticarAdministradorAllva(string nombreUsuario, string password)
         {
             try
@@ -272,6 +243,7 @@ namespace Allva.Desktop.ViewModels
 
                 var query = @"
                     SELECT 
+                        id_administrador,
                         nombre_usuario,
                         nombre,
                         apellidos,
@@ -288,7 +260,7 @@ namespace Allva.Desktop.ViewModels
                     WHERE nombre_usuario = @NombreUsuario";
 
                 using var cmd = new NpgsqlCommand(query, connection);
-                cmd.Parameters.AddWithValue("@NombreUsuario", nombreUsuario);
+                cmd.Parameters.AddWithValue("@NombreUsuario", nombreUsuario.ToLower());
 
                 using var reader = await cmd.ExecuteReaderAsync();
 
@@ -297,210 +269,341 @@ namespace Allva.Desktop.ViewModels
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Usuario administrador no encontrado"
+                        MensajeError = "Usuario o contrasena incorrectos. Verifica tus credenciales de administrador."
                     };
                 }
 
-                if (!reader.GetBoolean(4))
+                if (!reader.GetBoolean(5))
                 {
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Usuario administrador inactivo"
+                        MensajeError = "Tu cuenta de administrador esta desactivada. Contacta al soporte tecnico."
                     };
                 }
 
-                var passwordHash = reader.GetString(3);
+                var passwordHash = reader.GetString(4);
                 if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
                 {
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Contraseña incorrecta"
+                        MensajeError = "Usuario o contrasena incorrectos. Verifica tus credenciales de administrador."
                     };
                 }
 
-                var nombreCompleto = $"{reader.GetString(1)} {reader.GetString(2)}";
+                var nombreCompleto = $"{reader.GetString(2)} {reader.GetString(3)}";
 
                 return new ResultadoAutenticacion
                 {
                     Exitoso = true,
+                    IdUsuario = reader.GetInt32(0),
                     NombreCompleto = nombreCompleto,
                     EsAdministradorAllva = true,
-                    AccesoGestionComercios = reader.GetBoolean(5),
-                    AccesoGestionUsuariosLocales = reader.GetBoolean(6),
-                    AccesoGestionUsuariosAllva = reader.GetBoolean(7),
-                    AccesoAnalytics = reader.GetBoolean(8),
-                    AccesoConfiguracionSistema = reader.GetBoolean(9),
-                    AccesoFacturacionGlobal = reader.GetBoolean(10),
-                    AccesoAuditoria = reader.GetBoolean(11)
+                    AccesoGestionComercios = reader.GetBoolean(6),
+                    AccesoGestionUsuariosLocales = reader.GetBoolean(7),
+                    AccesoGestionUsuariosAllva = reader.GetBoolean(8),
+                    AccesoAnalytics = reader.GetBoolean(9),
+                    AccesoConfiguracionSistema = reader.GetBoolean(10),
+                    AccesoFacturacionGlobal = reader.GetBoolean(11),
+                    AccesoAuditoria = reader.GetBoolean(12)
                 };
             }
-            catch (Exception ex)
+            catch (NpgsqlException)
             {
                 return new ResultadoAutenticacion
                 {
                     Exitoso = false,
-                    MensajeError = $"Error al autenticar administrador: {ex.Message}"
+                    MensajeError = "No se pudo conectar con el servidor. Verifica tu conexion a internet."
+                };
+            }
+            catch (Exception)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = "Ocurrio un error al verificar tus credenciales. Intenta nuevamente."
                 };
             }
         }
 
-        /// <summary>
-        /// Autentica usuarios FLOATER (código local = "FLOATER")
-        /// </summary>
-        private async Task<ResultadoAutenticacion> AutenticarUsuarioFloater(string numeroUsuario, string password)
+        private async Task<ResultadoAutenticacion> AutenticarUsuario(string numeroUsuario, string password, string codigoLocal)
         {
             try
             {
                 using var connection = new NpgsqlConnection(ConnectionString);
                 await connection.OpenAsync();
 
-                var query = @"
+                // Obtener datos del usuario
+                var queryUsuario = @"
                     SELECT 
                         u.id_usuario,
                         u.numero_usuario,
-                        CONCAT(u.nombre, ' ', u.apellidos) as nombre_completo,
+                        u.nombre,
+                        u.apellidos,
                         u.password_hash,
                         u.activo,
-                        u.es_flooter
+                        u.es_flooter,
+                        u.id_local,
+                        u.id_comercio
                     FROM usuarios u
-                    WHERE u.numero_usuario = @NumeroUsuario
-                    AND u.es_flooter = true";
+                    WHERE u.numero_usuario = @NumeroUsuario";
 
-                using var cmd = new NpgsqlCommand(query, connection);
-                cmd.Parameters.AddWithValue("@NumeroUsuario", numeroUsuario);
+                using var cmdUsuario = new NpgsqlCommand(queryUsuario, connection);
+                cmdUsuario.Parameters.AddWithValue("@NumeroUsuario", numeroUsuario);
 
-                using var reader = await cmd.ExecuteReaderAsync();
+                int idUsuario;
+                string nombre, apellidos, passwordHash;
+                bool activo, esFloater;
+                int? idLocalUsuario, idComercioUsuario;
 
-                if (!await reader.ReadAsync())
+                using (var reader = await cmdUsuario.ExecuteReaderAsync())
+                {
+                    if (!await reader.ReadAsync())
+                    {
+                        return new ResultadoAutenticacion
+                        {
+                            Exitoso = false,
+                            MensajeError = "Usuario no encontrado. Verifica que tu numero de usuario sea correcto."
+                        };
+                    }
+
+                    idUsuario = reader.GetInt32(0);
+                    nombre = reader.GetString(2);
+                    apellidos = reader.GetString(3);
+                    passwordHash = reader.GetString(4);
+                    activo = reader.GetBoolean(5);
+                    esFloater = reader.IsDBNull(6) ? false : reader.GetBoolean(6);
+                    idLocalUsuario = reader.IsDBNull(7) ? null : reader.GetInt32(7);
+                    idComercioUsuario = reader.IsDBNull(8) ? null : reader.GetInt32(8);
+                }
+
+                if (!activo)
                 {
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Usuario floater no encontrado"
+                        MensajeError = "Tu cuenta esta desactivada. Contacta a tu administrador para mas informacion."
                     };
                 }
 
-                if (!reader.GetBoolean(4))
-                {
-                    return new ResultadoAutenticacion
-                    {
-                        Exitoso = false,
-                        MensajeError = "Usuario inactivo"
-                    };
-                }
-
-                var passwordHash = reader.GetString(3);
                 if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
                 {
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Contraseña incorrecta"
+                        MensajeError = "Contrasena incorrecta. Verifica e intenta nuevamente."
                     };
                 }
 
-                return new ResultadoAutenticacion
+                // Verificar acceso al local segun tipo de usuario
+                if (esFloater)
                 {
-                    Exitoso = true,
-                    NombreCompleto = reader.GetString(2),
-                    EsAdministradorAllva = false
-                };
+                    return await VerificarAccesoFloater(connection, idUsuario, nombre, apellidos, codigoLocal);
+                }
+                else
+                {
+                    return await VerificarAccesoUsuarioNormal(connection, idUsuario, nombre, apellidos, codigoLocal, idLocalUsuario);
+                }
             }
-            catch (Exception ex)
+            catch (NpgsqlException)
             {
                 return new ResultadoAutenticacion
                 {
                     Exitoso = false,
-                    MensajeError = $"Error al autenticar floater: {ex.Message}"
+                    MensajeError = "No se pudo conectar con el servidor. Verifica tu conexion a internet."
+                };
+            }
+            catch (Exception)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = "Ocurrio un error al verificar tus credenciales. Intenta nuevamente."
                 };
             }
         }
 
-        /// <summary>
-        /// Autentica usuarios FIJOS (código local = código real del local)
-        /// </summary>
-        private async Task<ResultadoAutenticacion> AutenticarUsuarioFijo(string numeroUsuario, string password, string codigoLocal)
+        private async Task<ResultadoAutenticacion> VerificarAccesoFloater(
+            NpgsqlConnection connection, 
+            int idUsuario, 
+            string nombre, 
+            string apellidos, 
+            string codigoLocal)
+        {
+            var queryFloater = @"
+                SELECT 
+                    l.id_local,
+                    l.codigo_local,
+                    l.nombre_local,
+                    l.activo,
+                    l.id_comercio
+                FROM usuario_locales ul
+                INNER JOIN locales l ON ul.id_local = l.id_local
+                WHERE ul.id_usuario = @IdUsuario
+                AND l.codigo_local = @CodigoLocal";
+
+            using var cmdFloater = new NpgsqlCommand(queryFloater, connection);
+            cmdFloater.Parameters.AddWithValue("@IdUsuario", idUsuario);
+            cmdFloater.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
+
+            using var reader = await cmdFloater.ExecuteReaderAsync();
+
+            if (!await reader.ReadAsync())
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = $"No tienes acceso al local '{codigoLocal}'. Verifica el codigo o contacta a tu administrador."
+                };
+            }
+
+            var idLocal = reader.GetInt32(0);
+            var nombreLocal = reader.GetString(2);
+            var localActivo = reader.GetBoolean(3);
+            var idComercioLocal = reader.GetInt32(4);
+
+            if (!localActivo)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = $"El local '{codigoLocal}' esta temporalmente inactivo. Contacta a tu administrador."
+                };
+            }
+
+            return new ResultadoAutenticacion
+            {
+                Exitoso = true,
+                IdUsuario = idUsuario,
+                NombreCompleto = $"{nombre} {apellidos}",
+                EsAdministradorAllva = false,
+                EsFloater = true,
+                IdLocal = idLocal,
+                NombreLocal = nombreLocal,
+                CodigoLocal = codigoLocal,
+                IdComercio = idComercioLocal
+            };
+        }
+
+        private async Task<ResultadoAutenticacion> VerificarAccesoUsuarioNormal(
+            NpgsqlConnection connection, 
+            int idUsuario, 
+            string nombre, 
+            string apellidos, 
+            string codigoLocal,
+            int? idLocalUsuario)
+        {
+            if (!idLocalUsuario.HasValue)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = "No tienes un local asignado. Contacta a tu administrador para que te asigne uno."
+                };
+            }
+
+            var queryLocal = @"
+                SELECT 
+                    l.id_local,
+                    l.codigo_local,
+                    l.nombre_local,
+                    l.activo,
+                    l.id_comercio
+                FROM locales l
+                WHERE l.id_local = @IdLocal
+                AND l.codigo_local = @CodigoLocal";
+
+            using var cmdLocal = new NpgsqlCommand(queryLocal, connection);
+            cmdLocal.Parameters.AddWithValue("@IdLocal", idLocalUsuario.Value);
+            cmdLocal.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
+
+            using var reader = await cmdLocal.ExecuteReaderAsync();
+
+            if (!await reader.ReadAsync())
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = $"El codigo '{codigoLocal}' no corresponde a tu local asignado. Verifica e intenta nuevamente."
+                };
+            }
+
+            var idLocal = reader.GetInt32(0);
+            var nombreLocal = reader.GetString(2);
+            var localActivo = reader.GetBoolean(3);
+            var idComercioLocal = reader.GetInt32(4);
+
+            if (!localActivo)
+            {
+                return new ResultadoAutenticacion
+                {
+                    Exitoso = false,
+                    MensajeError = $"El local '{codigoLocal}' esta temporalmente inactivo. Contacta a tu administrador."
+                };
+            }
+
+            return new ResultadoAutenticacion
+            {
+                Exitoso = true,
+                IdUsuario = idUsuario,
+                NombreCompleto = $"{nombre} {apellidos}",
+                EsAdministradorAllva = false,
+                EsFloater = false,
+                IdLocal = idLocal,
+                NombreLocal = nombreLocal,
+                CodigoLocal = codigoLocal,
+                IdComercio = idComercioLocal
+            };
+        }
+
+        private async Task RegistrarSesion(int idUsuario, int idLocal, string token)
         {
             try
             {
                 using var connection = new NpgsqlConnection(ConnectionString);
                 await connection.OpenAsync();
 
-                var query = @"
-                    SELECT 
-                        u.id_usuario,
-                        u.numero_usuario,
-                        CONCAT(u.nombre, ' ', u.apellidos) as nombre_completo,
-                        u.password_hash,
-                        u.activo,
-                        l.codigo_local,
-                        l.nombre_local,
-                        l.activo AS local_activo
-                    FROM usuarios u
-                    INNER JOIN locales l ON u.id_local = l.id_local
-                    WHERE u.numero_usuario = @NumeroUsuario
-                    AND l.codigo_local = @CodigoLocal
-                    AND (u.es_flooter = false OR u.es_flooter IS NULL)";
+                // Cerrar sesiones anteriores
+                var queryCerrar = @"
+                    UPDATE sesiones 
+                    SET sesion_activa = false, 
+                        fecha_cierre = CURRENT_TIMESTAMP,
+                        motivo_cierre = 'Nuevo inicio de sesion'
+                    WHERE id_usuario = @IdUsuario AND sesion_activa = true";
 
-                using var cmd = new NpgsqlCommand(query, connection);
-                cmd.Parameters.AddWithValue("@NumeroUsuario", numeroUsuario);
-                cmd.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
-
-                using var reader = await cmd.ExecuteReaderAsync();
-
-                if (!await reader.ReadAsync())
+                using (var cmdCerrar = new NpgsqlCommand(queryCerrar, connection))
                 {
-                    return new ResultadoAutenticacion
-                    {
-                        Exitoso = false,
-                        MensajeError = "Usuario no encontrado o no tiene acceso a este local"
-                    };
+                    cmdCerrar.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                    await cmdCerrar.ExecuteNonQueryAsync();
                 }
 
-                if (!reader.GetBoolean(4))
-                {
-                    return new ResultadoAutenticacion
-                    {
-                        Exitoso = false,
-                        MensajeError = "Usuario inactivo"
-                    };
-                }
+                // Crear nueva sesion
+                var queryNueva = @"
+                    INSERT INTO sesiones (id_usuario, id_local_activo, token_jwt, fecha_expiracion, sesion_activa)
+                    VALUES (@IdUsuario, @IdLocal, @Token, @FechaExpiracion, true)";
 
-                if (!reader.GetBoolean(7))
-                {
-                    return new ResultadoAutenticacion
-                    {
-                        Exitoso = false,
-                        MensajeError = "Local inactivo"
-                    };
-                }
+                using var cmdNueva = new NpgsqlCommand(queryNueva, connection);
+                cmdNueva.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                cmdNueva.Parameters.AddWithValue("@IdLocal", idLocal);
+                cmdNueva.Parameters.AddWithValue("@Token", token);
+                cmdNueva.Parameters.AddWithValue("@FechaExpiracion", DateTime.Now.AddHours(8));
 
-                var passwordHash = reader.GetString(3);
-                if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
-                {
-                    return new ResultadoAutenticacion
-                    {
-                        Exitoso = false,
-                        MensajeError = "Contraseña incorrecta"
-                    };
-                }
+                await cmdNueva.ExecuteNonQueryAsync();
 
-                return new ResultadoAutenticacion
-                {
-                    Exitoso = true,
-                    NombreCompleto = reader.GetString(2),
-                    EsAdministradorAllva = false
-                };
+                // Actualizar ultimo acceso
+                var queryAcceso = @"
+                    UPDATE usuarios 
+                    SET ultimo_acceso = CURRENT_TIMESTAMP 
+                    WHERE id_usuario = @IdUsuario";
+
+                using var cmdAcceso = new NpgsqlCommand(queryAcceso, connection);
+                cmdAcceso.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                await cmdAcceso.ExecuteNonQueryAsync();
             }
-            catch (Exception ex)
+            catch
             {
-                return new ResultadoAutenticacion
-                {
-                    Exitoso = false,
-                    MensajeError = $"Error al autenticar usuario: {ex.Message}"
-                };
+                // No interrumpir el login si falla el registro de sesion
             }
         }
 
@@ -512,25 +615,25 @@ namespace Allva.Desktop.ViewModels
         {
             if (string.IsNullOrWhiteSpace(NumeroUsuario))
             {
-                MostrarError("El número de usuario es requerido");
+                MostrarError("Ingresa tu numero de usuario para continuar.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(Password))
             {
-                MostrarError("La contraseña es requerida");
+                MostrarError("Ingresa tu contrasena para continuar.");
                 return false;
             }
 
             if (Password.Length < 6)
             {
-                MostrarError("La contraseña debe tener al menos 6 caracteres");
+                MostrarError("La contrasena debe tener al menos 6 caracteres.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(CodigoLocal))
             {
-                MostrarError("El código de oficina es requerido");
+                MostrarError("Ingresa el codigo de tu oficina para continuar.");
                 return false;
             }
 
@@ -542,7 +645,7 @@ namespace Allva.Desktop.ViewModels
             MensajeError = mensaje;
             MostrarMensajeError = true;
 
-            Task.Delay(5000).ContinueWith(_ =>
+            Task.Delay(6000).ContinueWith(_ =>
             {
                 MostrarMensajeError = false;
             });
@@ -559,6 +662,13 @@ namespace Allva.Desktop.ViewModels
         public string MensajeError { get; set; } = string.Empty;
         public string NombreCompleto { get; set; } = string.Empty;
         public bool EsAdministradorAllva { get; set; }
+        public bool EsFloater { get; set; }
+        
+        public int IdUsuario { get; set; }
+        public int IdLocal { get; set; }
+        public int IdComercio { get; set; }
+        public string NombreLocal { get; set; } = string.Empty;
+        public string CodigoLocal { get; set; } = string.Empty;
         
         public bool AccesoGestionComercios { get; set; }
         public bool AccesoGestionUsuariosLocales { get; set; }
