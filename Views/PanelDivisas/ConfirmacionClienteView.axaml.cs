@@ -3,9 +3,9 @@ using Avalonia.Markup.Xaml;
 
 namespace Allva.Desktop.Views.PanelDivisas;
 
-public partial class CurrencyExchangePanelView : UserControl
+public partial class ConfirmacionClienteView : UserControl
 {
-    public CurrencyExchangePanelView()
+    public ConfirmacionClienteView()
     {
         InitializeComponent();
     }
