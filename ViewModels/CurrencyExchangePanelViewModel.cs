@@ -13,11 +13,6 @@ using Npgsql;
 
 namespace Allva.Desktop.ViewModels;
 
-/// <summary>
-/// ViewModel para el Panel de Cambio de Divisas
-/// IMPORTANTE: El margen de ganancia NUNCA se muestra al usuario
-/// Solo se aplica internamente en los cálculos
-/// </summary>
 public partial class CurrencyExchangePanelViewModel : ObservableObject
 {
     private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
@@ -28,137 +23,121 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     private decimal _margenGanancia = 10.00m;
     private int _idLocalActual = 0;
     private int _idComercioActual = 0;
+    
+    // Datos del usuario actual (se deben establecer desde la sesión)
+    private int _idUsuarioActual = 0;
+    private string? _nombreUsuarioActual;
+    private string? _numeroUsuarioActual;
 
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
+    // NAVEGACIÓN ENTRE VISTAS
+    // ═══════════════════════════════════════════════════════════
+    
+    [ObservableProperty] private bool _vistaPrincipal = true;
+    [ObservableProperty] private bool _vistaBuscarCliente = false;
+    [ObservableProperty] private bool _vistaNuevoCliente = false;
+    [ObservableProperty] private bool _vistaConfirmacionCliente = false;
+    [ObservableProperty] private bool _vistaTransaccion = false;
+    [ObservableProperty] private bool _vistaResumen = false;
+
+    // ═══════════════════════════════════════════════════════════
     // CLIENTE
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
     
-    [ObservableProperty]
-    private ClienteModel? _clienteSeleccionado;
+    [ObservableProperty] private ClienteModel? _clienteSeleccionado;
+    [ObservableProperty] private ObservableCollection<ClienteModel> _clientesEncontrados = new();
+    [ObservableProperty] private string _busquedaCliente = string.Empty;
     
-    [ObservableProperty]
-    private ObservableCollection<ClienteModel> _clientesEncontrados = new();
-    
-    [ObservableProperty]
-    private string _busquedaCliente = string.Empty;
-    
-    [ObservableProperty]
-    private bool _mostrarResultadosBusqueda = false;
-    
-    // Bandera para evitar búsqueda al seleccionar cliente
-    private bool _seleccionandoCliente = false;
-    
-    [ObservableProperty]
-    private bool _mostrarFormularioCliente = false;
-    
-    // Campos del formulario de nuevo cliente
-    [ObservableProperty]
-    private string _nuevoNombre = string.Empty;
-    
-    [ObservableProperty]
-    private string _nuevoApellido = string.Empty;
-    
-    [ObservableProperty]
-    private string _nuevoTelefono = string.Empty;
-    
-    [ObservableProperty]
-    private string _nuevaDireccion = string.Empty;
-    
-    [ObservableProperty]
-    private string _nuevaNacionalidad = string.Empty;
-    
-    [ObservableProperty]
-    private string _nuevoTipoDocumento = "NIE";
-    
-    [ObservableProperty]
-    private string _nuevoNumeroDocumento = string.Empty;
-    
-    [ObservableProperty]
-    private DateTimeOffset? _nuevaCaducidadDocumento;
-    
-    [ObservableProperty]
-    private DateTimeOffset? _nuevaFechaNacimiento;
-    
-    [ObservableProperty]
-    private byte[]? _nuevaImagenDocumento;
-    
-    [ObservableProperty]
-    private string _nuevoNombreArchivoDocumento = string.Empty;
-    
-    [ObservableProperty]
-    private bool _tieneImagenDocumento = false;
-    
-    [ObservableProperty]
-    private Avalonia.Media.Imaging.Bitmap? _imagenDocumentoPreview;
-
-    // ============================================
-    // DIVISAS
-    // ============================================
-    
-    [ObservableProperty]
-    private ObservableCollection<FavoriteCurrencyModel> _favoriteCurrencies = new();
-    
-    [ObservableProperty]
-    private ObservableCollection<CurrencyModel> _availableCurrencies = new();
-    
-    [ObservableProperty]
-    private ObservableCollection<CurrencyModel> _divisasBusqueda = new();
-    
-    [ObservableProperty]
-    private string _busquedaDivisa = string.Empty;
-    
-    [ObservableProperty]
-    private CurrencyModel? _selectedCurrency;
-    
-    [ObservableProperty]
-    private bool _mostrarListaDivisas = false;
-    
-    [ObservableProperty]
-    private bool _mostrarSelectorDivisas = false;
-
-    // ============================================
-    // CALCULADORA
-    // ============================================
-    
-    [ObservableProperty]
-    private string _amountReceived = string.Empty;
-    
-    [ObservableProperty]
-    private decimal _totalInEuros;
-    
-    [ObservableProperty]
-    private decimal _currentRate;
-    
-    [ObservableProperty]
-    private string _rateDisplayText = string.Empty;
-
-    // ============================================
-    // ESTADOS
-    // ============================================
-    
-    [ObservableProperty]
-    private bool _isLoading = false;
-    
-    [ObservableProperty]
-    private string _errorMessage = string.Empty;
-    
-    [ObservableProperty]
-    private string _lastUpdateText = string.Empty;
-    
-    [ObservableProperty]
-    private bool _puedeRealizarOperacion = false;
-
-    // Lista de tipos de documento
-    public ObservableCollection<string> TiposDocumento { get; } = new()
+    public ObservableCollection<string> TiposBusquedaCliente { get; } = new()
     {
-        "DNI", "NIE", "Pasaporte"
+        "Todos", "Nombre", "Documento", "Teléfono"
     };
+    
+    [ObservableProperty] private string _tipoBusquedaSeleccionado = "Todos";
+    
+    // ═══════════════════════════════════════════════════════════
+    // CAMPOS NUEVO CLIENTE (con segundo nombre/apellido)
+    // ═══════════════════════════════════════════════════════════
+    
+    [ObservableProperty] private string _nuevoNombre = string.Empty;
+    [ObservableProperty] private string _nuevoSegundoNombre = string.Empty;
+    [ObservableProperty] private string _nuevoApellido = string.Empty;
+    [ObservableProperty] private string _nuevoSegundoApellido = string.Empty;
+    [ObservableProperty] private string _nuevoTelefono = string.Empty;
+    [ObservableProperty] private string _nuevaDireccion = string.Empty;
+    [ObservableProperty] private string _nuevaNacionalidad = string.Empty;
+    [ObservableProperty] private string _nuevoTipoDocumento = "DNI";
+    [ObservableProperty] private string _nuevoNumeroDocumento = string.Empty;
+    [ObservableProperty] private DateTimeOffset? _nuevaCaducidadDocumento;
+    [ObservableProperty] private DateTimeOffset? _nuevaFechaNacimiento;
+    
+    // Imágenes documento
+    [ObservableProperty] private byte[]? _nuevaImagenDocumentoFrontal;
+    [ObservableProperty] private byte[]? _nuevaImagenDocumentoTrasera;
+    [ObservableProperty] private bool _tieneImagenDocumentoFrontal = false;
+    [ObservableProperty] private bool _tieneImagenDocumentoTrasera = false;
+    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _imagenDocumentoFrontalPreview;
+    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _imagenDocumentoTraseraPreview;
+    
+    // Propiedades calculadas para confirmación
+    public string NuevoNombreCompletoPreview
+    {
+        get
+        {
+            var partes = new[] { NuevoNombre, NuevoSegundoNombre, NuevoApellido, NuevoSegundoApellido };
+            return string.Join(" ", partes.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+    }
+    
+    public string NuevaFechaNacimientoTexto => NuevaFechaNacimiento?.ToString("dd/MM/yyyy") ?? "-";
+    public string NuevaCaducidadDocumentoTexto => NuevaCaducidadDocumento?.ToString("dd/MM/yyyy") ?? "-";
+    public bool TieneImagenesDocumento => TieneImagenDocumentoFrontal || TieneImagenDocumentoTrasera;
+
+    public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte" };
+
+    // ═══════════════════════════════════════════════════════════
+    // DIVISAS
+    // ═══════════════════════════════════════════════════════════
+    
+    [ObservableProperty] private ObservableCollection<FavoriteCurrencyModel> _favoriteCurrencies = new();
+    [ObservableProperty] private ObservableCollection<CurrencyModel> _availableCurrencies = new();
+    [ObservableProperty] private ObservableCollection<CurrencyModel> _divisasBusqueda = new();
+    [ObservableProperty] private string _busquedaDivisa = string.Empty;
+    [ObservableProperty] private string _busquedaDivisaCalculadora = string.Empty;
+    [ObservableProperty] private CurrencyModel? _selectedCurrency;
+    [ObservableProperty] private bool _mostrarSelectorDivisas = false;
+
+    // ═══════════════════════════════════════════════════════════
+    // CALCULADORA
+    // ═══════════════════════════════════════════════════════════
+    
+    [ObservableProperty] private string _amountReceived = string.Empty;
+    [ObservableProperty] private decimal _totalInEuros;
+    [ObservableProperty] private decimal _currentRate;
+    [ObservableProperty] private string _rateDisplayText = string.Empty;
+
+    // ═══════════════════════════════════════════════════════════
+    // OPERACIÓN / TRANSACCIÓN
+    // ═══════════════════════════════════════════════════════════
+    
+    [ObservableProperty] private long _numeroOperacion = 0;
+    [ObservableProperty] private string _numeroOperacionDisplay = string.Empty;
+    [ObservableProperty] private DateTime _fechaOperacion;
+
+    // ═══════════════════════════════════════════════════════════
+    // ESTADOS
+    // ═══════════════════════════════════════════════════════════
+    
+    [ObservableProperty] private bool _isLoading = false;
+    [ObservableProperty] private string _errorMessage = string.Empty;
+    [ObservableProperty] private string _lastUpdateText = string.Empty;
+    [ObservableProperty] private bool _puedeRealizarOperacion = false;
 
     private List<string> _favoriteCodes = new() { "USD", "CAD", "CHF", "GBP", "CNY" };
 
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
     // CONSTRUCTOR
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
 
     public CurrencyExchangePanelViewModel()
     {
@@ -173,6 +152,29 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         _currencyService = new CurrencyExchangeService();
         InitializeAsync();
     }
+    
+    public CurrencyExchangePanelViewModel(int idLocal, int idComercio, int idUsuario, string nombreUsuario, string numeroUsuario)
+    {
+        _idLocalActual = idLocal;
+        _idComercioActual = idComercio;
+        _idUsuarioActual = idUsuario;
+        _nombreUsuarioActual = nombreUsuario;
+        _numeroUsuarioActual = numeroUsuario;
+        _currencyService = new CurrencyExchangeService();
+        InitializeAsync();
+    }
+    
+    /// <summary>
+    /// Establece los datos de la sesión del usuario
+    /// </summary>
+    public void SetSesionData(int idLocal, int idComercio, int idUsuario, string nombreUsuario, string numeroUsuario)
+    {
+        _idLocalActual = idLocal;
+        _idComercioActual = idComercio;
+        _idUsuarioActual = idUsuario;
+        _nombreUsuarioActual = nombreUsuario;
+        _numeroUsuarioActual = numeroUsuario;
+    }
 
     private async void InitializeAsync()
     {
@@ -180,9 +182,115 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         await LoadDataAsync();
     }
 
-    // ============================================
-    // CARGA DE MARGEN (INTERNO - NUNCA MOSTRAR)
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
+    // NAVEGACIÓN
+    // ═══════════════════════════════════════════════════════════
+    
+    private void OcultarTodasLasVistas()
+    {
+        VistaPrincipal = false;
+        VistaBuscarCliente = false;
+        VistaNuevoCliente = false;
+        VistaConfirmacionCliente = false;
+        VistaTransaccion = false;
+        VistaResumen = false;
+    }
+    
+    [RelayCommand]
+    private void IrABuscarCliente()
+    {
+        OcultarTodasLasVistas();
+        ClientesEncontrados.Clear();
+        BusquedaCliente = string.Empty;
+        ErrorMessage = string.Empty;
+        VistaBuscarCliente = true;
+    }
+    
+    [RelayCommand]
+    private void IrANuevoCliente()
+    {
+        OcultarTodasLasVistas();
+        LimpiarFormularioCliente();
+        ErrorMessage = string.Empty;
+        VistaNuevoCliente = true;
+    }
+    
+    [RelayCommand]
+    private void VolverAPrincipal()
+    {
+        OcultarTodasLasVistas();
+        ErrorMessage = string.Empty;
+        VistaPrincipal = true;
+    }
+    
+    [RelayCommand]
+    private void VolverABuscarCliente()
+    {
+        OcultarTodasLasVistas();
+        ErrorMessage = string.Empty;
+        VistaBuscarCliente = true;
+    }
+    
+    [RelayCommand]
+    private void VolverANuevoCliente()
+    {
+        OcultarTodasLasVistas();
+        ErrorMessage = string.Empty;
+        VistaNuevoCliente = true;
+    }
+    
+    [RelayCommand]
+    private void VolverATransaccion()
+    {
+        OcultarTodasLasVistas();
+        ErrorMessage = string.Empty;
+        VistaTransaccion = true;
+    }
+    
+    [RelayCommand]
+    private void MostrarConfirmacionCliente()
+    {
+        if (string.IsNullOrWhiteSpace(NuevoNombre))
+        {
+            ErrorMessage = "El primer nombre es obligatorio";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(NuevoApellido))
+        {
+            ErrorMessage = "El primer apellido es obligatorio";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(NuevoNumeroDocumento))
+        {
+            ErrorMessage = "El número de documento es obligatorio";
+            return;
+        }
+        
+        ErrorMessage = string.Empty;
+        OcultarTodasLasVistas();
+        OnPropertyChanged(nameof(NuevoNombreCompletoPreview));
+        OnPropertyChanged(nameof(NuevaFechaNacimientoTexto));
+        OnPropertyChanged(nameof(NuevaCaducidadDocumentoTexto));
+        OnPropertyChanged(nameof(TieneImagenesDocumento));
+        VistaConfirmacionCliente = true;
+    }
+    
+    [RelayCommand]
+    private void FinalizarYVolverAPrincipal()
+    {
+        ClienteSeleccionado = null;
+        AmountReceived = string.Empty;
+        TotalInEuros = 0;
+        NumeroOperacion = 0;
+        NumeroOperacionDisplay = string.Empty;
+        
+        OcultarTodasLasVistas();
+        VistaPrincipal = true;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // CARGA DE MARGEN (INTERNO)
+    // ═══════════════════════════════════════════════════════════
 
     private async Task CargarMargenGananciaAsync()
     {
@@ -195,7 +303,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             decimal? margenComercio = null;
             decimal? margenGlobal = null;
 
-            // Buscar margen del local
             if (_idLocalActual > 0)
             {
                 var sqlLocal = "SELECT comision_divisas FROM locales WHERE id_local = @id AND comision_divisas > 0";
@@ -206,7 +313,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                     margenLocal = Convert.ToDecimal(result);
             }
 
-            // Buscar margen del comercio
             if (_idComercioActual > 0 && margenLocal == null)
             {
                 var sqlComercio = "SELECT porcentaje_comision_divisas FROM comercios WHERE id_comercio = @id AND porcentaje_comision_divisas > 0";
@@ -217,7 +323,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                     margenComercio = Convert.ToDecimal(result);
             }
 
-            // Buscar margen global
             if (margenLocal == null && margenComercio == null)
             {
                 var sqlGlobal = "SELECT valor_decimal FROM configuracion_sistema WHERE clave = 'margen_divisas_global'";
@@ -235,9 +340,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         }
     }
 
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
     // CARGA DE DATOS
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
 
     [RelayCommand]
     private async Task LoadDataAsync()
@@ -255,7 +360,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 if (rates.TryGetValue(currency.Code, out decimal rate))
                 {
                     currency.RateToEur = rate;
-                    // Aplicar margen internamente (NUNCA mostrar al usuario)
                     currency.RateWithMargin = rate * (1m - (_margenGanancia / 100m));
                 }
                 else
@@ -267,13 +371,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             }
             
             AvailableCurrencies = new ObservableCollection<CurrencyModel>(allCurrencies);
-            
             await LoadFavoriteCurrenciesAsync();
             
             if (AvailableCurrencies.Count > 0 && SelectedCurrency == null)
-            {
                 SelectedCurrency = AvailableCurrencies.First();
-            }
             
             var lastUpdate = _currencyService.GetLastUpdateTime();
             LastUpdateText = lastUpdate > DateTime.MinValue 
@@ -295,13 +396,8 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         try
         {
             var favorites = await _currencyService.GetFavoriteCurrenciesAsync(_favoriteCodes);
-            
-            // Aplicar margen a favoritas (INTERNO)
             foreach (var fav in favorites)
-            {
                 fav.RateWithMargin = fav.RateToEur * (1m - (_margenGanancia / 100m));
-            }
-            
             FavoriteCurrencies = new ObservableCollection<FavoriteCurrencyModel>(favorites);
         }
         catch
@@ -317,24 +413,69 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         await LoadDataAsync();
     }
 
-    // ============================================
-    // BÚSQUEDA DE DIVISAS
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
+    // SELECTOR DE DIVISAS (POPUP)
+    // ═══════════════════════════════════════════════════════════
+    
+    [RelayCommand]
+    private void MostrarAgregarDivisa()
+    {
+        BusquedaDivisa = string.Empty;
+        CargarDivisasDisponibles();
+        MostrarSelectorDivisas = true;
+    }
+    
+    [RelayCommand]
+    private void CerrarSelectorDivisas()
+    {
+        MostrarSelectorDivisas = false;
+    }
+    
+    private void CargarDivisasDisponibles()
+    {
+        var favCodes = FavoriteCurrencies.Select(f => f.Code).ToHashSet();
+        DivisasBusqueda.Clear();
+        foreach (var divisa in AvailableCurrencies.Where(d => !favCodes.Contains(d.Code)))
+            DivisasBusqueda.Add(divisa);
+    }
+    
+    [RelayCommand]
+    private void AgregarAFavoritas(CurrencyModel? divisa)
+    {
+        if (divisa == null) return;
+        if (!_favoriteCodes.Contains(divisa.Code))
+        {
+            _favoriteCodes.Add(divisa.Code);
+            var fav = new FavoriteCurrencyModel
+            {
+                Code = divisa.Code,
+                Name = divisa.Name,
+                RateToEur = divisa.RateToEur,
+                RateWithMargin = divisa.RateWithMargin
+            };
+            FavoriteCurrencies.Add(fav);
+        }
+        MostrarSelectorDivisas = false;
+    }
+    
+    [RelayCommand]
+    private void QuitarDeFavoritas(FavoriteCurrencyModel? divisa)
+    {
+        if (divisa == null) return;
+        _favoriteCodes.Remove(divisa.Code);
+        FavoriteCurrencies.Remove(divisa);
+    }
 
     partial void OnBusquedaDivisaChanged(string value)
     {
-        // Si el selector de divisas está abierto, filtrar
         if (MostrarSelectorDivisas)
         {
             var favCodes = FavoriteCurrencies.Select(f => f.Code).ToHashSet();
             DivisasBusqueda.Clear();
             
             IEnumerable<CurrencyModel> resultados;
-            
             if (string.IsNullOrWhiteSpace(value))
-            {
                 resultados = AvailableCurrencies.Where(d => !favCodes.Contains(d.Code));
-            }
             else
             {
                 var filtro = value.ToLower();
@@ -346,58 +487,53 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             }
 
             foreach (var divisa in resultados.Take(15))
-            {
                 DivisasBusqueda.Add(divisa);
-            }
         }
     }
-
-    [RelayCommand]
-    private void SeleccionarDivisa(CurrencyModel? divisa)
+    
+    partial void OnBusquedaDivisaCalculadoraChanged(string value)
     {
-        if (divisa == null) return;
-        
-        SelectedCurrency = divisa;
-        BusquedaDivisa = $"{divisa.Code} | {divisa.Name}";
-        // Mostrar tasa CON margen (el usuario no sabe que tiene margen)
-        CurrentRate = divisa.RateWithMargin;
-        RateDisplayText = $"1 {divisa.Code} = {divisa.RateWithMargin:N4} EUR";
-        MostrarListaDivisas = false;
-        
-        CalcularConversion();
+        if (string.IsNullOrWhiteSpace(value)) return;
+        var filtro = value.ToLower().Trim();
+        var divisaEncontrada = AvailableCurrencies.FirstOrDefault(d =>
+            d.Code.ToLower() == filtro ||
+            d.Code.ToLower().StartsWith(filtro) ||
+            d.Name.ToLower().Contains(filtro));
+        if (divisaEncontrada != null)
+            SelectedCurrency = divisaEncontrada;
     }
 
     [RelayCommand]
     private void SeleccionarDivisaFavorita(FavoriteCurrencyModel? divisa)
     {
         if (divisa == null) return;
-        
         var currency = AvailableCurrencies.FirstOrDefault(c => c.Code == divisa.Code);
         if (currency != null)
         {
-            SeleccionarDivisa(currency);
+            SelectedCurrency = currency;
+            BusquedaDivisaCalculadora = $"{currency.Code} | {currency.Name}";
+            CurrentRate = currency.RateWithMargin;
+            RateDisplayText = $"1 {currency.Code} = {currency.RateWithMargin:N4} EUR";
+            CalcularConversion();
         }
     }
 
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
     // CALCULADORA
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
 
     partial void OnSelectedCurrencyChanged(CurrencyModel? value)
     {
         if (value != null)
         {
-            // Usar tasa CON margen
             CurrentRate = value.RateWithMargin;
             RateDisplayText = $"1 {value.Code} = {value.RateWithMargin:N4} EUR";
+            BusquedaDivisaCalculadora = $"{value.Code} | {value.Name}";
             CalcularConversion();
         }
     }
 
-    partial void OnAmountReceivedChanged(string value)
-    {
-        CalcularConversion();
-    }
+    partial void OnAmountReceivedChanged(string value) => CalcularConversion();
 
     private void CalcularConversion()
     {
@@ -423,7 +559,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             return;
         }
 
-        // Calcular con tasa que ya tiene margen aplicado
         TotalInEuros = cantidad * SelectedCurrency.RateWithMargin;
         ValidarOperacion();
     }
@@ -433,57 +568,78 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         var cantidadValida = decimal.TryParse(AmountReceived?.Replace(",", "."), 
             NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidad) && cantidad > 0;
         
-        PuedeRealizarOperacion = ClienteSeleccionado != null && 
-                                  SelectedCurrency != null && 
-                                  cantidadValida;
+        PuedeRealizarOperacion = ClienteSeleccionado != null && SelectedCurrency != null && cantidadValida;
     }
 
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
     // BÚSQUEDA DE CLIENTES
-    // ============================================
-
-    partial void OnBusquedaClienteChanged(string value)
+    // ═══════════════════════════════════════════════════════════
+    
+    [RelayCommand]
+    private async Task BuscarClientesManualAsync()
     {
-        // No buscar si estamos seleccionando un cliente
-        if (_seleccionandoCliente)
-            return;
-            
-        if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
+        if (string.IsNullOrWhiteSpace(BusquedaCliente))
         {
-            MostrarResultadosBusqueda = false;
-            ClientesEncontrados.Clear();
+            ErrorMessage = "Ingrese un término de búsqueda o use 'Mostrar todos'";
             return;
         }
-
-        // Limpiar antes de buscar para evitar duplicados
-        ClientesEncontrados.Clear();
-        _ = BuscarClientesAsync(value);
+        ErrorMessage = string.Empty;
+        await BuscarClientesAsync(BusquedaCliente);
+    }
+    
+    [RelayCommand]
+    private async Task MostrarTodosClientesAsync()
+    {
+        ErrorMessage = string.Empty;
+        await BuscarClientesAsync(null);
     }
 
-    private async Task BuscarClientesAsync(string termino)
+    private async Task BuscarClientesAsync(string? termino)
     {
         try
         {
+            IsLoading = true;
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
 
-            var sql = @"SELECT DISTINCT id_cliente, nombre, apellidos, telefono, direccion,
+            string whereClause;
+            bool usarTermino = !string.IsNullOrWhiteSpace(termino);
+            
+            if (usarTermino)
+            {
+                whereClause = TipoBusquedaSeleccionado switch
+                {
+                    "Nombre" => "(nombre ILIKE @termino OR apellidos ILIKE @termino OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)",
+                    "Documento" => "documento_numero ILIKE @termino",
+                    "Teléfono" => "telefono ILIKE @termino",
+                    _ => @"(documento_numero ILIKE @termino OR telefono ILIKE @termino OR nombre ILIKE @termino 
+                           OR apellidos ILIKE @termino OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)"
+                };
+            }
+            else
+            {
+                whereClause = "1=1";
+            }
+
+            var localFilter = _idLocalActual > 0 
+                ? $" AND (id_local_registro = {_idLocalActual} OR id_local_registro IS NULL)" 
+                : "";
+
+            var sql = $@"SELECT DISTINCT id_cliente, nombre, apellidos, telefono, direccion,
                                COALESCE(nacionalidad, '') as nacionalidad, 
                                COALESCE(documento_tipo, 'DNI') as documento_tipo, 
                                COALESCE(documento_numero, '') as documento_numero,
-                               caducidad_documento, fecha_nacimiento
+                               caducidad_documento, fecha_nacimiento,
+                               segundo_nombre, segundo_apellido,
+                               imagen_documento_frontal, imagen_documento_trasera
                         FROM clientes
-                        WHERE activo = true
-                          AND (documento_numero ILIKE @termino
-                               OR telefono ILIKE @termino
-                               OR nombre ILIKE @termino
-                               OR apellidos ILIKE @termino
-                               OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)
+                        WHERE activo = true AND {whereClause}{localFilter}
                         ORDER BY nombre, apellidos
-                        LIMIT 10";
+                        LIMIT 50";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("termino", $"%{termino}%");
+            if (usarTermino)
+                cmd.Parameters.AddWithValue("termino", $"%{termino}%");
 
             ClientesEncontrados.Clear();
             var idsAgregados = new HashSet<int>();
@@ -492,11 +648,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             while (await reader.ReadAsync())
             {
                 var idCliente = reader.GetInt32(0);
-                
-                // Evitar duplicados
-                if (idsAgregados.Contains(idCliente))
-                    continue;
-                    
+                if (idsAgregados.Contains(idCliente)) continue;
                 idsAgregados.Add(idCliente);
                 
                 var cliente = new ClienteModel
@@ -510,87 +662,49 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                     TipoDocumento = reader.GetString(6),
                     NumeroDocumento = reader.GetString(7),
                     CaducidadDocumento = reader.IsDBNull(8) ? null : reader.GetDateTime(8),
-                    FechaNacimiento = reader.IsDBNull(9) ? null : reader.GetDateTime(9)
+                    FechaNacimiento = reader.IsDBNull(9) ? null : reader.GetDateTime(9),
+                    SegundoNombre = reader.IsDBNull(10) ? "" : reader.GetString(10),
+                    SegundoApellido = reader.IsDBNull(11) ? "" : reader.GetString(11),
+                    ImagenDocumentoFrontal = reader.IsDBNull(12) ? null : (byte[])reader[12],
+                    ImagenDocumentoTrasera = reader.IsDBNull(13) ? null : (byte[])reader[13]
                 };
                 
                 ClientesEncontrados.Add(cliente);
             }
 
-            MostrarResultadosBusqueda = ClientesEncontrados.Any();
+            if (!ClientesEncontrados.Any())
+                ErrorMessage = usarTermino ? "No se encontraron clientes" : "No hay clientes registrados";
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Error en búsqueda: {ex.Message}";
         }
-    }
-    
-    [RelayCommand]
-    private async Task BuscarClientesManualAsync()
-    {
-        if (!string.IsNullOrWhiteSpace(BusquedaCliente))
+        finally
         {
-            await BuscarClientesAsync(BusquedaCliente);
+            IsLoading = false;
         }
     }
 
     [RelayCommand]
-    private void SeleccionarCliente(ClienteModel? cliente)
+    private void SeleccionarClienteYContinuar(ClienteModel? cliente)
     {
         if (cliente == null) return;
-        
-        _seleccionandoCliente = true;
-        
         ClienteSeleccionado = cliente;
-        BusquedaCliente = cliente.NombreCompleto;
-        MostrarResultadosBusqueda = false;
-        ClientesEncontrados.Clear();
         ValidarOperacion();
-        
-        _seleccionandoCliente = false;
+        OcultarTodasLasVistas();
+        VistaTransaccion = true;
     }
 
-    [RelayCommand]
-    private void LimpiarCliente()
-    {
-        _seleccionandoCliente = true;
-        ClienteSeleccionado = null;
-        BusquedaCliente = string.Empty;
-        ClientesEncontrados.Clear();
-        MostrarResultadosBusqueda = false;
-        _seleccionandoCliente = false;
-        ValidarOperacion();
-    }
-    
-    [RelayCommand]
-    private void CerrarBusqueda()
-    {
-        MostrarResultadosBusqueda = false;
-        ClientesEncontrados.Clear();
-    }
-
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
     // FORMULARIO NUEVO CLIENTE
-    // ============================================
-
-    [RelayCommand]
-    private void MostrarNuevoCliente()
-    {
-        LimpiarFormularioCliente();
-        MostrarFormularioCliente = true;
-        MostrarResultadosBusqueda = false;
-    }
-
-    [RelayCommand]
-    private void CancelarNuevoCliente()
-    {
-        MostrarFormularioCliente = false;
-        LimpiarFormularioCliente();
-    }
+    // ═══════════════════════════════════════════════════════════
 
     private void LimpiarFormularioCliente()
     {
         NuevoNombre = string.Empty;
+        NuevoSegundoNombre = string.Empty;
         NuevoApellido = string.Empty;
+        NuevoSegundoApellido = string.Empty;
         NuevoTelefono = string.Empty;
         NuevaDireccion = string.Empty;
         NuevaNacionalidad = string.Empty;
@@ -598,28 +712,19 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         NuevoNumeroDocumento = string.Empty;
         NuevaCaducidadDocumento = null;
         NuevaFechaNacimiento = null;
-        NuevaImagenDocumento = null;
-        NuevoNombreArchivoDocumento = string.Empty;
-        TieneImagenDocumento = false;
-        ImagenDocumentoPreview = null;
+        NuevaImagenDocumentoFrontal = null;
+        NuevaImagenDocumentoTrasera = null;
+        TieneImagenDocumentoFrontal = false;
+        TieneImagenDocumentoTrasera = false;
+        ImagenDocumentoFrontalPreview = null;
+        ImagenDocumentoTraseraPreview = null;
     }
 
     [RelayCommand]
     private async Task GuardarNuevoClienteAsync()
     {
-        if (string.IsNullOrWhiteSpace(NuevoNombre))
-        {
-            ErrorMessage = "El nombre es obligatorio";
-            return;
-        }
-        
-        if (string.IsNullOrWhiteSpace(NuevoNumeroDocumento))
-        {
-            ErrorMessage = "El número de documento es obligatorio";
-            return;
-        }
-
         IsLoading = true;
+        ErrorMessage = string.Empty;
 
         try
         {
@@ -627,19 +732,24 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             await conn.OpenAsync();
 
             var sql = @"INSERT INTO clientes 
-                        (nombre, apellidos, telefono, direccion, nacionalidad,
+                        (nombre, segundo_nombre, apellidos, segundo_apellido, 
+                         telefono, direccion, nacionalidad,
                          documento_tipo, documento_numero, caducidad_documento,
-                         fecha_nacimiento, imagen_documento, nombre_archivo_documento,
+                         fecha_nacimiento, imagen_documento_frontal, imagen_documento_trasera,
                          id_local_registro, activo)
                         VALUES 
-                        (@nombre, @apellido, @telefono, @direccion, @nacionalidad,
-                         @tipoDoc, @numDoc, @caducidad, @fechaNac, @imagen, @nombreArchivo,
+                        (@nombre, @segundoNombre, @apellido, @segundoApellido,
+                         @telefono, @direccion, @nacionalidad,
+                         @tipoDoc, @numDoc, @caducidad, @fechaNac, 
+                         @imagenFrontal, @imagenTrasera,
                          @idLocal, true)
                         RETURNING id_cliente";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("nombre", NuevoNombre);
+            cmd.Parameters.AddWithValue("segundoNombre", NuevoSegundoNombre ?? "");
             cmd.Parameters.AddWithValue("apellido", NuevoApellido ?? "");
+            cmd.Parameters.AddWithValue("segundoApellido", NuevoSegundoApellido ?? "");
             cmd.Parameters.AddWithValue("telefono", NuevoTelefono ?? "");
             cmd.Parameters.AddWithValue("direccion", NuevaDireccion ?? "");
             cmd.Parameters.AddWithValue("nacionalidad", NuevaNacionalidad ?? "");
@@ -647,8 +757,8 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento);
             cmd.Parameters.AddWithValue("caducidad", (object?)NuevaCaducidadDocumento?.DateTime ?? DBNull.Value);
             cmd.Parameters.AddWithValue("fechaNac", (object?)NuevaFechaNacimiento?.DateTime ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("imagen", (object?)NuevaImagenDocumento ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("nombreArchivo", NuevoNombreArchivoDocumento ?? "");
+            cmd.Parameters.AddWithValue("imagenFrontal", (object?)NuevaImagenDocumentoFrontal ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("imagenTrasera", (object?)NuevaImagenDocumentoTrasera ?? DBNull.Value);
             cmd.Parameters.AddWithValue("idLocal", _idLocalActual > 0 ? _idLocalActual : DBNull.Value);
 
             var idCliente = Convert.ToInt32(await cmd.ExecuteScalarAsync());
@@ -657,23 +767,25 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             {
                 IdCliente = idCliente,
                 Nombre = NuevoNombre,
+                SegundoNombre = NuevoSegundoNombre ?? "",
                 Apellido = NuevoApellido ?? "",
+                SegundoApellido = NuevoSegundoApellido ?? "",
                 Telefono = NuevoTelefono ?? "",
                 Direccion = NuevaDireccion ?? "",
                 Nacionalidad = NuevaNacionalidad ?? "",
                 TipoDocumento = NuevoTipoDocumento,
                 NumeroDocumento = NuevoNumeroDocumento,
                 CaducidadDocumento = NuevaCaducidadDocumento?.DateTime,
-                FechaNacimiento = NuevaFechaNacimiento?.DateTime
+                FechaNacimiento = NuevaFechaNacimiento?.DateTime,
+                ImagenDocumentoFrontal = NuevaImagenDocumentoFrontal,
+                ImagenDocumentoTrasera = NuevaImagenDocumentoTrasera
             };
 
             ClienteSeleccionado = nuevoCliente;
-            BusquedaCliente = nuevoCliente.NombreCompleto;
-            MostrarFormularioCliente = false;
             LimpiarFormularioCliente();
-            ValidarOperacion();
             
-            ErrorMessage = "";
+            OcultarTodasLasVistas();
+            VistaPrincipal = true;
         }
         catch (Exception ex)
         {
@@ -685,121 +797,288 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         }
     }
 
-    public void SetImagenDocumento(byte[] imagen, string nombreArchivo)
+    // ═══════════════════════════════════════════════════════════
+    // IMÁGENES DE DOCUMENTO
+    // ═══════════════════════════════════════════════════════════
+    
+    public void SetImagenDocumentoFrontal(byte[] imagen)
     {
-        NuevaImagenDocumento = imagen;
-        NuevoNombreArchivoDocumento = nombreArchivo;
-        TieneImagenDocumento = true;
-        
-        // Crear preview de la imagen
+        NuevaImagenDocumentoFrontal = imagen;
+        TieneImagenDocumentoFrontal = true;
         try
         {
             using var stream = new MemoryStream(imagen);
-            ImagenDocumentoPreview = new Avalonia.Media.Imaging.Bitmap(stream);
+            ImagenDocumentoFrontalPreview = new Avalonia.Media.Imaging.Bitmap(stream);
         }
-        catch
+        catch { ImagenDocumentoFrontalPreview = null; }
+    }
+    
+    public void SetImagenDocumentoTrasera(byte[] imagen)
+    {
+        NuevaImagenDocumentoTrasera = imagen;
+        TieneImagenDocumentoTrasera = true;
+        try
         {
-            // Si no es una imagen válida (ej: PDF), no mostrar preview
-            ImagenDocumentoPreview = null;
+            using var stream = new MemoryStream(imagen);
+            ImagenDocumentoTraseraPreview = new Avalonia.Media.Imaging.Bitmap(stream);
         }
+        catch { ImagenDocumentoTraseraPreview = null; }
     }
     
     [RelayCommand]
-    private void QuitarImagenDocumento()
+    private void QuitarImagenFrontal()
     {
-        NuevaImagenDocumento = null;
-        NuevoNombreArchivoDocumento = string.Empty;
-        TieneImagenDocumento = false;
-        ImagenDocumentoPreview = null;
-    }
-
-    // ============================================
-    // GESTIÓN DE FAVORITAS
-    // ============================================
-
-    [RelayCommand]
-    private void MostrarAgregarDivisa()
-    {
-        // Mostrar todas las divisas que no están en favoritas
-        DivisasBusqueda.Clear();
-        var favCodes = FavoriteCurrencies.Select(f => f.Code).ToHashSet();
-        
-        foreach (var divisa in AvailableCurrencies.Where(d => !favCodes.Contains(d.Code)))
-        {
-            DivisasBusqueda.Add(divisa);
-        }
-        
-        BusquedaDivisa = string.Empty;
-        MostrarSelectorDivisas = true;
+        NuevaImagenDocumentoFrontal = null;
+        TieneImagenDocumentoFrontal = false;
+        ImagenDocumentoFrontalPreview = null;
     }
     
     [RelayCommand]
-    private void CerrarSelectorDivisas()
+    private void QuitarImagenTrasera()
     {
-        MostrarSelectorDivisas = false;
-        BusquedaDivisa = string.Empty;
+        NuevaImagenDocumentoTrasera = null;
+        TieneImagenDocumentoTrasera = false;
+        ImagenDocumentoTraseraPreview = null;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // TRANSACCIÓN
+    // ═══════════════════════════════════════════════════════════
+    
     [RelayCommand]
-    private void AgregarAFavoritas(CurrencyModel? currency)
+    private async Task RealizarTransaccionAsync()
     {
-        if (currency == null) return;
-        
-        if (!_favoriteCodes.Contains(currency.Code))
+        if (!PuedeRealizarOperacion)
         {
-            _favoriteCodes.Add(currency.Code);
+            ErrorMessage = "No se puede realizar la operación. Verifique los datos.";
+            return;
+        }
+        
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+        
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
             
-            // Agregar a la colección visible
-            var favorite = new FavoriteCurrencyModel
-            {
-                Code = currency.Code,
-                Name = currency.Name,
-                Country = currency.Country,
-                RateToEur = currency.RateToEur,
-                RateWithMargin = currency.RateWithMargin
-            };
-            FavoriteCurrencies.Add(favorite);
+            var textoLimpio = AmountReceived.Replace(",", ".");
+            decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidadOrigen);
             
-            // Remover de la lista de búsqueda
-            DivisasBusqueda.Remove(currency);
+            FechaOperacion = DateTime.Now;
+            
+            // Obtener datos del local y comercio
+            int idComercioParaOperacion = _idComercioActual;
+            int idLocalParaOperacion = _idLocalActual;
+            string codigoLocal = "SIN-LOCAL";
+            
+            // Si tenemos local, obtener su comercio y código
+            if (idLocalParaOperacion > 0)
+            {
+                var sqlLocal = "SELECT id_comercio, codigo_local FROM locales WHERE id_local = @idLocal";
+                await using var cmdLocal = new NpgsqlCommand(sqlLocal, conn);
+                cmdLocal.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
+                await using var reader = await cmdLocal.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    idComercioParaOperacion = reader.GetInt32(0);
+                    codigoLocal = reader.GetString(1);
+                }
+                await reader.CloseAsync();
+            }
+            
+            // Si no tenemos local o comercio válido, obtener el primero disponible de la BD
+            if (idLocalParaOperacion <= 0 || idComercioParaOperacion <= 0)
+            {
+                var sqlPrimerLocal = @"SELECT l.id_local, l.id_comercio, l.codigo_local 
+                                       FROM locales l 
+                                       WHERE l.activo = true 
+                                       ORDER BY l.id_local 
+                                       LIMIT 1";
+                await using var cmdPrimer = new NpgsqlCommand(sqlPrimerLocal, conn);
+                await using var readerPrimer = await cmdPrimer.ExecuteReaderAsync();
+                if (await readerPrimer.ReadAsync())
+                {
+                    idLocalParaOperacion = readerPrimer.GetInt32(0);
+                    idComercioParaOperacion = readerPrimer.GetInt32(1);
+                    codigoLocal = readerPrimer.GetString(2);
+                }
+                await readerPrimer.CloseAsync();
+            }
+            
+            // Verificar que tenemos datos válidos
+            if (idLocalParaOperacion <= 0 || idComercioParaOperacion <= 0)
+            {
+                ErrorMessage = "Error: No se encontró un local/comercio válido en el sistema.";
+                return;
+            }
+            
+            // Datos del usuario - obtener el primero si no hay sesión
+            int idUsuarioParaOperacion = _idUsuarioActual;
+            string nombreUsuario = _nombreUsuarioActual ?? "";
+            string numeroUsuario = _numeroUsuarioActual ?? "";
+            
+            if (idUsuarioParaOperacion <= 0)
+            {
+                var sqlPrimerUsuario = @"SELECT id_usuario, 
+                                         COALESCE(nombre, '') || ' ' || COALESCE(apellidos, '') as nombre_completo,
+                                         COALESCE(numero_usuario, 'USR001') as numero
+                                         FROM usuarios 
+                                         WHERE activo = true 
+                                         ORDER BY id_usuario 
+                                         LIMIT 1";
+                await using var cmdUsuario = new NpgsqlCommand(sqlPrimerUsuario, conn);
+                await using var readerUsuario = await cmdUsuario.ExecuteReaderAsync();
+                if (await readerUsuario.ReadAsync())
+                {
+                    idUsuarioParaOperacion = readerUsuario.GetInt32(0);
+                    nombreUsuario = readerUsuario.GetString(1).Trim();
+                    numeroUsuario = readerUsuario.GetString(2);
+                }
+                await readerUsuario.CloseAsync();
+            }
+            
+            if (idUsuarioParaOperacion <= 0)
+            {
+                ErrorMessage = "Error: No se encontró un usuario válido en el sistema.";
+                return;
+            }
+            
+            if (string.IsNullOrEmpty(nombreUsuario))
+                nombreUsuario = "Usuario Sistema";
+            if (string.IsNullOrEmpty(numeroUsuario))
+                numeroUsuario = "SYS001";
+            
+            // Nombre del cliente
+            string nombreCliente = ClienteSeleccionado?.NombreCompleto ?? "Cliente";
+            if (string.IsNullOrEmpty(nombreCliente))
+                nombreCliente = $"{ClienteSeleccionado?.Nombre} {ClienteSeleccionado?.Apellido}".Trim();
+            if (string.IsNullOrEmpty(nombreCliente))
+                nombreCliente = "Cliente sin nombre";
+            
+            // Generar número de operación único: DI + YYYYMMDD + secuencial
+            var fechaStr = FechaOperacion.ToString("yyyyMMdd");
+            var sqlNumero = @"SELECT COALESCE(MAX(
+                                CASE 
+                                    WHEN LENGTH(numero_operacion) >= 14 
+                                         AND SUBSTRING(numero_operacion FROM 11) ~ '^[0-9]+$'
+                                    THEN CAST(SUBSTRING(numero_operacion FROM 11) AS INTEGER)
+                                    ELSE 0 
+                                END
+                              ), 0) + 1 
+                              FROM operaciones 
+                              WHERE numero_operacion LIKE @prefijo";
+            await using var cmdNum = new NpgsqlCommand(sqlNumero, conn);
+            cmdNum.Parameters.AddWithValue("prefijo", $"DI{fechaStr}%");
+            var secuencial = Convert.ToInt32(await cmdNum.ExecuteScalarAsync());
+            var numeroOperacionGenerado = $"DI{fechaStr}{secuencial:D4}";
+            
+            var sqlOperacion = @"INSERT INTO operaciones 
+                                (numero_operacion, id_comercio, id_local, codigo_local, 
+                                 id_usuario, nombre_usuario, numero_usuario,
+                                 id_cliente, nombre_cliente, modulo, tipo_operacion,
+                                 importe_total, estado, fecha_operacion, observaciones)
+                                VALUES 
+                                (@numOp, @idComercio, @idLocal, @codigoLocal,
+                                 @idUsuario, @nombreUsuario, @numeroUsuario,
+                                 @idCliente, @nombreCliente, 'DIVISAS', 'COMPRA',
+                                 @importe, 'COMPLETADA', @fecha, @obs)
+                                RETURNING id_operacion";
+            
+            await using var cmdOp = new NpgsqlCommand(sqlOperacion, conn);
+            cmdOp.Parameters.AddWithValue("numOp", numeroOperacionGenerado);
+            cmdOp.Parameters.AddWithValue("idComercio", idComercioParaOperacion);
+            cmdOp.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
+            cmdOp.Parameters.AddWithValue("codigoLocal", codigoLocal);
+            cmdOp.Parameters.AddWithValue("idUsuario", idUsuarioParaOperacion);
+            cmdOp.Parameters.AddWithValue("nombreUsuario", nombreUsuario);
+            cmdOp.Parameters.AddWithValue("numeroUsuario", numeroUsuario);
+            cmdOp.Parameters.AddWithValue("idCliente", ClienteSeleccionado!.IdCliente);
+            cmdOp.Parameters.AddWithValue("nombreCliente", nombreCliente);
+            cmdOp.Parameters.AddWithValue("importe", TotalInEuros);
+            cmdOp.Parameters.AddWithValue("fecha", FechaOperacion);
+            cmdOp.Parameters.AddWithValue("obs", $"Compra de {cantidadOrigen} {SelectedCurrency!.Code}");
+            
+            NumeroOperacion = Convert.ToInt64(await cmdOp.ExecuteScalarAsync());
+            
+            var sqlDetalle = @"INSERT INTO operaciones_divisas 
+                              (id_operacion, divisa_origen, divisa_destino, 
+                               cantidad_origen, cantidad_destino, tipo_cambio, tipo_cambio_aplicado)
+                              VALUES 
+                              (@idOp, @divisaOrigen, 'EUR', @cantOrigen, @cantDestino, @tasa, @tasaAplicada)";
+            
+            await using var cmdDet = new NpgsqlCommand(sqlDetalle, conn);
+            cmdDet.Parameters.AddWithValue("idOp", NumeroOperacion);
+            cmdDet.Parameters.AddWithValue("divisaOrigen", SelectedCurrency.Code);
+            cmdDet.Parameters.AddWithValue("cantOrigen", cantidadOrigen);
+            cmdDet.Parameters.AddWithValue("cantDestino", TotalInEuros);
+            cmdDet.Parameters.AddWithValue("tasa", SelectedCurrency.RateToEur);
+            cmdDet.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
+            
+            await cmdDet.ExecuteNonQueryAsync();
+            
+            // Usar el número generado para mostrar
+            NumeroOperacionDisplay = numeroOperacionGenerado;
+            
+            OcultarTodasLasVistas();
+            VistaResumen = true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al realizar transacción: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
     
+    // ═══════════════════════════════════════════════════════════
+    // IMPRESIÓN DE RECIBO
+    // ═══════════════════════════════════════════════════════════
+    
     [RelayCommand]
-    private void QuitarDeFavoritas(FavoriteCurrencyModel? currency)
+    private async Task ImprimirReciboAsync()
     {
-        if (currency == null) return;
-        
-        _favoriteCodes.Remove(currency.Code);
-        FavoriteCurrencies.Remove(currency);
-        
-        // Si el selector está abierto, agregar de vuelta a la lista
-        if (MostrarSelectorDivisas)
+        try
         {
-            var original = AvailableCurrencies.FirstOrDefault(c => c.Code == currency.Code);
-            if (original != null && !DivisasBusqueda.Contains(original))
+            IsLoading = true;
+            
+            var pdfService = new ReciboDivisasPdfService();
+            var pdfPath = await pdfService.GenerarReciboPdfAsync(
+                numeroOperacion: NumeroOperacionDisplay,
+                fechaOperacion: FechaOperacion,
+                cliente: ClienteSeleccionado!,
+                divisaOrigen: SelectedCurrency!.Code,
+                nombreDivisa: SelectedCurrency.Name,
+                cantidadRecibida: decimal.Parse(AmountReceived.Replace(",", "."), CultureInfo.InvariantCulture),
+                totalEntregado: TotalInEuros,
+                tasaCambio: SelectedCurrency.RateWithMargin,
+                idLocal: _idLocalActual
+            );
+            
+            if (!string.IsNullOrEmpty(pdfPath) && File.Exists(pdfPath))
             {
-                DivisasBusqueda.Add(original);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = pdfPath,
+                    UseShellExecute = true
+                });
             }
         }
-    }
-
-    [RelayCommand]
-    private void RemoveFromFavorites(FavoriteCurrencyModel? currency)
-    {
-        if (currency == null) return;
-        
-        _favoriteCodes.Remove(currency.Code);
-        var toRemove = FavoriteCurrencies.FirstOrDefault(f => f.Code == currency.Code);
-        if (toRemove != null)
+        catch (Exception ex)
         {
-            FavoriteCurrencies.Remove(toRemove);
+            ErrorMessage = $"Error al generar recibo: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
     // LISTA DE DIVISAS
-    // ============================================
+    // ═══════════════════════════════════════════════════════════
 
     private List<CurrencyModel> GetAllCurrenciesList()
     {

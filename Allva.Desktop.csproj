@@ -53,6 +53,7 @@
     
     <!-- Base de datos -->
     <PackageReference Include="Npgsql" Version="9.0.4" />
+    <PackageReference Include="QuestPDF" Version="2025.7.4" />
     
     <!-- Sistema de actualización automática -->
     <PackageReference Include="Velopack" Version="0.0.*" />

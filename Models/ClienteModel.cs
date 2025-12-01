@@ -1,4 +1,7 @@
 using System;
+using System.IO;
+using System.Linq;
+using Avalonia.Media.Imaging;
 
 namespace Allva.Desktop.Models;
 
@@ -9,7 +12,9 @@ public class ClienteModel
 {
     public int IdCliente { get; set; }
     public string Nombre { get; set; } = string.Empty;
+    public string SegundoNombre { get; set; } = string.Empty;
     public string Apellido { get; set; } = string.Empty;
+    public string SegundoApellido { get; set; } = string.Empty;
     public string Telefono { get; set; } = string.Empty;
     public string Direccion { get; set; } = string.Empty;
     public string Nacionalidad { get; set; } = string.Empty;
@@ -17,17 +22,71 @@ public class ClienteModel
     public string NumeroDocumento { get; set; } = string.Empty;
     public DateTime? CaducidadDocumento { get; set; }
     public DateTime? FechaNacimiento { get; set; }
-    public byte[]? ImagenDocumento { get; set; }
-    public string NombreArchivoDocumento { get; set; } = string.Empty;
+    
+    // Imágenes del documento (frontal y trasera)
+    public byte[]? ImagenDocumentoFrontal { get; set; }
+    public byte[]? ImagenDocumentoTrasera { get; set; }
+    
     public bool Activo { get; set; } = true;
     public DateTime FechaRegistro { get; set; } = DateTime.Now;
+    public int? IdLocalRegistro { get; set; }
     
     // Propiedades calculadas
-    public string NombreCompleto => $"{Nombre} {Apellido}".Trim();
+    public string NombreCompleto
+    {
+        get
+        {
+            var partes = new[] { Nombre, SegundoNombre, Apellido, SegundoApellido };
+            return string.Join(" ", partes.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+    }
+    
     public string DocumentoCompleto => $"{TipoDocumento}: {NumeroDocumento}";
     public string CaducidadTexto => CaducidadDocumento?.ToString("dd/MM/yyyy") ?? "Sin fecha";
     public string FechaNacimientoTexto => FechaNacimiento?.ToString("dd/MM/yyyy") ?? "";
-    public bool TieneImagenDocumento => ImagenDocumento != null && ImagenDocumento.Length > 0;
+    
+    // Propiedades para imágenes
+    public bool TieneImagenFrontal => ImagenDocumentoFrontal != null && ImagenDocumentoFrontal.Length > 0;
+    public bool TieneImagenTrasera => ImagenDocumentoTrasera != null && ImagenDocumentoTrasera.Length > 0;
+    public bool TieneImagenes => TieneImagenFrontal || TieneImagenTrasera;
+    
+    // Bitmaps para mostrar en UI
+    private Bitmap? _imagenFrontalBitmap;
+    private Bitmap? _imagenTraseraBitmap;
+    
+    public Bitmap? ImagenFrontalBitmap
+    {
+        get
+        {
+            if (_imagenFrontalBitmap == null && TieneImagenFrontal)
+            {
+                try
+                {
+                    using var stream = new MemoryStream(ImagenDocumentoFrontal!);
+                    _imagenFrontalBitmap = new Bitmap(stream);
+                }
+                catch { _imagenFrontalBitmap = null; }
+            }
+            return _imagenFrontalBitmap;
+        }
+    }
+    
+    public Bitmap? ImagenTraseraBitmap
+    {
+        get
+        {
+            if (_imagenTraseraBitmap == null && TieneImagenTrasera)
+            {
+                try
+                {
+                    using var stream = new MemoryStream(ImagenDocumentoTrasera!);
+                    _imagenTraseraBitmap = new Bitmap(stream);
+                }
+                catch { _imagenTraseraBitmap = null; }
+            }
+            return _imagenTraseraBitmap;
+        }
+    }
 }
 
 /// <summary>
