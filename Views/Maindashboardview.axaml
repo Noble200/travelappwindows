@@ -8,7 +8,7 @@
              x:DataType="vm:MainDashboardViewModel">
 
     <UserControl.Styles>
-        <!-- Estilo base para botones del menú -->
+        <!-- Estilo base para botones del menu -->
         <Style Selector="Button.menu-item">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#595959"/>
@@ -27,7 +27,7 @@
             <Setter Property="Foreground" Value="#0b5394"/>
         </Style>
         
-        <!-- Estilo para botón de menú seleccionado -->
+        <!-- Estilo para boton de menu seleccionado -->
         <Style Selector="Button.menu-item-selected">
             <Setter Property="Background" Value="#0b5394"/>
             <Setter Property="Foreground" Value="White"/>
@@ -46,64 +46,58 @@
             <Setter Property="Foreground" Value="White"/>
         </Style>
         
-        <!-- Estilo para botones de acción en header -->
+        <!-- Estilo para botones de accion en header -->
         <Style Selector="Button.header-action">
-            <Setter Property="Background" Value="#f8f9fa"/>
+            <Setter Property="Background" Value="#F5F5F5"/>
             <Setter Property="Foreground" Value="#595959"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Width" Value="44"/>
-            <Setter Property="Height" Value="44"/>
         </Style>
         
         <Style Selector="Button.header-action:pointerover">
-            <Setter Property="Background" Value="#d6e6f5"/>
+            <Setter Property="Background" Value="#E8E8E8"/>
             <Setter Property="Foreground" Value="#0b5394"/>
         </Style>
         
-        <Style Selector="Button.header-action:pressed">
+        <!-- Estilo para boton de cerrar sesion -->
+        <Style Selector="Button.logout-button">
             <Setter Property="Background" Value="#0b5394"/>
             <Setter Property="Foreground" Value="White"/>
-        </Style>
-        
-        <!-- Botón cerrar sesión -->
-        <Style Selector="Button.logout-button">
-            <Setter Property="Background" Value="#ffd966"/>
-            <Setter Property="Foreground" Value="#0b5394"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="16,10"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         
         <Style Selector="Button.logout-button:pointerover">
-            <Setter Property="Background" Value="#ffcc00"/>
+            <Setter Property="Background" Value="#084171"/>
         </Style>
     </UserControl.Styles>
 
-    <Grid Background="#f3f3f3">
+    <Grid Background="#ffd966">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260" MinWidth="200" MaxWidth="300"/>
+            <ColumnDefinition Width="200"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- ========== MENÚ LATERAL IZQUIERDO ========== -->
+        <!-- SIDEBAR IZQUIERDO -->
         <Border Grid.Column="0" 
-                Background="White" 
-                BoxShadow="2 0 12 0 #15000000">
+                Background="White"
+                BoxShadow="4 0 12 0 #15000000"
+                ClipToBounds="True">
             <Grid RowDefinitions="Auto,Auto,*,Auto">
-
-                <!-- ========== LOGO ========== -->
+                
+                <!-- LOGO -->
                 <Border Grid.Row="0" 
-                        Padding="20,28,20,20"
-                        HorizontalAlignment="Stretch">
+                        Padding="20,20,20,16"
+                        Background="White">
                     <Image Source="/Assets/logo.png" 
-                           Width="180" 
                            Height="70"
                            Stretch="Uniform"
                            HorizontalAlignment="Center"
@@ -116,24 +110,24 @@
                         Background="#E8E8E8"
                         Margin="20,0,20,12"/>
 
-                <!-- ========== MENÚ DE NAVEGACIÓN ========== -->
+                <!-- MENU DE NAVEGACION -->
                 <ScrollViewer Grid.Row="2" 
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="2" Margin="0,8,0,0">
                         
-                        <!-- Título sección -->
-                        <TextBlock Text="NAVEGACIÓN"
+                        <!-- Titulo seccion -->
+                        <TextBlock Text="NAVEGACION"
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    Foreground="#A0A0A0"
                                    Margin="20,0,20,12"/>
                         
-                        <!-- Últimas Noticias -->
+                        <!-- Ultimas Noticias -->
                         <Button Name="BtnDashboard"
                                 Click="NavigateToDashboard"
                                 Classes="menu-item">
-                            <TextBlock Text="Últimas Noticias"/>
+                            <TextBlock Text="Ultimas Noticias"/>
                         </Button>
 
                         <!-- Compra de Divisas -->
@@ -150,11 +144,11 @@
                             <TextBlock Text="Pack de Alimentos"/>
                         </Button>
 
-                        <!-- Billetes de Avión -->
+                        <!-- Billetes de Avion -->
                         <Button Name="BtnBilletes"
                                 Click="NavigateToBilletes"
                                 Classes="menu-item">
-                            <TextBlock Text="Billetes de Avión"/>
+                            <TextBlock Text="Billetes de Avion"/>
                         </Button>
 
                         <!-- Packs de Viajes -->
@@ -167,7 +161,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- ========== INFO USUARIO Y CERRAR SESIÓN ========== -->
+                <!-- INFO USUARIO Y CERRAR SESION -->
                 <Border Grid.Row="3" 
                         Background="#FAFAFA" 
                         BorderBrush="#E8E8E8"
@@ -189,8 +183,8 @@
                                        Foreground="#595959"/>
                         </StackPanel>
 
-                        <!-- Botón Cerrar Sesión -->
-                        <Button Content="Cerrar Sesión"
+                        <!-- Boton Cerrar Sesion -->
+                        <Button Content="Cerrar Sesion"
                                 Click="CerrarSesion"
                                 Classes="logout-button"
                                 HorizontalAlignment="Stretch"/>
@@ -199,14 +193,14 @@
             </Grid>
         </Border>
 
-        <!-- ========== CONTENIDO PRINCIPAL ========== -->
+        <!-- CONTENIDO PRINCIPAL -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- ========== HEADER SUPERIOR ========== -->
+            <!-- HEADER SUPERIOR -->
             <Border Grid.Row="0" 
                     Background="White"
                     BoxShadow="0 2 8 0 #10000000"
@@ -217,28 +211,28 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Título del módulo actual -->
+                    <!-- Titulo del modulo actual -->
                     <StackPanel Grid.Column="0" 
                                 VerticalAlignment="Center"
                                 Spacing="2">
                         <TextBlock Name="TxtModuleTitle"
-                                   Text="Últimas Noticias" 
+                                   Text="Ultimas Noticias" 
                                    FontSize="20" 
                                    FontWeight="SemiBold"
                                    Foreground="#0b5394"/>
                         <TextBlock Name="TxtModuleDescription"
-                                   Text="Mantente informado con las últimas novedades" 
+                                   Text="Mantente informado con las ultimas novedades" 
                                    FontSize="12" 
                                    Foreground="#808080"/>
                     </StackPanel>
 
-                    <!-- Botones de acción -->
+                    <!-- Botones de accion -->
                     <StackPanel Grid.Column="1" 
                                 Orientation="Horizontal" 
                                 Spacing="10"
                                 VerticalAlignment="Center">
                         
-                        <!-- Botón Notificaciones -->
+                        <!-- Boton Notificaciones -->
                         <Button Name="BtnNotifications"
                                 Classes="header-action"
                                 ToolTip.Tip="Notificaciones"
@@ -251,7 +245,7 @@
                                   VerticalAlignment="Center"/>
                         </Button>
                         
-                        <!-- Botón Usuario -->
+                        <!-- Boton Usuario -->
                         <Button Name="BtnUser"
                                 Classes="header-action"
                                 ToolTip.Tip="Mi Perfil"
@@ -264,24 +258,69 @@
                                   VerticalAlignment="Center"/>
                         </Button>
                         
-                        <!-- Botón Configuración -->
-                        <Button Name="BtnSettings"
-                                Classes="header-action"
-                                ToolTip.Tip="Configuración"
-                                Click="OpenSettings">
-                            <Path Data="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
-                                  Fill="{Binding $parent[Button].Foreground}"
-                                  Width="20" Height="20"
-                                  Stretch="Uniform"
-                                  HorizontalAlignment="Center"
-                                  VerticalAlignment="Center"/>
-                        </Button>
+                        <!-- Boton Menu Hamburguesa -->
+                        <Panel>
+                            <Button x:Name="MenuButton"
+                                    Click="MenuButton_Click"
+                                    Classes="header-action"
+                                    ToolTip.Tip="Menu">
+                                <StackPanel Spacing="4" 
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center">
+                                    <Border Width="18" Height="2" Background="#595959" CornerRadius="1"/>
+                                    <Border Width="18" Height="2" Background="#595959" CornerRadius="1"/>
+                                    <Border Width="18" Height="2" Background="#595959" CornerRadius="1"/>
+                                </StackPanel>
+                            </Button>
+                            
+                            <Popup x:Name="MenuPopup" 
+                                   PlacementTarget="{Binding #MenuButton}"
+                                   Placement="BottomEdgeAlignedRight"
+                                   IsLightDismissEnabled="True"
+                                   HorizontalOffset="0"
+                                   VerticalOffset="6">
+                                <Border Background="White"
+                                        CornerRadius="10"
+                                        BoxShadow="0 8 24 0 #30000000"
+                                        MinWidth="200"
+                                        Padding="0">
+                                    <StackPanel>
+                                        <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
+                                            <TextBlock Text="Opciones" 
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#0b5394"/>
+                                        </Border>
+                                        
+                                        <Border Height="1" Background="#EEEEEE"/>
+                                        
+                                        <Button Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="16,12"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                Cursor="Hand"
+                                                CornerRadius="0,0,10,10"
+                                                Click="NavigateToOperaciones">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover">
+                                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                                </Style>
+                                            </Button.Styles>
+                                            <TextBlock Text="Operaciones" 
+                                                       FontSize="14" 
+                                                       Foreground="#444444"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Panel>
                         
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- ========== ÁREA DE CONTENIDO (MÓDULOS) ========== -->
+            <!-- AREA DE CONTENIDO (MODULOS) -->
             <Border Grid.Row="1" 
                     Margin="24,20"
                     Background="White"

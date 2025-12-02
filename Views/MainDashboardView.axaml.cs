@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Allva.Desktop.ViewModels;
 
@@ -9,7 +10,6 @@ public partial class MainDashboardView : UserControl
     public MainDashboardView()
     {
         InitializeComponent();
-        // Inicializar con el primer botón seleccionado
         Loaded += OnLoaded;
     }
 
@@ -22,7 +22,7 @@ public partial class MainDashboardView : UserControl
     private MainDashboardViewModel? ViewModel => DataContext as MainDashboardViewModel;
 
     // ============================================
-    // NAVEGACIÓN DEL MENÚ PRINCIPAL
+    // NAVEGACION DEL MENU PRINCIPAL
     // ============================================
 
     private void NavigateToDashboard(object? sender, RoutedEventArgs e)
@@ -61,13 +61,34 @@ public partial class MainDashboardView : UserControl
     }
 
     // ============================================
-    // BOTONES DE ACCIÓN DEL HEADER
+    // MENU HAMBURGUESA
     // ============================================
 
-    private void OpenSettings(object? sender, RoutedEventArgs e)
+    private void MenuButton_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: Implementar apertura de configuración
+        var popup = this.FindControl<Popup>("MenuPopup");
+        if (popup != null)
+        {
+            popup.IsOpen = !popup.IsOpen;
+        }
     }
+
+    private void NavigateToOperaciones(object? sender, RoutedEventArgs e)
+    {
+        var popup = this.FindControl<Popup>("MenuPopup");
+        if (popup != null)
+        {
+            popup.IsOpen = false;
+        }
+        
+        ViewModel?.NavigateToModule("operaciones");
+        UpdateMenuSelection("");
+        UpdateModuleHeader("operaciones");
+    }
+
+    // ============================================
+    // BOTONES DE ACCION DEL HEADER
+    // ============================================
 
     private void OpenNotifications(object? sender, RoutedEventArgs e)
     {
@@ -80,7 +101,7 @@ public partial class MainDashboardView : UserControl
     }
 
     // ============================================
-    // SESIÓN
+    // SESION
     // ============================================
 
     private void CerrarSesion(object? sender, RoutedEventArgs e)
@@ -114,12 +135,13 @@ public partial class MainDashboardView : UserControl
     {
         (string title, string description) = moduleName.ToLower() switch
         {
-            "dashboard" => ("Últimas Noticias", "Mantente informado con las últimas novedades"),
+            "dashboard" => ("Ultimas Noticias", "Mantente informado con las ultimas novedades"),
             "divisas" => ("Compra de Divisas", "Gestiona operaciones de cambio de moneda"),
-            "alimentos" => ("Pack de Alimentos", "Administra paquetes de alimentación"),
-            "billetes" => ("Billetes de Avión", "Reserva y gestión de vuelos"),
-            "viajes" => ("Packs de Viajes", "Paquetes turísticos completos"),
-            _ => ("Últimas Noticias", "Mantente informado con las últimas novedades")
+            "alimentos" => ("Pack de Alimentos", "Administra paquetes de alimentacion"),
+            "billetes" => ("Billetes de Avion", "Reserva y gestion de vuelos"),
+            "viajes" => ("Packs de Viajes", "Paquetes turisticos completos"),
+            "operaciones" => ("Operaciones", "Historial y gestion de operaciones"),
+            _ => ("Ultimas Noticias", "Mantente informado con las ultimas novedades")
         };
 
         TxtModuleTitle.Text = title;
