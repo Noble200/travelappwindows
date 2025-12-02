@@ -11,7 +11,7 @@ namespace Allva.Desktop.Services;
 
 /// <summary>
 /// Servicio de navegación para cambiar entre vistas
-/// ACTUALIZADO: LoginSuccessData incluye información completa del usuario y local
+/// ACTUALIZADO: Pasa información completa del usuario y local al MainDashboard
 /// </summary>
 public class NavigationService
 {
@@ -97,7 +97,15 @@ public class NavigationService
         
         if (parameter is LoginSuccessData loginData)
         {
-            view.DataContext = new MainDashboardViewModel(loginData.UserName, loginData.LocalCode);
+            // CAMBIO: Pasar TODOS los datos de sesión al Dashboard
+            view.DataContext = new MainDashboardViewModel(
+                loginData.IdUsuario,
+                loginData.UserName,
+                loginData.UserNumber,
+                loginData.IdLocal,
+                loginData.LocalCode,
+                loginData.IdComercio
+            );
         }
         else
         {

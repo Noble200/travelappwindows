@@ -3,13 +3,14 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Allva.Desktop.Views;
 using Allva.Desktop.Views.PanelDivisas;
+using Allva.Desktop.Views.MenuHamburguesa;
 using Allva.Desktop.Services;
 
 namespace Allva.Desktop.ViewModels;
 
 /// <summary>
-/// ViewModel para el Dashboard principal con menú de navegación
-/// Almacena los datos de sesión del usuario logueado
+/// ViewModel para el Dashboard principal con menu de navegacion
+/// Almacena los datos de sesion del usuario logueado
 /// </summary>
 public partial class MainDashboardViewModel : ObservableObject
 {
@@ -26,7 +27,7 @@ public partial class MainDashboardViewModel : ObservableObject
     private string _selectedModule = "dashboard";
 
     // ============================================
-    // DATOS DE SESIÓN DEL USUARIO
+    // DATOS DE SESION DEL USUARIO
     // ============================================
     
     private int _idUsuario = 0;
@@ -41,13 +42,9 @@ public partial class MainDashboardViewModel : ObservableObject
 
     public MainDashboardViewModel()
     {
-        // Cargar vista inicial (Últimas Noticias)
         NavigateToModule("dashboard");
     }
 
-    /// <summary>
-    /// Constructor con datos de usuario (básico)
-    /// </summary>
     public MainDashboardViewModel(string userName, string localCode)
     {
         UserName = userName;
@@ -55,10 +52,6 @@ public partial class MainDashboardViewModel : ObservableObject
         NavigateToModule("dashboard");
     }
     
-    /// <summary>
-    /// Constructor COMPLETO con todos los datos de sesión
-    /// Este es el que debe usarse desde el Login
-    /// </summary>
     public MainDashboardViewModel(int idUsuario, string nombreUsuario, string numeroUsuario, 
                                    int idLocal, string codigoLocal, int idComercio)
     {
@@ -73,10 +66,6 @@ public partial class MainDashboardViewModel : ObservableObject
         NavigateToModule("dashboard");
     }
 
-    /// <summary>
-    /// Método para establecer los datos de sesión después de crear el ViewModel
-    /// Útil si se usa el constructor vacío
-    /// </summary>
     public void SetSesionData(int idUsuario, string nombreUsuario, string numeroUsuario,
                                int idLocal, string codigoLocal, int idComercio)
     {
@@ -89,9 +78,6 @@ public partial class MainDashboardViewModel : ObservableObject
         LocalCode = codigoLocal;
     }
 
-    /// <summary>
-    /// Navega a un módulo específico
-    /// </summary>
     public void NavigateToModule(string moduleName)
     {
         SelectedModule = moduleName;
@@ -103,13 +89,11 @@ public partial class MainDashboardViewModel : ObservableObject
             "alimentos" => CreateFoodPacksView(),
             "billetes" => CreateFlightTicketsView(),
             "viajes" => CreateTravelPacksView(),
+            "operaciones" => CreateOperacionesView(),
             _ => CreateLatestNewsView()
         };
     }
 
-    /// <summary>
-    /// Cierra sesión y vuelve al login
-    /// </summary>
     public void Logout()
     {
         var navigationService = new NavigationService();
@@ -117,7 +101,7 @@ public partial class MainDashboardViewModel : ObservableObject
     }
 
     // ============================================
-    // MÉTODOS PRIVADOS PARA CREAR VISTAS
+    // METODOS PRIVADOS PARA CREAR VISTAS
     // ============================================
 
     private UserControl CreateLatestNewsView()
@@ -130,7 +114,6 @@ public partial class MainDashboardViewModel : ObservableObject
     private UserControl CreateCurrencyExchangeView()
     {
         var view = new CurrencyExchangePanelView();
-        // CAMBIO: Pasar los datos de sesión al ViewModel de divisas
         var viewModel = new CurrencyExchangePanelViewModel(
             _idLocal, 
             _idComercio, 
@@ -160,6 +143,12 @@ public partial class MainDashboardViewModel : ObservableObject
     {
         var view = new TravelPacksView();
         view.DataContext = new TravelPacksViewModel();
+        return view;
+    }
+
+    private UserControl CreateOperacionesView()
+    {
+        var view = new OperacionesView(_idComercio, _idLocal, LocalCode);
         return view;
     }
 }
