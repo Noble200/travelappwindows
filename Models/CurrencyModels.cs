@@ -38,7 +38,9 @@ namespace Allva.Desktop.Models
         /// <summary>
         /// Muestra la tasa CON margen (el usuario no sabe que tiene margen)
         /// </summary>
-        public string RateDisplay => $"1 {Code} = {RateWithMargin:F5} EUR";
+        public string RateDisplay => RateWithMargin > 0 
+            ? $"1 {Code} = {RateWithMargin:F2} EUR" 
+            : "Error al cargar tasa";
     }
     
     /// <summary>
@@ -69,7 +71,7 @@ namespace Allva.Desktop.Models
         /// <summary>
         /// Muestra la tasa CON margen (el usuario no sabe que tiene margen)
         /// </summary>
-        public string RateDisplay => $"1 {Code} = {RateWithMargin:F5} EUR";
+        public string RateDisplay => $"1 {Code} = {RateWithMargin:F2} EUR";
     }
     
     /// <summary>

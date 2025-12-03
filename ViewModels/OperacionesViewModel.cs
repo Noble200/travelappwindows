@@ -25,24 +25,12 @@ public partial class OperacionesViewModel : ObservableObject
     [ObservableProperty]
     private bool mostrarFiltroDivisa = true;
     
-    // Filtros de fecha escritos
+    // Fechas en formato dd/mm/aaaa (como NuevoCliente)
     [ObservableProperty]
-    private string fechaDesdeDia = "";
+    private string fechaDesdeTexto = "";
     
     [ObservableProperty]
-    private string fechaDesdeMes = "";
-    
-    [ObservableProperty]
-    private string fechaDesdeAnio = "";
-    
-    [ObservableProperty]
-    private string fechaHastaDia = "";
-    
-    [ObservableProperty]
-    private string fechaHastaMes = "";
-    
-    [ObservableProperty]
-    private string fechaHastaAnio = "";
+    private string fechaHastaTexto = "";
     
     [ObservableProperty]
     private string operacionDesde = "";
@@ -56,26 +44,24 @@ public partial class OperacionesViewModel : ObservableObject
     [ObservableProperty]
     private string tipoOperacionFiltro = "Todas";
     
-    // Fecha actual formateada
     [ObservableProperty]
     private string fechaActualTexto = "";
     
-    // Balances
+    // Balance SOLO en euros (intercambios negativo, depositos positivo)
     [ObservableProperty]
-    private string balanceDivisa = "0$";
+    private string balanceEuros = "0.00 EUR";
     
     [ObservableProperty]
-    private string balanceEuro = "0€";
+    private string balanceEurosColor = "#008800";
     
+    // Beneficio del dia (se calcula automatico)
     [ObservableProperty]
-    private string balanceBeneficio = "0€";
-    
-    [ObservableProperty]
-    private string beneficioDelDia = "0€";
+    private string beneficioDelDia = "0.00 EUR";
     
     private decimal _beneficioDelDiaNumerico = 0;
+    private decimal _balanceEurosNumerico = 0;
     
-    // Transaccion banco
+    // Deposito en banco
     [ObservableProperty]
     private string divisaBancoSeleccionada = "USD";
     
@@ -94,12 +80,20 @@ public partial class OperacionesViewModel : ObservableObject
     [ObservableProperty]
     private string successMessage = "";
     
+    // Cierre del dia
+    [ObservableProperty]
+    private bool diaCerrado = false;
+    
+    [ObservableProperty]
+    private string mensajeDiaCerrado = "";
+    
     public ObservableCollection<OperacionItem> Operaciones { get; } = new();
     public ObservableCollection<string> DivisasDisponibles { get; } = new() { "Todas", "USD", "EUR", "GBP", "CHF", "CAD", "CNY" };
     public ObservableCollection<string> DivisasParaBanco { get; } = new() { "USD", "GBP", "CHF", "CAD", "CNY" };
-    public ObservableCollection<string> TiposOperacion { get; } = new() { "Todas", "Compras", "Depositos" };
     
-    // Nombres de meses en español
+    // Tipos: Compra (intercambio), Deposito (banco), Traspaso a caja (futuro)
+    public ObservableCollection<string> TiposOperacion { get; } = new() { "Todas", "Compra", "Deposito", "Traspaso a caja" };
+    
     private readonly string[] _mesesEspanol = { 
         "enero", "febrero", "marzo", "abril", "mayo", "junio",
         "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre" 
@@ -132,19 +126,13 @@ public partial class OperacionesViewModel : ObservableObject
     private void InicializarFechas()
     {
         var hoy = DateTime.Now;
-        
-        // Fecha actual formateada
         FechaActualTexto = FormatearFechaCompleta(hoy);
         
-        // Fecha desde: primer dia del mes
-        FechaDesdeDia = "1";
-        FechaDesdeMes = hoy.Month.ToString();
-        FechaDesdeAnio = hoy.Year.ToString();
+        // Fecha desde: primer dia del mes (formato dd/mm/aaaa)
+        FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
         
-        // Fecha hasta: hoy
-        FechaHastaDia = hoy.Day.ToString();
-        FechaHastaMes = hoy.Month.ToString();
-        FechaHastaAnio = hoy.Year.ToString();
+        // Fecha hasta: hoy (formato dd/mm/aaaa)
+        FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
     }
     
     private string FormatearFechaCompleta(DateTime fecha)
@@ -154,40 +142,68 @@ public partial class OperacionesViewModel : ObservableObject
         return $"{diaSemana}, {fecha.Day} de {mes} de {fecha.Year}";
     }
     
+    /// <summary>
+    /// Parsea fecha en formato dd/mm/aaaa
+    /// </summary>
+    private DateTime? ParsearFecha(string texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return null;
+        
+        if (DateTime.TryParseExact(texto, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha))
+            return fecha;
+        
+        if (DateTime.TryParseExact(texto, "d/M/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
+            return fecha;
+        
+        if (DateTime.TryParseExact(texto, "d/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
+            return fecha;
+        
+        if (DateTime.TryParseExact(texto, "dd/M/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
+            return fecha;
+            
+        return null;
+    }
+    
     private DateTime? ObtenerFechaDesde()
     {
-        if (int.TryParse(FechaDesdeDia, out int dia) &&
-            int.TryParse(FechaDesdeMes, out int mes) &&
-            int.TryParse(FechaDesdeAnio, out int anio))
-        {
-            try
-            {
-                return new DateTime(anio, mes, dia);
-            }
-            catch { }
-        }
-        return null;
+        return ParsearFecha(FechaDesdeTexto);
     }
     
     private DateTime? ObtenerFechaHasta()
     {
-        if (int.TryParse(FechaHastaDia, out int dia) &&
-            int.TryParse(FechaHastaMes, out int mes) &&
-            int.TryParse(FechaHastaAnio, out int anio))
-        {
-            try
-            {
-                return new DateTime(anio, mes, dia);
-            }
-            catch { }
-        }
-        return null;
+        return ParsearFecha(FechaHastaTexto);
     }
     
     private async Task CargarDatosAsync()
     {
+        await VerificarDiaCerradoAsync();
         await CargarOperacionesAsync();
-        await CargarBalancesAsync();
+        await CargarBalanceEurosAsync();
+        await CargarBeneficioDelDiaAsync();
+    }
+    
+    private async Task VerificarDiaCerradoAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+            
+            var sql = @"SELECT COUNT(*) FROM cierres_dia 
+                        WHERE id_local = @idLocal 
+                        AND DATE(fecha_cierre) = CURRENT_DATE";
+            
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("idLocal", _idLocal);
+            
+            var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+            DiaCerrado = count > 0;
+            MensajeDiaCerrado = DiaCerrado ? "El dia ya fue cerrado" : "";
+        }
+        catch
+        {
+            DiaCerrado = false;
+        }
     }
     
     [RelayCommand]
@@ -201,19 +217,15 @@ public partial class OperacionesViewModel : ObservableObject
     private async Task BuscarAsync()
     {
         await CargarOperacionesAsync();
-        await CargarBalancesAsync();
+        await CargarBalanceEurosAsync();
     }
     
     [RelayCommand]
     private void LimpiarFiltros()
     {
         var hoy = DateTime.Now;
-        FechaDesdeDia = "1";
-        FechaDesdeMes = hoy.Month.ToString();
-        FechaDesdeAnio = hoy.Year.ToString();
-        FechaHastaDia = hoy.Day.ToString();
-        FechaHastaMes = hoy.Month.ToString();
-        FechaHastaAnio = hoy.Year.ToString();
+        FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
+        FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
         OperacionDesde = "";
         OperacionHasta = "";
         DivisaSeleccionada = "Todas";
@@ -265,20 +277,8 @@ public partial class OperacionesViewModel : ObservableObject
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            // Obtener siguiente numero de operacion para el comercio
-            var sqlNumero = @"SELECT COALESCE(MAX(
-                                CASE WHEN numero_operacion ~ '^[0-9]+$' 
-                                     THEN CAST(numero_operacion AS INTEGER) 
-                                     ELSE 0 END
-                              ), 0) + 1
-                              FROM operaciones WHERE id_comercio = @idComercio";
+            var numeroOperacion = await ObtenerSiguienteNumeroOperacionAsync(conn, _idLocal, "DIR");
             
-            await using var cmdNum = new NpgsqlCommand(sqlNumero, conn);
-            cmdNum.Parameters.AddWithValue("idComercio", _idComercio);
-            var siguienteNumero = Convert.ToInt64(await cmdNum.ExecuteScalarAsync() ?? 1);
-            var numeroOperacion = siguienteNumero.ToString("D6");
-            
-            // Insertar en balance_divisas como SALIDA (deposito al banco)
             var sqlBalance = @"INSERT INTO balance_divisas 
                               (id_comercio, id_local, codigo_divisa, nombre_divisa,
                                cantidad_recibida, cantidad_entregada_eur,
@@ -296,7 +296,7 @@ public partial class OperacionesViewModel : ObservableObject
             cmdBalance.Parameters.AddWithValue("nombreDivisa", ObtenerNombreDivisa(DivisaBancoSeleccionada));
             cmdBalance.Parameters.AddWithValue("cantidadDivisa", cantidadDivisa);
             cmdBalance.Parameters.AddWithValue("cantidadEuros", cantidadEuros);
-            cmdBalance.Parameters.AddWithValue("observaciones", $"Deposito banco - Op:{numeroOperacion}");
+            cmdBalance.Parameters.AddWithValue("observaciones", $"Deposito {DivisaBancoSeleccionada} - {numeroOperacion}");
             
             await cmdBalance.ExecuteNonQueryAsync();
             
@@ -304,7 +304,7 @@ public partial class OperacionesViewModel : ObservableObject
             
             CantidadDivisaDepositar = "";
             CantidadEurosRecibidos = "";
-            SuccessMessage = $"Deposito registrado - Operacion {numeroOperacion}";
+            SuccessMessage = $"Deposito registrado - {numeroOperacion}";
             
             await Task.Delay(2000);
             SuccessMessage = "";
@@ -319,9 +319,71 @@ public partial class OperacionesViewModel : ObservableObject
         }
     }
     
+    private async Task<string> ObtenerSiguienteNumeroOperacionAsync(NpgsqlConnection conn, int idLocal, string prefijo)
+    {
+        await using var transaction = await conn.BeginTransactionAsync();
+        
+        try
+        {
+            var sqlVerificar = @"SELECT ultimo_correlativo FROM correlativos_operaciones 
+                                 WHERE id_local = @idLocal AND prefijo = @prefijo
+                                 FOR UPDATE";
+            
+            await using var cmdVerificar = new NpgsqlCommand(sqlVerificar, conn, transaction);
+            cmdVerificar.Parameters.AddWithValue("idLocal", idLocal);
+            cmdVerificar.Parameters.AddWithValue("prefijo", prefijo);
+            
+            var resultado = await cmdVerificar.ExecuteScalarAsync();
+            
+            int nuevoCorrelativo;
+            
+            if (resultado == null)
+            {
+                nuevoCorrelativo = 1;
+                var sqlInsertar = @"INSERT INTO correlativos_operaciones (id_local, prefijo, ultimo_correlativo, fecha_ultimo_uso)
+                                    VALUES (@idLocal, @prefijo, @correlativo, @fecha)";
+                await using var cmdInsertar = new NpgsqlCommand(sqlInsertar, conn, transaction);
+                cmdInsertar.Parameters.AddWithValue("idLocal", idLocal);
+                cmdInsertar.Parameters.AddWithValue("prefijo", prefijo);
+                cmdInsertar.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
+                cmdInsertar.Parameters.AddWithValue("fecha", DateTime.Now);
+                await cmdInsertar.ExecuteNonQueryAsync();
+            }
+            else
+            {
+                nuevoCorrelativo = Convert.ToInt32(resultado) + 1;
+                var sqlActualizar = @"UPDATE correlativos_operaciones 
+                                      SET ultimo_correlativo = @correlativo, fecha_ultimo_uso = @fecha
+                                      WHERE id_local = @idLocal AND prefijo = @prefijo";
+                await using var cmdActualizar = new NpgsqlCommand(sqlActualizar, conn, transaction);
+                cmdActualizar.Parameters.AddWithValue("idLocal", idLocal);
+                cmdActualizar.Parameters.AddWithValue("prefijo", prefijo);
+                cmdActualizar.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
+                cmdActualizar.Parameters.AddWithValue("fecha", DateTime.Now);
+                await cmdActualizar.ExecuteNonQueryAsync();
+            }
+            
+            await transaction.CommitAsync();
+            return $"{prefijo}{nuevoCorrelativo:D4}";
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+    
     [RelayCommand]
     private async Task RetirarBeneficioAsync()
     {
+        if (DiaCerrado)
+        {
+            ErrorMessage = "El dia ya fue cerrado. No se puede retirar beneficio nuevamente.";
+            await Task.Delay(2000);
+            ErrorMessage = "";
+            return;
+        }
+        
         if (_beneficioDelDiaNumerico <= 0)
         {
             ErrorMessage = "No hay beneficio disponible para retirar hoy";
@@ -338,25 +400,79 @@ public partial class OperacionesViewModel : ObservableObject
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            // Registrar retiro de beneficio del dia
-            var sql = @"INSERT INTO balance_cuentas 
-                        (id_comercio, id_local, tipo_movimiento, monto, divisa, descripcion)
-                        VALUES 
-                        (@idComercio, @idLocal, 'RETIRO_BENEFICIO', @monto, 'EUR', @descripcion)";
+            await using var transaction = await conn.BeginTransactionAsync();
             
-            await using var cmd = new NpgsqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("idComercio", _idComercio);
-            cmd.Parameters.AddWithValue("idLocal", _idLocal);
-            cmd.Parameters.AddWithValue("monto", _beneficioDelDiaNumerico);
-            cmd.Parameters.AddWithValue("descripcion", $"Retiro beneficio del {DateTime.Now:dd/MM/yyyy}");
-            
-            await cmd.ExecuteNonQueryAsync();
-            
-            await CargarDatosAsync();
-            
-            SuccessMessage = $"Beneficio de {_beneficioDelDiaNumerico:N2}€ retirado correctamente";
-            await Task.Delay(2000);
-            SuccessMessage = "";
+            try
+            {
+                // Obtener numero correlativo RET
+                var sqlVerificarCorrelativo = @"SELECT ultimo_correlativo FROM correlativos_operaciones 
+                                                WHERE id_local = @idLocal AND prefijo = 'RET'
+                                                FOR UPDATE";
+                
+                await using var cmdVerificar = new NpgsqlCommand(sqlVerificarCorrelativo, conn, transaction);
+                cmdVerificar.Parameters.AddWithValue("idLocal", _idLocal);
+                
+                var resultadoCorrelativo = await cmdVerificar.ExecuteScalarAsync();
+                int nuevoCorrelativo;
+                
+                if (resultadoCorrelativo == null)
+                {
+                    nuevoCorrelativo = 1;
+                    var sqlInsertarCorrelativo = @"INSERT INTO correlativos_operaciones (id_local, prefijo, ultimo_correlativo, fecha_ultimo_uso)
+                                                   VALUES (@idLocal, 'RET', @correlativo, @fecha)";
+                    await using var cmdInsertarCorr = new NpgsqlCommand(sqlInsertarCorrelativo, conn, transaction);
+                    cmdInsertarCorr.Parameters.AddWithValue("idLocal", _idLocal);
+                    cmdInsertarCorr.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
+                    cmdInsertarCorr.Parameters.AddWithValue("fecha", DateTime.Now);
+                    await cmdInsertarCorr.ExecuteNonQueryAsync();
+                }
+                else
+                {
+                    nuevoCorrelativo = Convert.ToInt32(resultadoCorrelativo) + 1;
+                    var sqlActualizarCorrelativo = @"UPDATE correlativos_operaciones 
+                                                     SET ultimo_correlativo = @correlativo, fecha_ultimo_uso = @fecha
+                                                     WHERE id_local = @idLocal AND prefijo = 'RET'";
+                    await using var cmdActualizarCorr = new NpgsqlCommand(sqlActualizarCorrelativo, conn, transaction);
+                    cmdActualizarCorr.Parameters.AddWithValue("idLocal", _idLocal);
+                    cmdActualizarCorr.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
+                    cmdActualizarCorr.Parameters.AddWithValue("fecha", DateTime.Now);
+                    await cmdActualizarCorr.ExecuteNonQueryAsync();
+                }
+                
+                var numeroRetiro = $"RET{nuevoCorrelativo:D4}";
+                
+                // Registrar cierre del dia (solo para este local)
+                var sqlCierre = @"INSERT INTO cierres_dia 
+                                  (id_comercio, id_local, fecha_cierre, beneficio_dia, balance_euros, observaciones)
+                                  VALUES 
+                                  (@idComercio, @idLocal, @fecha, @beneficio, @balance, @obs)";
+                
+                await using var cmdCierre = new NpgsqlCommand(sqlCierre, conn, transaction);
+                cmdCierre.Parameters.AddWithValue("idComercio", _idComercio);
+                cmdCierre.Parameters.AddWithValue("idLocal", _idLocal);
+                cmdCierre.Parameters.AddWithValue("fecha", DateTime.Now);
+                cmdCierre.Parameters.AddWithValue("beneficio", _beneficioDelDiaNumerico);
+                cmdCierre.Parameters.AddWithValue("balance", _balanceEurosNumerico);
+                cmdCierre.Parameters.AddWithValue("obs", $"Cierre del dia {DateTime.Now:dd/MM/yyyy} - {numeroRetiro}");
+                
+                await cmdCierre.ExecuteNonQueryAsync();
+                
+                await transaction.CommitAsync();
+                
+                DiaCerrado = true;
+                MensajeDiaCerrado = "El dia ya fue cerrado";
+                
+                await CargarDatosAsync();
+                
+                SuccessMessage = $"Dia cerrado. Beneficio de {_beneficioDelDiaNumerico:N2} EUR retirado - {numeroRetiro}";
+                await Task.Delay(3000);
+                SuccessMessage = "";
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -388,20 +504,6 @@ public partial class OperacionesViewModel : ObservableObject
         };
     }
     
-    private string ObtenerSimboloDivisa(string codigo)
-    {
-        return codigo switch
-        {
-            "USD" => "$",
-            "EUR" => "€",
-            "GBP" => "£",
-            "CHF" => "Fr",
-            "CAD" => "C$",
-            "CNY" => "¥",
-            _ => codigo
-        };
-    }
-    
     private async Task CargarOperacionesAsync()
     {
         try
@@ -417,16 +519,22 @@ public partial class OperacionesViewModel : ObservableObject
             
             var rowIndex = 0;
             
-            // Cargar compras de divisas (si el filtro lo permite)
-            if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Compras")
+            // Cargar Compras (intercambios de divisa)
+            if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Compra")
             {
-                rowIndex = await CargarComprasDivisasAsync(conn, fechaDesde, fechaHasta, rowIndex);
+                rowIndex = await CargarComprasAsync(conn, fechaDesde, fechaHasta, rowIndex);
             }
             
-            // Cargar depositos bancarios (si el filtro lo permite)
-            if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Depositos")
+            // Cargar Depositos (cambios en banco)
+            if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Deposito")
             {
-                await CargarDepositosBancoAsync(conn, fechaDesde, fechaHasta, rowIndex);
+                rowIndex = await CargarDepositosAsync(conn, fechaDesde, fechaHasta, rowIndex);
+            }
+            
+            // Traspaso a caja - futuro
+            if (TipoOperacionFiltro == "Traspaso a caja")
+            {
+                // TODO: Implementar cuando exista
             }
         }
         catch (Exception ex)
@@ -439,18 +547,21 @@ public partial class OperacionesViewModel : ObservableObject
         }
     }
     
-    private async Task<int> CargarComprasDivisasAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta, int rowIndex)
+    private async Task<int> CargarComprasAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta, int rowIndex)
     {
+        // Columnas correctas segun schema: tipo_cambio, tipo_cambio_aplicado, beneficio
         var sql = @"SELECT 
                         o.fecha_operacion,
                         o.numero_operacion,
                         od.divisa_origen,
                         od.cantidad_origen,
                         od.cantidad_destino,
-                        COALESCE(od.beneficio, 0) as beneficio
+                        od.tipo_cambio,
+                        od.beneficio
                     FROM operaciones o
                     INNER JOIN operaciones_divisas od ON o.id_operacion = od.id_operacion
-                    WHERE o.id_comercio = @idComercio";
+                    WHERE o.id_local = @idLocal
+                      AND o.modulo = 'DIVISAS'";
         
         if (fechaDesde.HasValue)
             sql += " AND o.fecha_operacion >= @fechaDesde";
@@ -468,7 +579,7 @@ public partial class OperacionesViewModel : ObservableObject
         sql += " ORDER BY o.fecha_operacion DESC, o.id_operacion DESC LIMIT 100";
         
         await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("idComercio", _idComercio);
+        cmd.Parameters.AddWithValue("idLocal", _idLocal);
         
         if (fechaDesde.HasValue)
             cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
@@ -489,24 +600,24 @@ public partial class OperacionesViewModel : ObservableObject
             var numeroOp = reader.IsDBNull(1) ? "" : reader.GetString(1);
             var divisaOrigen = reader.GetString(2);
             var cantidadOrigen = reader.GetDecimal(3);
-            var cantidadDestino = reader.GetDecimal(4);
-            var beneficio = reader.GetDecimal(5);
+            var cantidadDestino = reader.GetDecimal(4); // EUR entregados
+            var tipoCambio = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5);
+            var beneficio = reader.IsDBNull(6) ? 0m : reader.GetDecimal(6);
             
-            var simbolo = ObtenerSimboloDivisa(divisaOrigen);
             var bgColor = rowIndex % 2 == 0 ? "White" : "#F5F5F5";
             
-            // Una sola fila por operacion de compra
+            // Descripcion simplificada: "Compra USD"
             Operaciones.Add(new OperacionItem
             {
                 Fecha = fecha.ToString("dd/MM/yy"),
                 NumeroOperacion = numeroOp,
-                TipoOperacion = "COMPRA",
-                Descripcion = $"Compra {cantidadOrigen:N0}{simbolo}",
-                CantidadDivisa = $"+{cantidadOrigen:N0}{simbolo}",
-                EurosEntregados = $"-{cantidadDestino:N0}€",
+                TipoOperacion = "Compra",
+                Descripcion = $"Compra {divisaOrigen}",
+                CantidadDivisa = $"{cantidadOrigen:N2} {divisaOrigen}",
+                EurosEntregados = $"{cantidadDestino:N2}",
                 EurosRecibidos = "",
-                Beneficio = beneficio > 0 ? $"+{beneficio:N0}€" : "0€",
-                BeneficioColor = beneficio > 0 ? "#008800" : "#666666",
+                Beneficio = beneficio > 0 ? $"+{beneficio:N2}" : $"{beneficio:N2}",
+                BeneficioColor = beneficio >= 0 ? "#008800" : "#CC3333",
                 BackgroundColor = bgColor
             });
             
@@ -516,7 +627,7 @@ public partial class OperacionesViewModel : ObservableObject
         return rowIndex;
     }
     
-    private async Task CargarDepositosBancoAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta, int rowIndex)
+    private async Task<int> CargarDepositosAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta, int rowIndex)
     {
         var sql = @"SELECT 
                         fecha_registro,
@@ -525,7 +636,7 @@ public partial class OperacionesViewModel : ObservableObject
                         cantidad_entregada_eur,
                         observaciones
                     FROM balance_divisas
-                    WHERE id_comercio = @idComercio 
+                    WHERE id_local = @idLocal 
                       AND tipo_movimiento = 'SALIDA'";
         
         if (fechaDesde.HasValue)
@@ -539,7 +650,7 @@ public partial class OperacionesViewModel : ObservableObject
         sql += " ORDER BY fecha_registro DESC";
         
         await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("idComercio", _idComercio);
+        cmd.Parameters.AddWithValue("idLocal", _idLocal);
         
         if (fechaDesde.HasValue)
             cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
@@ -556,19 +667,32 @@ public partial class OperacionesViewModel : ObservableObject
             var divisa = reader.GetString(1);
             var cantidadDivisa = reader.GetDecimal(2);
             var cantidadEuros = reader.GetDecimal(3);
-            var simbolo = ObtenerSimboloDivisa(divisa);
+            var observaciones = reader.IsDBNull(4) ? "" : reader.GetString(4);
             var bgColor = rowIndex % 2 == 0 ? "White" : "#F5F5F5";
             
-            // Deposito banco: sin beneficio, solo intercambio
+            // Extraer numero de operacion de observaciones
+            var numeroOp = "";
+            if (!string.IsNullOrEmpty(observaciones) && observaciones.Contains("DIR"))
+            {
+                var inicio = observaciones.IndexOf("DIR");
+                if (inicio >= 0)
+                {
+                    var fin = observaciones.IndexOf(' ', inicio);
+                    if (fin < 0) fin = observaciones.Length;
+                    numeroOp = observaciones.Substring(inicio, fin - inicio);
+                }
+            }
+            
+            // Descripcion simplificada: "Deposito USD"
             Operaciones.Add(new OperacionItem
             {
                 Fecha = fecha.ToString("dd/MM/yy"),
-                NumeroOperacion = "",
-                TipoOperacion = "DEPOSITO",
+                NumeroOperacion = numeroOp,
+                TipoOperacion = "Deposito",
                 Descripcion = $"Deposito {divisa}",
-                CantidadDivisa = $"-{cantidadDivisa:N0}{simbolo}",
+                CantidadDivisa = $"{cantidadDivisa:N2} {divisa}",
                 EurosEntregados = "",
-                EurosRecibidos = $"+{cantidadEuros:N0}€",
+                EurosRecibidos = $"{cantidadEuros:N2}",
                 Beneficio = "",
                 BeneficioColor = "#666666",
                 BackgroundColor = bgColor
@@ -576,79 +700,88 @@ public partial class OperacionesViewModel : ObservableObject
             
             rowIndex++;
         }
+        
+        return rowIndex;
     }
     
-    private async Task CargarBalancesAsync()
+    /// <summary>
+    /// Balance SOLO en euros: Intercambios = negativo, Depositos = positivo
+    /// </summary>
+    private async Task CargarBalanceEurosAsync()
     {
         try
         {
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            // Balance de divisas (entradas - salidas)
-            var sqlDivisas = @"SELECT 
-                                  codigo_divisa,
-                                  SUM(CASE WHEN tipo_movimiento = 'ENTRADA' THEN cantidad_recibida ELSE 0 END) -
-                                  SUM(CASE WHEN tipo_movimiento = 'SALIDA' THEN cantidad_recibida ELSE 0 END) as balance
-                               FROM balance_divisas 
-                               WHERE id_comercio = @idComercio
-                               GROUP BY codigo_divisa";
+            // Depositos (entran euros) = POSITIVO
+            var sqlDepositos = @"SELECT COALESCE(SUM(cantidad_entregada_eur), 0)
+                                 FROM balance_divisas 
+                                 WHERE id_local = @idLocal AND tipo_movimiento = 'SALIDA'";
             
-            await using var cmdDivisas = new NpgsqlCommand(sqlDivisas, conn);
-            cmdDivisas.Parameters.AddWithValue("idComercio", _idComercio);
+            await using var cmdDepositos = new NpgsqlCommand(sqlDepositos, conn);
+            cmdDepositos.Parameters.AddWithValue("idLocal", _idLocal);
+            var totalDepositos = Convert.ToDecimal(await cmdDepositos.ExecuteScalarAsync() ?? 0);
             
-            decimal totalDivisaUSD = 0;
-            await using var readerDiv = await cmdDivisas.ExecuteReaderAsync();
-            while (await readerDiv.ReadAsync())
+            // Compras/Intercambios (salen euros) = NEGATIVO
+            var sqlCompras = @"SELECT COALESCE(SUM(od.cantidad_destino), 0)
+                               FROM operaciones_divisas od
+                               INNER JOIN operaciones o ON od.id_operacion = o.id_operacion
+                               WHERE o.id_local = @idLocal AND o.modulo = 'DIVISAS'";
+            
+            await using var cmdCompras = new NpgsqlCommand(sqlCompras, conn);
+            cmdCompras.Parameters.AddWithValue("idLocal", _idLocal);
+            var totalCompras = Convert.ToDecimal(await cmdCompras.ExecuteScalarAsync() ?? 0);
+            
+            // Balance = Depositos - Compras
+            _balanceEurosNumerico = totalDepositos - totalCompras;
+            
+            if (_balanceEurosNumerico >= 0)
             {
-                var divisa = readerDiv.GetString(0);
-                var balance = readerDiv.GetDecimal(1);
-                if (divisa == "USD")
-                    totalDivisaUSD = balance;
+                BalanceEuros = $"+{_balanceEurosNumerico:N2} EUR";
+                BalanceEurosColor = "#008800";
             }
-            await readerDiv.CloseAsync();
-            
-            BalanceDivisa = $"{totalDivisaUSD:N0}$";
-            
-            // Balance de euros (recibidos de depositos)
-            var sqlEuros = @"SELECT COALESCE(SUM(cantidad_entregada_eur), 0)
-                             FROM balance_divisas 
-                             WHERE id_comercio = @idComercio AND tipo_movimiento = 'SALIDA'";
-            
-            await using var cmdEuros = new NpgsqlCommand(sqlEuros, conn);
-            cmdEuros.Parameters.AddWithValue("idComercio", _idComercio);
-            var totalEurosRecibidos = Convert.ToDecimal(await cmdEuros.ExecuteScalarAsync() ?? 0);
-            
-            BalanceEuro = $"{totalEurosRecibidos:N0}€";
-            
-            // Beneficio total acumulado
-            var sqlBeneficioTotal = @"SELECT COALESCE(SUM(COALESCE(od.beneficio, 0)), 0)
-                                      FROM operaciones_divisas od
-                                      INNER JOIN operaciones o ON od.id_operacion = o.id_operacion
-                                      WHERE o.id_comercio = @idComercio";
-            
-            await using var cmdBeneficio = new NpgsqlCommand(sqlBeneficioTotal, conn);
-            cmdBeneficio.Parameters.AddWithValue("idComercio", _idComercio);
-            var beneficioTotal = Convert.ToDecimal(await cmdBeneficio.ExecuteScalarAsync() ?? 0);
-            
-            BalanceBeneficio = $"{beneficioTotal:N0}€";
-            
-            // Beneficio del dia actual (para retirar)
-            var sqlBeneficioDia = @"SELECT COALESCE(SUM(COALESCE(od.beneficio, 0)), 0)
-                                    FROM operaciones_divisas od
-                                    INNER JOIN operaciones o ON od.id_operacion = o.id_operacion
-                                    WHERE o.id_comercio = @idComercio
-                                      AND DATE(o.fecha_operacion) = CURRENT_DATE";
-            
-            await using var cmdBeneficioDia = new NpgsqlCommand(sqlBeneficioDia, conn);
-            cmdBeneficioDia.Parameters.AddWithValue("idComercio", _idComercio);
-            _beneficioDelDiaNumerico = Convert.ToDecimal(await cmdBeneficioDia.ExecuteScalarAsync() ?? 0);
-            
-            BeneficioDelDia = _beneficioDelDiaNumerico > 0 ? $"{_beneficioDelDiaNumerico:N0}€" : "0€";
+            else
+            {
+                BalanceEuros = $"{_balanceEurosNumerico:N2} EUR";
+                BalanceEurosColor = "#CC3333";
+            }
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Error al cargar balances: {ex.Message}";
+            ErrorMessage = $"Error al cargar balance: {ex.Message}";
+        }
+    }
+    
+    /// <summary>
+    /// Beneficio del dia: usa el campo beneficio de operaciones_divisas (solo operaciones de hoy)
+    /// </summary>
+    private async Task CargarBeneficioDelDiaAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+            
+            // Usar el campo beneficio directamente de la tabla
+            var sql = @"SELECT COALESCE(SUM(od.beneficio), 0)
+                        FROM operaciones_divisas od
+                        INNER JOIN operaciones o ON od.id_operacion = o.id_operacion
+                        WHERE o.id_local = @idLocal
+                          AND o.modulo = 'DIVISAS'
+                          AND DATE(o.fecha_operacion) = CURRENT_DATE";
+            
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("idLocal", _idLocal);
+            _beneficioDelDiaNumerico = Convert.ToDecimal(await cmd.ExecuteScalarAsync() ?? 0);
+            
+            BeneficioDelDia = _beneficioDelDiaNumerico > 0 
+                ? $"{_beneficioDelDiaNumerico:N2} EUR" 
+                : "0.00 EUR";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al cargar beneficio: {ex.Message}";
         }
     }
 }

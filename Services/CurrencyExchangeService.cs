@@ -171,9 +171,9 @@ namespace Allva.Desktop.Services
                 {
                     foreach (var rate in eurRates.EnumerateObject())
                     {
-                        if (rate.Value.TryGetDecimal(out var value))
+                        if (rate.Value.TryGetDecimal(out var value) && value > 0)
                         {
-                            rates[rate.Name.ToUpper()] = value;
+                            rates[rate.Name.ToUpper()] = 1m / value;
                         }
                     }
                 }
@@ -188,19 +188,8 @@ namespace Allva.Desktop.Services
         
         private Dictionary<string, decimal> GetDefaultRates()
         {
-            return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "USD", 1.08m },
-                { "GBP", 0.84m },
-                { "JPY", 162.50m },
-                { "CHF", 0.94m },
-                { "CAD", 1.47m },
-                { "AUD", 1.65m },
-                { "CNY", 7.82m },
-                { "MXN", 18.50m },
-                { "BRL", 5.35m },
-                { "ARS", 950.00m }
-            };
+            // Devolver vacío para que se muestre error en lugar de tasas falsas
+            return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         }
         
         public async Task<decimal> ConvertToEuroAsync(string fromCurrency, decimal amount)
