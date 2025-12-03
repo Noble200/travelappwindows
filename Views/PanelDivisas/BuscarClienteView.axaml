@@ -93,18 +93,6 @@
                                 Command="{Binding BuscarClientesManualCommand}">
                             <TextBlock Text="Buscar" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Button>
-                        
-                        <Button Background="#0b5394"
-                                Foreground="White"
-                                FontWeight="SemiBold"
-                                Width="140"
-                                CornerRadius="6"
-                                VerticalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                VerticalContentAlignment="Center"
-                                Command="{Binding MostrarTodosClientesCommand}">
-                            <TextBlock Text="Mostrar todos" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -178,7 +166,7 @@
                             </ItemsControl>
                             
                             <!-- Mensaje sin resultados -->
-                            <TextBlock Text="Presione 'Buscar' o 'Mostrar todos' para ver los clientes"
+                            <TextBlock Text="Presione 'Buscar' para ver los clientes"
                                        HorizontalAlignment="Center"
                                        Margin="0,60,0,0"
                                        Foreground="#888"

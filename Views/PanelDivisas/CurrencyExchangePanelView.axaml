@@ -68,11 +68,25 @@
                 
                 <!-- Barra superior: Búsqueda de Cliente -->
                 <Border Classes="card" Padding="15">
-                    <StackPanel Orientation="Horizontal" Spacing="15">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
                         <TextBlock Text="Cliente:" 
-                                   VerticalAlignment="Center"
-                                   FontWeight="SemiBold"
-                                   Foreground="#0b5394"/>
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Foreground="#0b5394"/>
+                        
+                        <!-- Filtro tipo busqueda -->
+                        <ComboBox ItemsSource="{Binding TiposBusquedaCliente}"
+                                SelectedItem="{Binding TipoBusquedaSeleccionado}"
+                                Width="120"
+                                VerticalAlignment="Center"
+                                CornerRadius="6"/>
+                        
+                        <!-- Campo de texto -->
+                        <TextBox Text="{Binding BusquedaCliente}"
+                                Watermark="Escribir..."
+                                Classes="input"
+                                Width="180"
+                                VerticalAlignment="Center"/>
                         
                         <Button Content="Buscar Cliente"
                                 Background="#ffd966"
@@ -300,6 +314,7 @@
         <local:ConfirmacionClienteView IsVisible="{Binding VistaConfirmacionCliente}" DataContext="{Binding}"/>
         <local:TransaccionDivisaView IsVisible="{Binding VistaTransaccion}" DataContext="{Binding}"/>
         <local:ResumenCompraView IsVisible="{Binding VistaResumen}" DataContext="{Binding}"/>
+        <local:EditarClienteView IsVisible="{Binding VistaEditarCliente}" DataContext="{Binding}"/>
         
         <!-- ═══════════════════════════════════════════════════════════ -->
         <!-- POPUP: Agregar Divisa -->

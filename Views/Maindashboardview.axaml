@@ -307,7 +307,7 @@
                                                     <Setter Property="Background" Value="#F5F5F5"/>
                                                 </Style>
                                             </Button.Styles>
-                                            <TextBlock Text="Operaciones" 
+                                            <TextBlock Text="Balance de cuentas" 
                                                        FontSize="14" 
                                                        Foreground="#444444"/>
                                         </Button>

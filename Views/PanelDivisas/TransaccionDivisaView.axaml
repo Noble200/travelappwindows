@@ -38,28 +38,18 @@
         <ScrollViewer>
             <StackPanel Spacing="24" Margin="30">
                 
-                <!-- Encabezado -->
-                <Grid ColumnDefinitions="Auto,*">
-                    <Button Grid.Column="0"
-                            Content="Atrás"
-                            Background="#0b5394"
-                            Foreground="White"
-                            FontWeight="SemiBold"
-                            Padding="24,12"
-                            CornerRadius="6"
-                            MinHeight="44"
-                            Command="{Binding VolverABuscarClienteCommand}"/>
-                    
-                    <TextBlock Grid.Column="1"
-                               Text="Realizar Transacción"
-                               FontSize="24"
-                               FontWeight="Bold"
-                               Foreground="#0b5394"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
-                </Grid>
+                <!-- Encabezado solo con botón Atrás -->
+                <Button Content="Atras"
+                        Background="#0b5394"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        Padding="24,12"
+                        CornerRadius="6"
+                        MinHeight="44"
+                        HorizontalAlignment="Left"
+                        Command="{Binding VolverABuscarClienteCommand}"/>
                 
-                <!-- Cliente seleccionado -->
+                <!-- Cliente seleccionado con botones Editar y Cambiar -->
                 <Border Classes="card" Background="#E3F2FD">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="50">
@@ -75,82 +65,126 @@
                                 <TextBlock Text="{Binding ClienteSeleccionado.DocumentoCompleto}" FontSize="14"/>
                             </StackPanel>
                             <StackPanel MinWidth="140">
-                                <TextBlock Text="Teléfono:" FontSize="12" Foreground="#666" Margin="0,0,0,4"/>
+                                <TextBlock Text="Telefono:" FontSize="12" Foreground="#666" Margin="0,0,0,4"/>
                                 <TextBlock Text="{Binding ClienteSeleccionado.Telefono}" FontSize="14"/>
                             </StackPanel>
                         </StackPanel>
-                        <Button Grid.Column="1"
-                                Content="Cambiar cliente"
-                                Background="#ffd966"
-                                Foreground="#0b5394"
-                                FontWeight="SemiBold"
-                                Padding="20,12"
-                                CornerRadius="6"
-                                MinHeight="44"
-                                VerticalAlignment="Center"
-                                Command="{Binding VolverABuscarClienteCommand}"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <Button Content="Editar cliente"
+                                    Background="#0b5394"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    Padding="20,12"
+                                    CornerRadius="6"
+                                    MinHeight="44"
+                                    Command="{Binding IrAEditarClienteCommand}"/>
+                            <Button Content="Cambiar cliente"
+                                    Background="#ffd966"
+                                    Foreground="#0b5394"
+                                    FontWeight="SemiBold"
+                                    Padding="20,12"
+                                    CornerRadius="6"
+                                    MinHeight="44"
+                                    Command="{Binding VolverABuscarClienteCommand}"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
                 
                 <Grid ColumnDefinitions="*,*" MinHeight="400">
-                    <!-- Tasas de cambio -->
+                    <!-- Acumulados del cliente (mes y trimestre) -->
                     <Border Grid.Column="0" Classes="card" Margin="0,0,12,0">
-                        <StackPanel Spacing="16">
+                        <StackPanel Spacing="20">
                             
                             <Border Background="#ffd966" 
                                     CornerRadius="6" 
                                     Padding="16,12">
-                                <Grid>
-                                    <TextBlock Text="Cambio de divisas" 
-                                               FontSize="16"
-                                               FontWeight="Bold"
-                                               Foreground="#0b5394"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
-                                    <Button Content="Actualizar" 
-                                            Background="#0b5394"
-                                            Foreground="White"
-                                            FontWeight="SemiBold"
-                                            Padding="16,8"
-                                            CornerRadius="6"
-                                            MinHeight="36"
-                                            HorizontalAlignment="Right"
-                                            Command="{Binding RefreshRatesCommand}"
-                                            IsEnabled="{Binding !IsLoading}"/>
-                                </Grid>
+                                <TextBlock Text="Acumulados del Cliente" 
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="#0b5394"
+                                           HorizontalAlignment="Center"/>
                             </Border>
                             
-                            <ScrollViewer MaxHeight="320">
-                                <ItemsControl ItemsSource="{Binding FavoriteCurrencies}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Background="Transparent"
-                                                    BorderThickness="0"
-                                                    Padding="0"
-                                                    Margin="0"
-                                                    HorizontalAlignment="Stretch"
-                                                    HorizontalContentAlignment="Stretch"
-                                                    Command="{Binding $parent[ItemsControl].((vm:CurrencyExchangePanelViewModel)DataContext).SeleccionarDivisaFavoritaCommand}"
-                                                    CommandParameter="{Binding}">
-                                                <Border Classes="rate-row">
-                                                    <Grid ColumnDefinitions="*,Auto">
-                                                        <TextBlock Grid.Column="0"
-                                                                   Text="{Binding FullDisplay}" 
-                                                                   VerticalAlignment="Center"
-                                                                   FontSize="14"/>
-                                                        <TextBlock Grid.Column="1"
-                                                                   Text="{Binding RateDisplay}" 
-                                                                   VerticalAlignment="Center"
-                                                                   Foreground="#0b5394"
-                                                                   FontWeight="SemiBold"
-                                                                   FontSize="14"/>
-                                                    </Grid>
-                                                </Border>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                            <TextBlock Text="Limite legal: 3.000 EUR/trimestre sin declaracion"
+                                       FontSize="12"
+                                       Foreground="#666"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,10"/>
+                            
+                            <!-- Acumulado del Mes -->
+                            <Border Background="#E3F2FD" CornerRadius="8" Padding="20">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Mes en curso"
+                                               FontSize="14"
+                                               Foreground="#666"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding MesActualNombre}"
+                                               FontSize="12"
+                                               Foreground="#888"
+                                               HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                                        <TextBlock Text="{Binding AcumuladoMes, StringFormat='{}{0:N2}'}"
+                                                   FontSize="32"
+                                                   FontWeight="Bold"
+                                                   Foreground="#0b5394"/>
+                                        <TextBlock Text="EUR"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#0b5394"
+                                                   VerticalAlignment="Bottom"
+                                                   Margin="0,0,0,6"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Acumulado del Trimestre -->
+                            <Border Background="{Binding ColorAcumuladoTrimestre}" CornerRadius="8" Padding="20">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Trimestre en curso"
+                                               FontSize="14"
+                                               Foreground="#666"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding TrimestreActualNombre}"
+                                               FontSize="12"
+                                               Foreground="#888"
+                                               HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                                        <TextBlock Text="{Binding AcumuladoTrimestre, StringFormat='{}{0:N2}'}"
+                                                   FontSize="32"
+                                                   FontWeight="Bold"
+                                                   Foreground="{Binding ColorTextoAcumuladoTrimestre}"/>
+                                        <TextBlock Text="EUR"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{Binding ColorTextoAcumuladoTrimestre}"
+                                                   VerticalAlignment="Bottom"
+                                                   Margin="0,0,0,6"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding DisponibleTrimestre, StringFormat='Disponible: {0:N2} EUR'}"
+                                               FontSize="13"
+                                               Foreground="#666"
+                                               HorizontalAlignment="Center"
+                                               IsVisible="{Binding MostrarDisponibleTrimestre}"/>
+                                    <TextBlock Text="LIMITE EXCEDIDO"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               Foreground="#C62828"
+                                               HorizontalAlignment="Center"
+                                               IsVisible="{Binding LimiteTrimestreExcedido}"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Boton actualizar acumulados -->
+                            <Button Content="Actualizar acumulados"
+                                    Background="#f0f0f0"
+                                    Foreground="#333"
+                                    FontWeight="SemiBold"
+                                    Padding="16,10"
+                                    CornerRadius="6"
+                                    MinHeight="40"
+                                    HorizontalAlignment="Center"
+                                    Command="{Binding ActualizarAcumuladosCommand}"
+                                    IsEnabled="{Binding !IsLoading}"/>
                             
                         </StackPanel>
                     </Border>
@@ -159,7 +193,7 @@
                     <Border Grid.Column="1" Classes="card" Margin="12,0,0,0">
                         <StackPanel Spacing="24">
                             
-                            <TextBlock Text="¿Qué moneda compras?" 
+                            <TextBlock Text="Que moneda compras?" 
                                        FontSize="15"
                                        FontWeight="SemiBold"
                                        Foreground="#0b5394"/>
@@ -168,7 +202,7 @@
                             <Grid ColumnDefinitions="*,*" Height="44">
                                 <TextBox Grid.Column="0"
                                          Text="{Binding BusquedaDivisaCalculadora}"
-                                         Watermark="Código..."
+                                         Watermark="Codigo..."
                                          Classes="input"
                                          Margin="0,0,8,0"/>
                                 <ComboBox Grid.Column="1"
@@ -190,6 +224,44 @@
                                        Foreground="#666"
                                        Margin="0,-8,0,0"
                                        IsVisible="{Binding SelectedCurrency, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            
+                            <!-- Divisas favoritas -->
+                            <Border Background="#f8f9fa" CornerRadius="6" Padding="12">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Divisas frecuentes" FontSize="12" Foreground="#666"/>
+                                    <ScrollViewer MaxHeight="120">
+                                        <ItemsControl ItemsSource="{Binding FavoriteCurrencies}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Background="Transparent"
+                                                            BorderThickness="0"
+                                                            Padding="0"
+                                                            Margin="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            Command="{Binding $parent[ItemsControl].((vm:CurrencyExchangePanelViewModel)DataContext).SeleccionarDivisaFavoritaCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <Border Classes="rate-row">
+                                                            <Grid ColumnDefinitions="*,Auto">
+                                                                <TextBlock Grid.Column="0"
+                                                                           Text="{Binding FullDisplay}" 
+                                                                           VerticalAlignment="Center"
+                                                                           FontSize="13"/>
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding RateDisplay}" 
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="#0b5394"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="13"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Border>
                             
                             <!-- Cantidad recibida -->
                             <StackPanel Spacing="8">
@@ -283,7 +355,7 @@
                             Margin="0,0,12,0"
                             Command="{Binding VolverAPrincipalCommand}"/>
                     <Button Grid.Column="1"
-                            Content="Realizar Transacción"
+                            Content="Realizar Transaccion"
                             Background="#0b5394"
                             Foreground="White"
                             FontWeight="SemiBold"

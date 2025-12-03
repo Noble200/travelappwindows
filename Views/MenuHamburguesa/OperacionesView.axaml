@@ -8,7 +8,6 @@
              x:DataType="vm:OperacionesViewModel">
 
     <UserControl.Styles>
-        <!-- Estilo para tabs -->
         <Style Selector="Button.tab-button">
             <Setter Property="Background" Value="White"/>
             <Setter Property="Foreground" Value="#595959"/>
@@ -35,7 +34,6 @@
             <Setter Property="CornerRadius" Value="0"/>
         </Style>
         
-        <!-- Estilo para botones de filtro -->
         <Style Selector="Button.filter-button">
             <Setter Property="Background" Value="#ffd966"/>
             <Setter Property="Foreground" Value="#0b5394"/>
@@ -52,7 +50,6 @@
             <Setter Property="Background" Value="#E8C85A"/>
         </Style>
         
-        <!-- Estilo para inputs -->
         <Style Selector="TextBox.filter-input">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#CCCCCC"/>
@@ -62,18 +59,6 @@
             <Setter Property="CornerRadius" Value="4"/>
         </Style>
         
-        <!-- Estilo para inputs de fecha pequenos -->
-        <Style Selector="TextBox.fecha-input">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#CCCCCC"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="2,6"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-        </Style>
-        
-        <!-- Estilo para ComboBox de filtro -->
         <Style Selector="ComboBox.filter-combo">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#CCCCCC"/>
@@ -83,7 +68,6 @@
             <Setter Property="CornerRadius" Value="4"/>
         </Style>
         
-        <!-- Estilo para boton de accion principal -->
         <Style Selector="Button.action-button">
             <Setter Property="Background" Value="#0b5394"/>
             <Setter Property="Foreground" Value="White"/>
@@ -118,7 +102,7 @@
                 </Grid.ColumnDefinitions>
                 
                 <TextBlock Grid.Column="0"
-                           Text="OPERACIONES"
+                           Text="BALANCE DE CUENTAS"
                            FontSize="18"
                            FontWeight="Bold"
                            Foreground="#0b5394"
@@ -156,7 +140,6 @@
                     Padding="16,20">
                 <StackPanel Spacing="16">
                     
-                    <!-- Titulo Filtrar -->
                     <Border Background="#ffd966"
                             CornerRadius="6"
                             Padding="14,10">
@@ -167,70 +150,28 @@
                                    HorizontalAlignment="Center"/>
                     </Border>
                     
-                    <!-- Fecha Desde -->
+                    <!-- Fecha Desde (formato dd/mm/aaaa como NuevoCliente) -->
                     <StackPanel Spacing="6">
                         <TextBlock Text="Fecha Desde"
                                    FontSize="12"
                                    FontWeight="SemiBold"
                                    Foreground="#333333"/>
-                        <Grid ColumnDefinitions="38,25,38,25,52">
-                            <TextBox Grid.Column="0" 
-                                     Classes="fecha-input"
-                                     Watermark="Dia"
-                                     Text="{Binding FechaDesdeDia}"
-                                     MaxLength="2"/>
-                            <TextBlock Grid.Column="1" Text="/" 
-                                       VerticalAlignment="Center" 
-                                       HorizontalAlignment="Center"
-                                       Foreground="#666666"/>
-                            <TextBox Grid.Column="2" 
-                                     Classes="fecha-input"
-                                     Watermark="Mes"
-                                     Text="{Binding FechaDesdeMes}"
-                                     MaxLength="2"/>
-                            <TextBlock Grid.Column="3" Text="/" 
-                                       VerticalAlignment="Center" 
-                                       HorizontalAlignment="Center"
-                                       Foreground="#666666"/>
-                            <TextBox Grid.Column="4" 
-                                     Classes="fecha-input"
-                                     Watermark="Año"
-                                     Text="{Binding FechaDesdeAnio}"
-                                     MaxLength="4"/>
-                        </Grid>
+                        <TextBox Text="{Binding FechaDesdeTexto}" 
+                                 Classes="filter-input"
+                                 Watermark="dd/mm/aaaa"
+                                 MaxLength="10"/>
                     </StackPanel>
                     
-                    <!-- Fecha Hasta -->
+                    <!-- Fecha Hasta (formato dd/mm/aaaa como NuevoCliente) -->
                     <StackPanel Spacing="6">
                         <TextBlock Text="Fecha Hasta"
                                    FontSize="12"
                                    FontWeight="SemiBold"
                                    Foreground="#333333"/>
-                        <Grid ColumnDefinitions="38,25,38,25,52">
-                            <TextBox Grid.Column="0" 
-                                     Classes="fecha-input"
-                                     Watermark="Dia"
-                                     Text="{Binding FechaHastaDia}"
-                                     MaxLength="2"/>
-                            <TextBlock Grid.Column="1" Text="/" 
-                                       VerticalAlignment="Center" 
-                                       HorizontalAlignment="Center"
-                                       Foreground="#666666"/>
-                            <TextBox Grid.Column="2" 
-                                     Classes="fecha-input"
-                                     Watermark="Mes"
-                                     Text="{Binding FechaHastaMes}"
-                                     MaxLength="2"/>
-                            <TextBlock Grid.Column="3" Text="/" 
-                                       VerticalAlignment="Center" 
-                                       HorizontalAlignment="Center"
-                                       Foreground="#666666"/>
-                            <TextBox Grid.Column="4" 
-                                     Classes="fecha-input"
-                                     Watermark="Año"
-                                     Text="{Binding FechaHastaAnio}"
-                                     MaxLength="4"/>
-                        </Grid>
+                        <TextBox Text="{Binding FechaHastaTexto}" 
+                                 Classes="filter-input"
+                                 Watermark="dd/mm/aaaa"
+                                 MaxLength="10"/>
                     </StackPanel>
                     
                     <!-- N Operacion -->
@@ -247,7 +188,7 @@
                                  Text="{Binding OperacionHasta}"/>
                     </StackPanel>
                     
-                    <!-- Tipo Operacion -->
+                    <!-- Tipo: Compra, Deposito, Traspaso a caja -->
                     <StackPanel Spacing="6">
                         <TextBlock Text="Tipo"
                                    FontSize="12"
@@ -259,7 +200,7 @@
                                   HorizontalAlignment="Stretch"/>
                     </StackPanel>
                     
-                    <!-- Divisa (solo visible en tab divisa) -->
+                    <!-- Divisa -->
                     <StackPanel Spacing="6" IsVisible="{Binding MostrarFiltroDivisa}">
                         <TextBlock Text="Divisa"
                                    FontSize="12"
@@ -271,13 +212,11 @@
                                   HorizontalAlignment="Stretch"/>
                     </StackPanel>
                     
-                    <!-- Boton Buscar -->
                     <Button Content="Buscar"
                             Classes="filter-button"
                             Command="{Binding BuscarCommand}"
                             Margin="0,8,0,0"/>
                     
-                    <!-- Boton Limpiar -->
                     <Button Content="Limpiar"
                             Background="White"
                             Foreground="#666666"
@@ -289,27 +228,14 @@
                             Cursor="Hand"
                             Command="{Binding LimpiarFiltrosCommand}"/>
                     
-                    <!-- Boton Imprimir -->
-                    <Button Command="{Binding ImprimirHistorialCommand}"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            HorizontalAlignment="Stretch"
-                            Cursor="Hand"
-                            Margin="0,8,0,0">
-                        <TextBlock Text="Imprimir historial"
-                                   FontSize="12"
-                                   Foreground="#0b5394"
-                                   HorizontalAlignment="Center"/>
-                    </Button>
-                    
                 </StackPanel>
             </Border>
 
-            <!-- CONTENIDO DERECHO -->
-            <Border Grid.Column="1"
-                    Background="White"
-                    Padding="20">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <!-- CONTENIDO DERECHO CON SCROLL -->
+            <ScrollViewer Grid.Column="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <Border Background="White" Padding="20">
                     <StackPanel Spacing="16">
                         
                         <!-- TABS -->
@@ -443,15 +369,14 @@
                                    HorizontalAlignment="Center"
                                    IsVisible="{Binding !Operaciones.Count}"/>
                         
-                        <!-- BALANCE ACTUAL -->
+                        <!-- BALANCE ACTUAL - SOLO EUROS -->
                         <Border Background="#F8F8F8"
                                 BorderBrush="#E0E0E0"
                                 BorderThickness="1"
                                 CornerRadius="6"
                                 Padding="16,12">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                                <Border Grid.Column="0"
-                                        Background="#0b5394"
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+                                <Border Background="#0b5394"
                                         CornerRadius="4"
                                         Padding="16,8">
                                     <TextBlock Text="BALANCE ACTUAL"
@@ -460,55 +385,17 @@
                                                Foreground="White"/>
                                 </Border>
                                 
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                                    <TextBlock Text="Divisa:"
-                                               FontSize="11"
-                                               Foreground="#666666"
-                                               VerticalAlignment="Center"/>
-                                    <Border Background="White"
-                                            BorderBrush="#0b5394"
-                                            BorderThickness="2"
-                                            CornerRadius="4"
-                                            Padding="16,6">
-                                        <TextBlock Text="{Binding BalanceDivisa}"
-                                                   FontSize="14"
-                                                   FontWeight="Bold"
-                                                   Foreground="#0b5394"/>
-                                    </Border>
-                                </StackPanel>
-                                
-                                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0">
-                                    <TextBlock Text="Euros:"
-                                               FontSize="11"
-                                               Foreground="#666666"
-                                               VerticalAlignment="Center"/>
-                                    <Border Background="White"
-                                            BorderBrush="#0b5394"
-                                            BorderThickness="2"
-                                            CornerRadius="4"
-                                            Padding="16,6">
-                                        <TextBlock Text="{Binding BalanceEuro}"
-                                                   FontSize="14"
-                                                   FontWeight="Bold"
-                                                   Foreground="#0b5394"/>
-                                    </Border>
-                                </StackPanel>
-                                
-                                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" Margin="16,0,0,0">
-                                    <TextBlock Text="Beneficio:"
-                                               FontSize="11"
-                                               Foreground="#666666"
-                                               VerticalAlignment="Center"/>
-                                    <Border Background="#ffd966"
-                                            CornerRadius="4"
-                                            Padding="16,6">
-                                        <TextBlock Text="{Binding BalanceBeneficio}"
-                                                   FontSize="14"
-                                                   FontWeight="Bold"
-                                                   Foreground="#0b5394"/>
-                                    </Border>
-                                </StackPanel>
-                            </Grid>
+                                <Border Background="White"
+                                        BorderBrush="{Binding BalanceEurosColor}"
+                                        BorderThickness="2"
+                                        CornerRadius="4"
+                                        Padding="24,8">
+                                    <TextBlock Text="{Binding BalanceEuros}"
+                                               FontSize="16"
+                                               FontWeight="Bold"
+                                               Foreground="{Binding BalanceEurosColor}"/>
+                                </Border>
+                            </StackPanel>
                         </Border>
                         
                         <!-- DEPOSITO EN BANCO -->
@@ -589,13 +476,18 @@
                         <Border Background="#ffd966"
                                 CornerRadius="6"
                                 Padding="20,14">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                                <TextBlock Grid.Column="0"
-                                           Text="Retirar beneficio del dia"
-                                           FontSize="15"
-                                           FontWeight="SemiBold"
-                                           Foreground="#0b5394"
-                                           VerticalAlignment="Center"/>
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                <StackPanel Grid.Column="0" Spacing="4">
+                                    <TextBlock Text="Retirar beneficio del dia"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#0b5394"/>
+                                    <TextBlock Text="{Binding MensajeDiaCerrado}"
+                                               FontSize="12"
+                                               Foreground="#CC3333"
+                                               FontWeight="Medium"
+                                               IsVisible="{Binding DiaCerrado}"/>
+                                </StackPanel>
                                 
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
                                     <TextBlock Text="Beneficio hoy:"
@@ -615,11 +507,12 @@
                                     </Border>
                                 </StackPanel>
                                 
-                                <Button Grid.Column="4"
+                                <Button Grid.Column="3"
                                         Content="Retirar"
                                         Classes="action-button"
                                         Margin="16,0,0,0"
-                                        Command="{Binding RetirarBeneficioCommand}"/>
+                                        Command="{Binding RetirarBeneficioCommand}"
+                                        IsEnabled="{Binding !DiaCerrado}"/>
                             </Grid>
                         </Border>
                         
@@ -638,16 +531,31 @@
                                    IsVisible="{Binding SuccessMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                    HorizontalAlignment="Center"/>
                         
-                        <!-- BOTON VOLVER -->
-                        <Button Content="Volver a inicio"
-                                Classes="action-button"
-                                HorizontalAlignment="Left"
-                                Margin="0,8,0,0"
-                                Command="{Binding VolverCommand}"/>
+                        <!-- BOTONES INFERIORES -->
+                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
+                            <Button Grid.Column="0"
+                                    Content="Volver a inicio"
+                                    Classes="action-button"
+                                    Command="{Binding VolverCommand}"/>
+                            
+                            <Button Grid.Column="2"
+                                    Command="{Binding ImprimirHistorialCommand}"
+                                    Background="Transparent"
+                                    BorderBrush="#0b5394"
+                                    BorderThickness="1"
+                                    Padding="16,10"
+                                    CornerRadius="4"
+                                    Cursor="Hand">
+                                <TextBlock Text="Imprimir historial"
+                                           FontSize="13"
+                                           Foreground="#0b5394"
+                                           FontWeight="Medium"/>
+                            </Button>
+                        </Grid>
                         
                     </StackPanel>
-                </ScrollViewer>
-            </Border>
+                </Border>
+            </ScrollViewer>
         </Grid>
         
         <!-- Loading overlay -->
