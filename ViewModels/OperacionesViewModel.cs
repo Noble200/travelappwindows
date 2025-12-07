@@ -3,9 +3,14 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
+using Allva.Desktop.Services;
+using Allva.Desktop.Views;
 
 namespace Allva.Desktop.ViewModels;
 
@@ -227,10 +232,262 @@ public partial class OperacionesViewModel : ObservableObject
     [RelayCommand]
     private async Task ImprimirHistorialAsync()
     {
-        // TODO: Implementar generacion de PDF
-        SuccessMessage = "Funcion de impresion en desarrollo";
-        await Task.Delay(2000);
-        SuccessMessage = "";
+        try
+        {
+            var ahora = ObtenerHoraEspana();
+            
+            // Crear ViewModel para la ventana de confirmacion
+            var confirmacionVM = new ConfirmacionImpresionViewModel
+            {
+                FechaGeneracion = ahora.ToString("dd/MM/yyyy"),
+                HoraGeneracion = ahora.ToString("HH:mm:ss"),
+                NombreUsuario = _nombreUsuario,
+                CodigoLocal = _codigoLocal,
+                BalanceEuros = TotalEuros,
+                TotalDivisas = TotalDivisa,
+                SalidaEuros = SalidaEurosTotal,
+                EntradaEuros = EntradaEurosTotal,
+                CantidadOperaciones = $"{Operaciones.Count} registros"
+            };
+            
+            // Cargar filtros aplicados
+            var hayFiltros = false;
+            
+            if (!string.IsNullOrWhiteSpace(FechaDesdeTexto))
+            {
+                confirmacionVM.FiltrosAplicados.Add(new FiltroAplicadoItem { Nombre = "Fecha desde:", Valor = FechaDesdeTexto });
+                hayFiltros = true;
+            }
+            if (!string.IsNullOrWhiteSpace(FechaHastaTexto))
+            {
+                confirmacionVM.FiltrosAplicados.Add(new FiltroAplicadoItem { Nombre = "Fecha hasta:", Valor = FechaHastaTexto });
+                hayFiltros = true;
+            }
+            if (!string.IsNullOrWhiteSpace(OperacionDesde))
+            {
+                confirmacionVM.FiltrosAplicados.Add(new FiltroAplicadoItem { Nombre = "Operacion desde:", Valor = OperacionDesde });
+                hayFiltros = true;
+            }
+            if (!string.IsNullOrWhiteSpace(OperacionHasta))
+            {
+                confirmacionVM.FiltrosAplicados.Add(new FiltroAplicadoItem { Nombre = "Operacion hasta:", Valor = OperacionHasta });
+                hayFiltros = true;
+            }
+            
+            confirmacionVM.SinFiltros = !hayFiltros;
+            
+            // Desglose de divisas
+            if (DivisasDelLocal.Count > 0)
+            {
+                confirmacionVM.TieneDivisas = true;
+                var partes = DivisasDelLocal.Select(d => $"{d.Codigo}: {d.Cantidad:N2}");
+                confirmacionVM.DesgloseDivisasTexto = string.Join("  |  ", partes);
+            }
+            
+            // Mostrar ventana de confirmacion
+            var ventanaConfirmacion = new ConfirmacionImpresionView(confirmacionVM);
+            
+            // Obtener ventana principal
+            Window? mainWindow = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                mainWindow = desktop.MainWindow;
+            }
+            
+            if (mainWindow != null)
+            {
+                await ventanaConfirmacion.ShowDialog(mainWindow);
+            }
+            else
+            {
+                ventanaConfirmacion.Show();
+                await Task.Delay(100);
+                while (ventanaConfirmacion.IsVisible)
+                    await Task.Delay(100);
+            }
+            
+            // Si confirmo, generar PDF
+            if (ventanaConfirmacion.Confirmado)
+            {
+                await GenerarPdfHistorial(ahora);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error: {ex.Message}";
+            await Task.Delay(3000);
+            ErrorMessage = "";
+        }
+    }
+    
+    private async Task GenerarPdfHistorial(DateTime fechaHora)
+    {
+        try
+        {
+            // Obtener ventana principal para el dialogo
+            Window? mainWindow = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                mainWindow = desktop.MainWindow;
+            }
+            
+            if (mainWindow == null)
+            {
+                ErrorMessage = "No se pudo abrir el dialogo de guardado";
+                await Task.Delay(2000);
+                ErrorMessage = "";
+                return;
+            }
+            
+            // Nombre sugerido para el archivo
+            var timestamp = fechaHora.ToString("yyyyMMdd_HHmmss");
+            var nombreSugerido = $"Historial_{_codigoLocal}_{timestamp}.pdf";
+            
+            // Mostrar dialogo para elegir ubicacion (nueva API)
+            var storageProvider = mainWindow.StorageProvider;
+            
+            var archivo = await storageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Guardar historial de balance",
+                SuggestedFileName = nombreSugerido,
+                DefaultExtension = "pdf",
+                FileTypeChoices = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("Archivos PDF")
+                    {
+                        Patterns = new[] { "*.pdf" }
+                    }
+                }
+            });
+            
+            // Si el usuario cancelo el dialogo
+            if (archivo == null)
+            {
+                return;
+            }
+            
+            IsLoading = true;
+            ErrorMessage = "";
+            
+            // Preparar datos del reporte
+            var datosReporte = new HistorialPdfService.DatosReporte
+            {
+                CodigoLocal = _codigoLocal,
+                NombreUsuario = _nombreUsuario,
+                FechaGeneracion = fechaHora.ToString("dd/MM/yyyy"),
+                HoraGeneracion = fechaHora.ToString("HH:mm:ss"),
+                BalanceActualEuros = _totalEurosNumerico,
+                TotalDivisasValor = DivisasDelLocal.Sum(d => d.Cantidad),
+                SalidaEuros = _salidaEurosNumerico,
+                EntradaEuros = _entradaEurosNumerico,
+                Filtros = new HistorialPdfService.FiltrosReporte
+                {
+                    FechaDesde = FechaDesdeTexto,
+                    FechaHasta = FechaHastaTexto,
+                    OperacionDesde = OperacionDesde,
+                    OperacionHasta = OperacionHasta
+                }
+            };
+            
+            // Agregar desglose de divisas
+            foreach (var div in DivisasDelLocal)
+            {
+                datosReporte.DesgloseDivisas.Add(new HistorialPdfService.DivisaBalance
+                {
+                    CodigoDivisa = div.Codigo,
+                    Cantidad = div.Cantidad
+                });
+            }
+            
+            // Agregar operaciones
+            foreach (var op in Operaciones)
+            {
+                datosReporte.Operaciones.Add(new HistorialPdfService.OperacionReporte
+                {
+                    Fecha = op.Fecha,
+                    Hora = op.Hora,
+                    NumeroOperacion = op.NumeroOperacion,
+                    Descripcion = op.Descripcion,
+                    Divisa = op.CantidadDivisa,
+                    SalidaEuros = op.SalidaEuros,
+                    EntradaEuros = op.EntradaEuros
+                });
+            }
+            
+            // Generar PDF
+            var pdfBytes = HistorialPdfService.GenerarPdf(datosReporte);
+            
+            // Guardar archivo usando StorageProvider
+            await using var stream = await archivo.OpenWriteAsync();
+            await stream.WriteAsync(pdfBytes);
+            
+            // Registrar en base de datos
+            await RegistrarGeneracionPdf(fechaHora);
+            
+            SuccessMessage = "PDF guardado correctamente";
+            await Task.Delay(3000);
+            SuccessMessage = "";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al generar PDF: {ex.Message}";
+            await Task.Delay(3000);
+            ErrorMessage = "";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+    
+    private async Task RegistrarGeneracionPdf(DateTime fechaHora)
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+            
+            // Construir texto de filtros aplicados
+            var filtrosTexto = "";
+            if (!string.IsNullOrWhiteSpace(FechaDesdeTexto))
+                filtrosTexto += $"Fecha desde: {FechaDesdeTexto}; ";
+            if (!string.IsNullOrWhiteSpace(FechaHastaTexto))
+                filtrosTexto += $"Fecha hasta: {FechaHastaTexto}; ";
+            if (!string.IsNullOrWhiteSpace(OperacionDesde))
+                filtrosTexto += $"Op desde: {OperacionDesde}; ";
+            if (!string.IsNullOrWhiteSpace(OperacionHasta))
+                filtrosTexto += $"Op hasta: {OperacionHasta}; ";
+            
+            if (string.IsNullOrEmpty(filtrosTexto))
+                filtrosTexto = "Mes en curso";
+            
+            var sql = @"INSERT INTO historial_generacion_pdf 
+                        (id_comercio, id_local, codigo_local, id_usuario, nombre_usuario,
+                         modulo, tipo_reporte, filtros_aplicados, 
+                         fecha_generacion, hora_generacion, registros_incluidos)
+                        VALUES 
+                        (@idComercio, @idLocal, @codigoLocal, @idUsuario, @nombreUsuario,
+                         'DIVISAS', 'Historial Balance', @filtros,
+                         @fecha, @hora, @registros)";
+            
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("idComercio", _idComercio);
+            cmd.Parameters.AddWithValue("idLocal", _idLocal);
+            cmd.Parameters.AddWithValue("codigoLocal", _codigoLocal);
+            cmd.Parameters.AddWithValue("idUsuario", _idUsuario);
+            cmd.Parameters.AddWithValue("nombreUsuario", _nombreUsuario);
+            cmd.Parameters.AddWithValue("filtros", filtrosTexto);
+            cmd.Parameters.AddWithValue("fecha", fechaHora.Date);
+            cmd.Parameters.AddWithValue("hora", fechaHora.TimeOfDay);
+            cmd.Parameters.AddWithValue("registros", Operaciones.Count);
+            
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            // No interrumpir el proceso si falla el registro
+            System.Diagnostics.Debug.WriteLine($"Error al registrar PDF: {ex.Message}");
+        }
     }
     
     [RelayCommand]

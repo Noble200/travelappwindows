@@ -174,7 +174,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private string _lastUpdateText = string.Empty;
     [ObservableProperty] private bool _puedeRealizarOperacion = false;
 
-    private List<string> _favoriteCodes = new() { "USD", "CAD", "CHF", "GBP", "CNY" };
+    private List<string> _favoriteCodes = new() { "USD", "CAD", "AUD", "CHF", "GBP", "HKD" };
 
     // ═══════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -1862,44 +1862,31 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         {
             new() { Code = "USD", Name = "Dolar USA", Country = "Estados Unidos" },
             new() { Code = "CAD", Name = "Dolar Canadiense", Country = "Canada" },
+            new() { Code = "AUD", Name = "Dolar Australiano", Country = "Australia" },
             new() { Code = "CHF", Name = "Franco Suizo", Country = "Suiza" },
             new() { Code = "GBP", Name = "Libra Esterlina", Country = "Reino Unido" },
-            new() { Code = "CNY", Name = "Yuan Chino", Country = "China" },
-            new() { Code = "JPY", Name = "Yen Japones", Country = "Japon" },
-            new() { Code = "AUD", Name = "Dolar Australiano", Country = "Australia" },
-            new() { Code = "MXN", Name = "Peso Mexicano", Country = "Mexico" },
-            new() { Code = "BRL", Name = "Real Brasileno", Country = "Brasil" },
-            new() { Code = "ARS", Name = "Peso Argentino", Country = "Argentina" },
-            new() { Code = "CLP", Name = "Peso Chileno", Country = "Chile" },
-            new() { Code = "COP", Name = "Peso Colombiano", Country = "Colombia" },
-            new() { Code = "PEN", Name = "Sol Peruano", Country = "Peru" },
-            new() { Code = "BOB", Name = "Boliviano", Country = "Bolivia" },
-            new() { Code = "VES", Name = "Bolivar", Country = "Venezuela" },
-            new() { Code = "DOP", Name = "Peso Dominicano", Country = "Rep. Dominicana" },
-            new() { Code = "UYU", Name = "Peso Uruguayo", Country = "Uruguay" },
-            new() { Code = "INR", Name = "Rupia India", Country = "India" },
-            new() { Code = "KRW", Name = "Won Surcoreano", Country = "Corea del Sur" },
-            new() { Code = "SGD", Name = "Dolar Singapur", Country = "Singapur" },
             new() { Code = "HKD", Name = "Dolar Hong Kong", Country = "Hong Kong" },
-            new() { Code = "NZD", Name = "Dolar Neozelandes", Country = "Nueva Zelanda" },
-            new() { Code = "SEK", Name = "Corona Sueca", Country = "Suecia" },
-            new() { Code = "NOK", Name = "Corona Noruega", Country = "Noruega" },
-            new() { Code = "DKK", Name = "Corona Danesa", Country = "Dinamarca" },
-            new() { Code = "PLN", Name = "Zloty Polaco", Country = "Polonia" },
-            new() { Code = "CZK", Name = "Corona Checa", Country = "Republica Checa" },
-            new() { Code = "HUF", Name = "Florin Hungaro", Country = "Hungria" },
-            new() { Code = "RON", Name = "Leu Rumano", Country = "Rumania" },
-            new() { Code = "TRY", Name = "Lira Turca", Country = "Turquia" },
-            new() { Code = "ZAR", Name = "Rand Sudafricano", Country = "Sudafrica" },
-            new() { Code = "THB", Name = "Baht Tailandes", Country = "Tailandia" },
-            new() { Code = "MYR", Name = "Ringgit Malayo", Country = "Malasia" },
-            new() { Code = "PHP", Name = "Peso Filipino", Country = "Filipinas" },
-            new() { Code = "IDR", Name = "Rupia Indonesia", Country = "Indonesia" },
             new() { Code = "AED", Name = "Dirham EAU", Country = "Emiratos Arabes" },
-            new() { Code = "SAR", Name = "Riyal Saudi", Country = "Arabia Saudita" },
-            new() { Code = "ILS", Name = "Shekel Israeli", Country = "Israel" },
-            new() { Code = "EGP", Name = "Libra Egipcia", Country = "Egipto" },
-            new() { Code = "MAD", Name = "Dirham Marroqui", Country = "Marruecos" }
+            new() { Code = "BGN", Name = "Lev Bulgaro", Country = "Bulgaria" },
+            new() { Code = "BRL", Name = "Real Brasileno", Country = "Brasil" },
+            new() { Code = "CNY", Name = "Yuan Renminbi", Country = "China" },
+            new() { Code = "CZK", Name = "Corona Checa", Country = "Republica Checa" },
+            new() { Code = "HUF", Name = "Forint", Country = "Hungria" },
+            new() { Code = "JPY", Name = "Yen Japones", Country = "Japon" },
+            new() { Code = "MAD", Name = "Dirham Marroqui", Country = "Marruecos" },
+            new() { Code = "MXN", Name = "Peso Mexicano", Country = "Mexico" },
+            new() { Code = "NOK", Name = "Corona Noruega", Country = "Noruega" },
+            new() { Code = "NZD", Name = "Dolar Neozelandes", Country = "Nueva Zelanda" },
+            new() { Code = "PLN", Name = "Zloty", Country = "Polonia" },
+            new() { Code = "RON", Name = "Leu Rumano", Country = "Rumania" },
+            new() { Code = "RUB", Name = "Rublo Ruso", Country = "Rusia" },
+            new() { Code = "SAR", Name = "Rial Saudi", Country = "Arabia Saudita" },
+            new() { Code = "SEK", Name = "Corona Sueca", Country = "Suecia" },
+            new() { Code = "SGD", Name = "Dolar Singapur", Country = "Singapur" },
+            new() { Code = "THB", Name = "Baht Tailandes", Country = "Tailandia" },
+            new() { Code = "TND", Name = "Dinar Tunecino", Country = "Tunez" },
+            new() { Code = "TRY", Name = "Lira Turca", Country = "Turquia" },
+            new() { Code = "ZAR", Name = "Rand Sudafricano", Country = "Sudafrica" }
         };
     }
 }
