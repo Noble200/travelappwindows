@@ -109,7 +109,7 @@
                                              Watermark="+34 600 000 000"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="6" Margin="12,0,0,0">
-                                    <TextBlock Text="Direccion" FontSize="12" Foreground="#666"/>
+                                    <TextBlock Text="Direccion u Hospedaje" FontSize="12" Foreground="#666"/>
                                     <TextBox Text="{Binding NuevaDireccion}" 
                                              Classes="input"
                                              Watermark="Calle, numero, ciudad..."/>

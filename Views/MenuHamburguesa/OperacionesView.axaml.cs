@@ -16,6 +16,12 @@ public partial class OperacionesView : UserControl
         InitializeComponent();
         DataContext = new OperacionesViewModel(idComercio, idLocal, codigoLocal);
     }
+    
+    public OperacionesView(int idComercio, int idLocal, string codigoLocal, int idUsuario, string nombreUsuario)
+    {
+        InitializeComponent();
+        DataContext = new OperacionesViewModel(idComercio, idLocal, codigoLocal, idUsuario, nombreUsuario);
+    }
 
     private void InitializeComponent()
     {

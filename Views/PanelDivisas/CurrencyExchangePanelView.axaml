@@ -246,21 +246,16 @@
                             </StackPanel>
                         </StackPanel>
                         
-                        <!-- Total entregado -->
+                        <!-- Total entregado (AHORA EDITABLE) -->
                         <StackPanel Spacing="8">
                             <TextBlock Text="Total entregado" Classes="subheader"/>
                             <StackPanel Orientation="Horizontal">
-                                <Border Background="White" 
-                                        CornerRadius="6,0,0,6"
-                                        Padding="15,10"
-                                        BorderBrush="#0b5394"
-                                        BorderThickness="1"
-                                        Width="250">
-                                    <TextBlock Text="{Binding TotalInEuros, StringFormat='{}{0:N2}'}"
-                                               FontSize="16"
-                                               FontWeight="Bold"
-                                               VerticalAlignment="Center"/>
-                                </Border>
+                                <TextBox Text="{Binding TotalInEurosTexto}"
+                                         Watermark="0,00"
+                                         Classes="input"
+                                         Width="250"
+                                         FontSize="16"
+                                         FontWeight="Bold"/>
                                 <Border Background="#0b5394" 
                                         CornerRadius="0,6,6,0"
                                         Padding="15,10"

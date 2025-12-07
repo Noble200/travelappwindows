@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Allva.Desktop.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="800"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="900"
              x:Class="Allva.Desktop.Views.MenuHamburguesa.OperacionesView"
              x:DataType="vm:OperacionesViewModel">
 
@@ -51,15 +51,6 @@
         </Style>
         
         <Style Selector="TextBox.filter-input">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#CCCCCC"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="CornerRadius" Value="4"/>
-        </Style>
-        
-        <Style Selector="ComboBox.filter-combo">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#CCCCCC"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -150,7 +141,7 @@
                                    HorizontalAlignment="Center"/>
                     </Border>
                     
-                    <!-- Fecha Desde (formato dd/mm/aaaa como NuevoCliente) -->
+                    <!-- Fecha Desde -->
                     <StackPanel Spacing="6">
                         <TextBlock Text="Fecha Desde"
                                    FontSize="12"
@@ -162,7 +153,7 @@
                                  MaxLength="10"/>
                     </StackPanel>
                     
-                    <!-- Fecha Hasta (formato dd/mm/aaaa como NuevoCliente) -->
+                    <!-- Fecha Hasta -->
                     <StackPanel Spacing="6">
                         <TextBlock Text="Fecha Hasta"
                                    FontSize="12"
@@ -186,30 +177,6 @@
                         <TextBox Classes="filter-input"
                                  Watermark="Hasta"
                                  Text="{Binding OperacionHasta}"/>
-                    </StackPanel>
-                    
-                    <!-- Tipo: Compra, Deposito, Traspaso a caja -->
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="Tipo"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="#333333"/>
-                        <ComboBox Classes="filter-combo"
-                                  ItemsSource="{Binding TiposOperacion}"
-                                  SelectedItem="{Binding TipoOperacionFiltro}"
-                                  HorizontalAlignment="Stretch"/>
-                    </StackPanel>
-                    
-                    <!-- Divisa -->
-                    <StackPanel Spacing="6" IsVisible="{Binding MostrarFiltroDivisa}">
-                        <TextBlock Text="Divisa"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="#333333"/>
-                        <ComboBox Classes="filter-combo"
-                                  ItemsSource="{Binding DivisasDisponibles}"
-                                  SelectedItem="{Binding DivisaSeleccionada}"
-                                  HorizontalAlignment="Stretch"/>
                     </StackPanel>
                     
                     <Button Content="Buscar"
@@ -278,33 +245,33 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="80"/>
-                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="100"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="100"/>
                                             <ColumnDefinition Width="100"/>
                                             <ColumnDefinition Width="100"/>
-                                            <ColumnDefinition Width="90"/>
                                         </Grid.ColumnDefinitions>
                                         
                                         <TextBlock Grid.Column="0" Text="Fecha" 
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="10,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="N Operacion" 
+                                        <TextBlock Grid.Column="1" Text="Hora" 
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="10,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="Descripcion" 
+                                        <TextBlock Grid.Column="2" Text="N Operacion" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="12"
+                                                   Padding="10,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="Descripcion" 
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="10,10"/>
-                                        <TextBlock Grid.Column="3" Text="Divisa" 
+                                        <TextBlock Grid.Column="4" Text="Divisa" 
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="10,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="4" Text="Euros Sal." 
+                                        <TextBlock Grid.Column="5" Text="S. Euros" 
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="10,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="5" Text="Euros Ent." 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="12"
-                                                   Padding="10,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="6" Text="Beneficio" 
+                                        <TextBlock Grid.Column="6" Text="E. Euros" 
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="10,10" HorizontalAlignment="Center"/>
                                     </Grid>
@@ -312,7 +279,7 @@
                                 
                                 <!-- Filas de datos -->
                                 <ScrollViewer Grid.Row="1" 
-                                              MaxHeight="250"
+                                              MaxHeight="220"
                                               VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{Binding Operaciones}">
                                         <ItemsControl.ItemTemplate>
@@ -323,35 +290,34 @@
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="80"/>
-                                                            <ColumnDefinition Width="130"/>
+                                                            <ColumnDefinition Width="60"/>
+                                                            <ColumnDefinition Width="100"/>
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="100"/>
                                                             <ColumnDefinition Width="100"/>
                                                             <ColumnDefinition Width="100"/>
-                                                            <ColumnDefinition Width="90"/>
                                                         </Grid.ColumnDefinitions>
                                                         
                                                         <TextBlock Grid.Column="0" Text="{Binding Fecha}" 
                                                                    FontSize="12" Foreground="#444444"
                                                                    Padding="10,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding NumeroOperacion}" 
-                                                                   FontSize="11" Foreground="#444444"
-                                                                   Padding="10,8" HorizontalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Grid.Column="2" Text="{Binding Descripcion}" 
+                                                        <TextBlock Grid.Column="1" Text="{Binding Hora}" 
+                                                                   FontSize="12" Foreground="#444444"
+                                                                   Padding="10,8" HorizontalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding NumeroOperacion}" 
+                                                                   FontSize="11" Foreground="#0b5394" FontWeight="Medium"
+                                                                   Padding="10,8" HorizontalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="3" Text="{Binding Descripcion}" 
                                                                    FontSize="12" Foreground="#444444"
                                                                    Padding="10,8"/>
-                                                        <TextBlock Grid.Column="3" Text="{Binding CantidadDivisa}" 
+                                                        <TextBlock Grid.Column="4" Text="{Binding CantidadDivisa}" 
                                                                    FontSize="12" Foreground="#0b5394" FontWeight="SemiBold"
                                                                    Padding="10,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="4" Text="{Binding EurosEntregados}" 
-                                                                   FontSize="12" Foreground="#CC3333" FontWeight="Medium"
+                                                        <TextBlock Grid.Column="5" Text="{Binding SalidaEuros}" 
+                                                                   FontSize="12" Foreground="{Binding SalidaEurosColor}" FontWeight="Medium"
                                                                    Padding="10,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="5" Text="{Binding EurosRecibidos}" 
+                                                        <TextBlock Grid.Column="6" Text="{Binding EntradaEuros}" 
                                                                    FontSize="12" Foreground="#008800" FontWeight="Medium"
-                                                                   Padding="10,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="6" Text="{Binding Beneficio}" 
-                                                                   FontSize="12" Foreground="{Binding BeneficioColor}" FontWeight="SemiBold"
                                                                    Padding="10,8" HorizontalAlignment="Center"/>
                                                     </Grid>
                                                 </Border>
@@ -369,36 +335,163 @@
                                    HorizontalAlignment="Center"
                                    IsVisible="{Binding !Operaciones.Count}"/>
                         
-                        <!-- BALANCE ACTUAL - SOLO EUROS -->
+                        <!-- BALANCE ACTUAL - 4 RECUADROS -->
                         <Border Background="#F8F8F8"
                                 BorderBrush="#E0E0E0"
                                 BorderThickness="1"
                                 CornerRadius="6"
-                                Padding="16,12">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
-                                <Border Background="#0b5394"
+                                Padding="20,16">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Border Grid.Column="0"
+                                        Background="#0b5394"
                                         CornerRadius="4"
-                                        Padding="16,8">
+                                        Padding="20,10"
+                                        VerticalAlignment="Center">
                                     <TextBlock Text="BALANCE ACTUAL"
-                                               FontSize="13"
+                                               FontSize="14"
                                                FontWeight="Bold"
                                                Foreground="White"/>
                                 </Border>
                                 
-                                <Border Background="White"
-                                        BorderBrush="{Binding BalanceEurosColor}"
-                                        BorderThickness="2"
-                                        CornerRadius="4"
-                                        Padding="24,8">
-                                    <TextBlock Text="{Binding BalanceEuros}"
-                                               FontSize="16"
-                                               FontWeight="Bold"
-                                               Foreground="{Binding BalanceEurosColor}"/>
-                                </Border>
+                                <StackPanel Grid.Column="1" 
+                                            Orientation="Horizontal" 
+                                            HorizontalAlignment="Right" 
+                                            Spacing="16">
+                                    <!-- T.Euros -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="T.Euros"
+                                                   FontSize="12"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="#0b5394"
+                                                CornerRadius="4"
+                                                Padding="20,10"
+                                                MinWidth="90"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalEuros}"
+                                                       FontSize="16"
+                                                       FontWeight="Bold"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- T.Divisa -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="T.Divisa"
+                                                   FontSize="12"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="White"
+                                                BorderBrush="#0b5394"
+                                                BorderThickness="2"
+                                                CornerRadius="4"
+                                                Padding="20,10"
+                                                MinWidth="90"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalDivisa}"
+                                                       FontSize="16"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0b5394"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- S.Euros -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="S.Euros"
+                                                   FontSize="12"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="White"
+                                                BorderBrush="#CC3333"
+                                                BorderThickness="2"
+                                                CornerRadius="4"
+                                                Padding="20,10"
+                                                MinWidth="90"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding SalidaEurosTotal}"
+                                                       FontSize="16"
+                                                       FontWeight="Bold"
+                                                       Foreground="#CC3333"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- E.Euros -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="E.Euros"
+                                                   FontSize="12"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="White"
+                                                BorderBrush="#008800"
+                                                BorderThickness="2"
+                                                CornerRadius="4"
+                                                Padding="20,10"
+                                                MinWidth="90"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding EntradaEurosTotal}"
+                                                       FontSize="16"
+                                                       FontWeight="Bold"
+                                                       Foreground="#008800"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- LISTA DE DIVISAS (clickeables) -->
+                        <Border Background="#FAFAFA"
+                                BorderBrush="#E0E0E0"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="16,12"
+                                IsVisible="{Binding TieneDivisas}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Divisas disponibles (click para seleccionar)"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#0b5394"/>
+                                <ItemsControl ItemsSource="{Binding DivisasDelLocal}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Command="{Binding $parent[ItemsControl].((vm:OperacionesViewModel)DataContext).SeleccionarDivisaCommand}"
+                                                    CommandParameter="{Binding Codigo}"
+                                                    Background="White"
+                                                    BorderBrush="#0b5394"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="12,6"
+                                                    Margin="0,0,8,8"
+                                                    Cursor="Hand">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding Codigo}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#0b5394"/>
+                                                    <TextBlock Text="{Binding CantidadFormateada}"
+                                                               FontSize="12"
+                                                               Foreground="#444444"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Border>
                         
-                        <!-- DEPOSITO EN BANCO -->
+                        <!-- DEPOSITO EN BANCO (con cantidad divisa) -->
                         <Border Background="#0b5394"
                                 CornerRadius="6"
                                 Padding="20,14">
@@ -409,110 +502,97 @@
                                            Foreground="White"
                                            HorizontalAlignment="Center"/>
                                 
-                                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,*,Auto">
+                                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
                                     <TextBlock Grid.Column="0"
                                                Text="Divisa"
                                                FontSize="13"
                                                Foreground="White"
                                                VerticalAlignment="Center"
-                                               Margin="0,0,12,0"/>
+                                               Margin="0,0,8,0"/>
                                     
                                     <Border Grid.Column="1"
                                             Background="#ffd966"
                                             CornerRadius="4"
                                             Padding="4,2">
-                                        <ComboBox ItemsSource="{Binding DivisasParaBanco}"
-                                                  SelectedItem="{Binding DivisaBancoSeleccionada}"
-                                                  MinWidth="80"
+                                        <ComboBox ItemsSource="{Binding DivisasParaDeposito}"
+                                                  SelectedItem="{Binding DivisaDepositoSeleccionada}"
+                                                  MinWidth="70"
                                                   Background="Transparent"
                                                   BorderThickness="0"/>
                                     </Border>
                                     
                                     <TextBlock Grid.Column="2"
-                                               Text="Cantidad a depositar"
+                                               Text="Cantidad"
                                                FontSize="13"
                                                Foreground="White"
                                                VerticalAlignment="Center"
-                                               Margin="20,0,12,0"/>
+                                               Margin="16,0,8,0"/>
                                     
                                     <Border Grid.Column="3"
                                             Background="White"
                                             CornerRadius="4"
-                                            Margin="0,0,8,0">
-                                        <TextBox Text="{Binding CantidadDivisaDepositar}"
+                                            MinWidth="100">
+                                        <TextBox Text="{Binding CantidadDivisaDeposito}"
                                                  BorderThickness="0"
-                                                 Padding="10,8"
+                                                 Padding="8,6"
                                                  FontSize="13"
-                                                 Watermark="Ej: 500"/>
+                                                 Watermark="Cantidad"/>
                                     </Border>
                                     
                                     <TextBlock Grid.Column="4"
-                                               Text="Euros recibidos"
+                                               Text="Euros"
                                                FontSize="13"
                                                Foreground="White"
                                                VerticalAlignment="Center"
-                                               Margin="8,0,12,0"/>
+                                               Margin="16,0,8,0"/>
                                     
                                     <Border Grid.Column="5"
                                             Background="White"
                                             CornerRadius="4"
-                                            Margin="0,0,8,0">
-                                        <TextBox Text="{Binding CantidadEurosRecibidos}"
+                                            Margin="0,0,12,0">
+                                        <TextBox Text="{Binding CantidadEurosDeposito}"
                                                  BorderThickness="0"
-                                                 Padding="10,8"
+                                                 Padding="8,6"
                                                  FontSize="13"
-                                                 Watermark="Ej: 450"/>
+                                                 Watermark="EUR recibidos"/>
                                     </Border>
                                     
                                     <Button Grid.Column="6"
                                             Content="Insertar"
                                             Classes="filter-button"
-                                            Command="{Binding InsertarDepositoBancoCommand}"/>
+                                            Command="{Binding InsertarDepositoCommand}"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
                         
-                        <!-- RETIRAR BENEFICIO DEL DIA -->
+                        <!-- TRANSFERENCIA A CAJA -->
                         <Border Background="#ffd966"
                                 CornerRadius="6"
                                 Padding="20,14">
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                                <StackPanel Grid.Column="0" Spacing="4">
-                                    <TextBlock Text="Retirar beneficio del dia"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               Foreground="#0b5394"/>
-                                    <TextBlock Text="{Binding MensajeDiaCerrado}"
-                                               FontSize="12"
-                                               Foreground="#CC3333"
-                                               FontWeight="Medium"
-                                               IsVisible="{Binding DiaCerrado}"/>
-                                </StackPanel>
+                                <TextBlock Grid.Column="0"
+                                           Text="Transferencia a caja"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="#0b5394"
+                                           VerticalAlignment="Center"/>
                                 
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
-                                    <TextBlock Text="Beneficio hoy:"
-                                               FontSize="13"
-                                               Foreground="#0b5394"
-                                               VerticalAlignment="Center"
-                                               FontWeight="Medium"/>
-                                    <Border Background="White"
-                                            BorderBrush="#0b5394"
-                                            BorderThickness="2"
-                                            CornerRadius="4"
-                                            Padding="20,8">
-                                        <TextBlock Text="{Binding BeneficioDelDia}"
-                                                   FontSize="15"
-                                                   FontWeight="Bold"
-                                                   Foreground="#008800"/>
-                                    </Border>
-                                </StackPanel>
+                                <Border Grid.Column="2"
+                                        Background="White"
+                                        CornerRadius="4"
+                                        MinWidth="120">
+                                    <TextBox Text="{Binding CantidadTraspaso}"
+                                             BorderThickness="0"
+                                             Padding="10,8"
+                                             FontSize="13"
+                                             Watermark="Cantidad"/>
+                                </Border>
                                 
                                 <Button Grid.Column="3"
-                                        Content="Retirar"
+                                        Content="Transferir"
                                         Classes="action-button"
-                                        Margin="16,0,0,0"
-                                        Command="{Binding RetirarBeneficioCommand}"
-                                        IsEnabled="{Binding !DiaCerrado}"/>
+                                        Margin="12,0,0,0"
+                                        Command="{Binding TransferirCajaCommand}"/>
                             </Grid>
                         </Border>
                         
