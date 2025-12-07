@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using Allva.Desktop.Models;
 using Allva.Desktop.Services;
 using Npgsql;
+using Avalonia.Media.Imaging;
 
 namespace Allva.Desktop.ViewModels;
 
@@ -19,16 +20,12 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     
     private readonly CurrencyExchangeService _currencyService;
     
-    // Zona horaria de España (Europe/Madrid)
     private static readonly TimeZoneInfo _zonaHorariaEspana = TimeZoneInfo.FindSystemTimeZoneById(
         OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
     
-    // Margen de ganancia (INTERNO - NUNCA MOSTRAR AL USUARIO)
     private decimal _margenGanancia = 10.00m;
     private int _idLocalActual = 0;
     private int _idComercioActual = 0;
-    
-    // Datos del usuario actual (se deben establecer desde la sesión)
     private int _idUsuarioActual = 0;
     private string? _nombreUsuarioActual;
     private string? _numeroUsuarioActual;
@@ -61,7 +58,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private string _tipoBusquedaSeleccionado = "Todos";
     
     // ═══════════════════════════════════════════════════════════
-    // ACUMULADOS DEL CLIENTE (MES Y TRIMESTRE)
+    // ACUMULADOS DEL CLIENTE
     // ═══════════════════════════════════════════════════════════
     
     private const decimal LIMITE_TRIMESTRE = 3000.00m;
@@ -78,7 +75,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     public string ColorTextoAcumuladoTrimestre => LimiteTrimestreExcedido ? "#C62828" : (AcumuladoTrimestre > LIMITE_TRIMESTRE * 0.8m ? "#E65100" : "#2E7D32");
 
     // ═══════════════════════════════════════════════════════════
-    // CAMPOS NUEVO/EDITAR CLIENTE (con segundo nombre/apellido)
+    // CAMPOS NUEVO/EDITAR CLIENTE
     // ═══════════════════════════════════════════════════════════
     
     [ObservableProperty] private string _nuevoNombre = string.Empty;
@@ -91,24 +88,22 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private string _nuevoTipoDocumento = "DNI";
     [ObservableProperty] private string _nuevoNumeroDocumento = string.Empty;
     
-    // Para edición - guardamos el ID del cliente que estamos editando
     private int _idClienteEditando = 0;
     [ObservableProperty] private bool _esModoEdicion = false;
     [ObservableProperty] private string _tituloFormularioCliente = "Registrar Nuevo Cliente";
     
-    // Imágenes documento
     [ObservableProperty] private byte[]? _nuevaImagenDocumentoFrontal;
     [ObservableProperty] private byte[]? _nuevaImagenDocumentoTrasera;
     [ObservableProperty] private bool _tieneImagenDocumentoFrontal = false;
     [ObservableProperty] private bool _tieneImagenDocumentoTrasera = false;
     public bool TieneAlgunaImagenDocumento => TieneImagenDocumentoFrontal || TieneImagenDocumentoTrasera;
-    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _imagenDocumentoFrontalPreview;
-    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _imagenDocumentoTraseraPreview;
+    
+    [ObservableProperty] private Bitmap? _imagenDocumentoFrontalPreview;
+    [ObservableProperty] private Bitmap? _imagenDocumentoTraseraPreview;
     [ObservableProperty] private bool _mostrarPreviewImagen = false;
-    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _imagenPreviewActual;
+    [ObservableProperty] private Bitmap? _imagenPreviewActual;
     [ObservableProperty] private string _tituloPreviewImagen = string.Empty;
     
-    // Propiedades calculadas para confirmación
     public string NuevoNombreCompletoPreview
     {
         get
@@ -118,14 +113,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         }
     }
     
-    [ObservableProperty] 
-    private string _nuevaFechaNacimientoTexto = string.Empty;
-
-    [ObservableProperty] 
-    private string _nuevaCaducidadDocumentoTexto = string.Empty;
+    [ObservableProperty] private string _nuevaFechaNacimientoTexto = string.Empty;
+    [ObservableProperty] private string _nuevaCaducidadDocumentoTexto = string.Empty;
 
     public bool TieneImagenesDocumento => TieneImagenDocumentoFrontal || TieneImagenDocumentoTrasera;
-
     public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte" };
 
     // ═══════════════════════════════════════════════════════════
@@ -141,7 +132,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private bool _mostrarSelectorDivisas = false;
 
     // ═══════════════════════════════════════════════════════════
-    // CALCULADORA - BIDIRECCIONAL
+    // CALCULADORA
     // ═══════════════════════════════════════════════════════════
     
     [ObservableProperty] private string _amountReceived = string.Empty;
@@ -150,7 +141,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private decimal _currentRate;
     [ObservableProperty] private string _rateDisplayText = string.Empty;
     
-    // Flag para evitar loop infinito en cálculo bidireccional
     private bool _calculandoDesdeDivisa = false;
     private bool _calculandoDesdeEuros = false;
 
@@ -162,7 +152,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private string _numeroOperacionDisplay = string.Empty;
     [ObservableProperty] private DateTime _fechaOperacion;
     
-    // Flag para saber si la operación ya fue guardada
     private bool _operacionGuardada = false;
 
     // ═══════════════════════════════════════════════════════════
@@ -205,9 +194,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         InitializeAsync();
     }
     
-    /// <summary>
-    /// Establece los datos de la sesión del usuario
-    /// </summary>
     public void SetSesionData(int idLocal, int idComercio, int idUsuario, string nombreUsuario, string numeroUsuario)
     {
         _idLocalActual = idLocal;
@@ -217,10 +203,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         _numeroUsuarioActual = numeroUsuario;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // ZONA HORARIA - ESPAÑA
-    // ═══════════════════════════════════════════════════════════
-    
     private DateTime ObtenerHoraEspana()
     {
         return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _zonaHorariaEspana);
@@ -237,11 +219,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     {
         var ahora = ObtenerHoraEspana();
         var cultura = new CultureInfo("es-ES");
-        
-        // Nombre del mes
         MesActualNombre = cultura.DateTimeFormat.GetMonthName(ahora.Month).ToUpper() + " " + ahora.Year;
-        
-        // Nombre del trimestre
         int trimestre = (ahora.Month - 1) / 3 + 1;
         TrimestreActualNombre = $"T{trimestre} {ahora.Year}";
     }
@@ -269,11 +247,8 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         ErrorMessage = string.Empty;
         VistaBuscarCliente = true;
         
-        // Si ya hay texto de busqueda, ejecutar busqueda automaticamente
         if (!string.IsNullOrWhiteSpace(BusquedaCliente))
-        {
             await BuscarClientesAsync(BusquedaCliente);
-        }
     }
     
     [RelayCommand]
@@ -291,7 +266,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     private void IrAEditarCliente()
     {
         if (ClienteSeleccionado == null) return;
-        
         OcultarTodasLasVistas();
         CargarDatosClienteParaEdicion();
         EsModoEdicion = true;
@@ -314,12 +288,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         NuevaNacionalidad = ClienteSeleccionado.Nacionalidad ?? "";
         NuevoTipoDocumento = ClienteSeleccionado.TipoDocumento ?? "DNI";
         NuevoNumeroDocumento = ClienteSeleccionado.NumeroDocumento ?? "";
-        
-        // Fechas
         NuevaFechaNacimientoTexto = ClienteSeleccionado.FechaNacimiento?.ToString("dd/MM/yyyy") ?? "";
         NuevaCaducidadDocumentoTexto = ClienteSeleccionado.CaducidadDocumento?.ToString("dd/MM/yyyy") ?? "";
         
-        // Limpiar imágenes previas primero
         NuevaImagenDocumentoFrontal = null;
         NuevaImagenDocumentoTrasera = null;
         TieneImagenDocumentoFrontal = false;
@@ -327,7 +298,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         ImagenDocumentoFrontalPreview = null;
         ImagenDocumentoTraseraPreview = null;
         
-        // Cargar imagen frontal si existe
         if (ClienteSeleccionado.ImagenDocumentoFrontal != null && ClienteSeleccionado.ImagenDocumentoFrontal.Length > 0)
         {
             NuevaImagenDocumentoFrontal = ClienteSeleccionado.ImagenDocumentoFrontal;
@@ -335,12 +305,11 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             try
             {
                 using var stream = new MemoryStream(ClienteSeleccionado.ImagenDocumentoFrontal);
-                ImagenDocumentoFrontalPreview = new Avalonia.Media.Imaging.Bitmap(stream);
+                ImagenDocumentoFrontalPreview = new Bitmap(stream);
             }
-            catch { ImagenDocumentoFrontalPreview = null; }
+            catch { }
         }
         
-        // Cargar imagen trasera si existe
         if (ClienteSeleccionado.ImagenDocumentoTrasera != null && ClienteSeleccionado.ImagenDocumentoTrasera.Length > 0)
         {
             NuevaImagenDocumentoTrasera = ClienteSeleccionado.ImagenDocumentoTrasera;
@@ -348,9 +317,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             try
             {
                 using var stream = new MemoryStream(ClienteSeleccionado.ImagenDocumentoTrasera);
-                ImagenDocumentoTraseraPreview = new Avalonia.Media.Imaging.Bitmap(stream);
+                ImagenDocumentoTraseraPreview = new Bitmap(stream);
             }
-            catch { ImagenDocumentoTraseraPreview = null; }
+            catch { }
         }
         
         OnPropertyChanged(nameof(TieneAlgunaImagenDocumento));
@@ -383,7 +352,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [RelayCommand]
     private void VolverATransaccion()
     {
-        // Si vuelve desde el resumen sin finalizar, no se guarda nada
         OcultarTodasLasVistas();
         ErrorMessage = string.Empty;
         VistaTransaccion = true;
@@ -410,52 +378,70 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             ErrorMessage = "El primer apellido es obligatorio";
             return;
         }
+        if (string.IsNullOrWhiteSpace(NuevaDireccion))
+        {
+            ErrorMessage = "La direccion u hospedaje es obligatorio";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(NuevoTipoDocumento))
+        {
+            ErrorMessage = "El tipo de documento es obligatorio";
+            return;
+        }
         if (string.IsNullOrWhiteSpace(NuevoNumeroDocumento))
         {
             ErrorMessage = "El numero de documento es obligatorio";
             return;
         }
-        
-        // Validar fecha de nacimiento (mayor de edad)
-        if (!string.IsNullOrWhiteSpace(NuevaFechaNacimientoTexto))
+        if (string.IsNullOrWhiteSpace(NuevaNacionalidad))
         {
-            if (DateTime.TryParseExact(NuevaFechaNacimientoTexto, "dd/MM/yyyy", 
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var fechaNac))
-            {
-                var hoy = ObtenerHoraEspana().Date;
-                var edad = hoy.Year - fechaNac.Year;
-                if (fechaNac.Date > hoy.AddYears(-edad)) edad--;
-                
-                if (edad < 18)
-                {
-                    ErrorMessage = "El cliente es menor de edad. No puede realizar operaciones.";
-                    return;
-                }
-            }
-            else
-            {
-                ErrorMessage = "Formato de fecha de nacimiento invalido. Use dd/mm/aaaa";
-                return;
-            }
+            ErrorMessage = "La nacionalidad es obligatoria";
+            return;
         }
-        
-        // Validar fecha de caducidad del documento
-        if (!string.IsNullOrWhiteSpace(NuevaCaducidadDocumentoTexto))
+        if (string.IsNullOrWhiteSpace(NuevaFechaNacimientoTexto))
         {
-            if (DateTime.TryParseExact(NuevaCaducidadDocumentoTexto, "dd/MM/yyyy", 
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var fechaCad))
-            {
-                if (fechaCad.Date < ObtenerHoraEspana().Date)
-                {
-                    ErrorMessage = "El documento esta vencido. No puede realizar operaciones.";
-                    return;
-                }
-            }
-            else
-            {
-                ErrorMessage = "Formato de fecha de caducidad invalido. Use dd/mm/aaaa";
-                return;
-            }
+            ErrorMessage = "La fecha de nacimiento es obligatoria";
+            return;
+        }
+        if (!DateTime.TryParseExact(NuevaFechaNacimientoTexto, "dd/MM/yyyy", 
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var fechaNac))
+        {
+            ErrorMessage = "Formato de fecha de nacimiento invalido. Use dd/mm/aaaa";
+            return;
+        }
+        var hoy = ObtenerHoraEspana().Date;
+        var edad = hoy.Year - fechaNac.Year;
+        if (fechaNac.Date > hoy.AddYears(-edad)) edad--;
+        if (edad < 18)
+        {
+            ErrorMessage = "El cliente debe ser mayor de edad (18 anos minimo)";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(NuevaCaducidadDocumentoTexto))
+        {
+            ErrorMessage = "La fecha de caducidad del documento es obligatoria";
+            return;
+        }
+        if (!DateTime.TryParseExact(NuevaCaducidadDocumentoTexto, "dd/MM/yyyy", 
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var fechaCad))
+        {
+            ErrorMessage = "Formato de fecha de caducidad invalido. Use dd/mm/aaaa";
+            return;
+        }
+        if (fechaCad.Date < ObtenerHoraEspana().Date)
+        {
+            ErrorMessage = "El documento esta vencido. No puede realizar operaciones.";
+            return;
+        }
+        if (!TieneImagenDocumentoFrontal || NuevaImagenDocumentoFrontal == null)
+        {
+            ErrorMessage = "La imagen frontal del documento es obligatoria";
+            return;
+        }
+        if (!TieneImagenDocumentoTrasera || NuevaImagenDocumentoTrasera == null)
+        {
+            ErrorMessage = "La imagen trasera del documento es obligatoria";
+            return;
         }
         
         ErrorMessage = string.Empty;
@@ -470,18 +456,45 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [RelayCommand]
     private async Task FinalizarYVolverAPrincipalAsync()
     {
-        // Solo guardar si no se ha guardado antes
-        if (!_operacionGuardada)
+        if (_operacionGuardada)
         {
-            var guardadoExitoso = await GuardarOperacionEnBDAsync();
-            if (!guardadoExitoso)
-            {
-                // Si hay error, no salir del resumen
-                return;
-            }
+            LimpiarDatosOperacion();
+            OcultarTodasLasVistas();
+            VistaPrincipal = true;
+            return;
         }
         
-        // Limpiar datos de la operación
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+        
+        try
+        {
+            var (exito, mensaje) = await GuardarOperacionCompletaAsync();
+            
+            if (exito)
+            {
+                _operacionGuardada = true;
+                LimpiarDatosOperacion();
+                OcultarTodasLasVistas();
+                VistaPrincipal = true;
+            }
+            else
+            {
+                ErrorMessage = mensaje;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error inesperado: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+    
+    private void LimpiarDatosOperacion()
+    {
         ClienteSeleccionado = null;
         AmountReceived = string.Empty;
         TotalInEurosTexto = string.Empty;
@@ -489,9 +502,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         NumeroOperacion = 0;
         NumeroOperacionDisplay = string.Empty;
         _operacionGuardada = false;
-        
-        OcultarTodasLasVistas();
-        VistaPrincipal = true;
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -514,15 +524,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             await conn.OpenAsync();
             
             var ahora = ObtenerHoraEspana();
-            
-            // Primer día del mes actual
             var primerDiaMes = new DateTime(ahora.Year, ahora.Month, 1);
-            
-            // Primer día del trimestre actual
             int trimestre = (ahora.Month - 1) / 3;
             var primerDiaTrimestre = new DateTime(ahora.Year, trimestre * 3 + 1, 1);
             
-            // Consulta para acumulado del mes
             var sqlMes = @"SELECT COALESCE(SUM(importe_total), 0) 
                            FROM operaciones 
                            WHERE id_cliente = @idCliente 
@@ -533,9 +538,8 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             await using var cmdMes = new NpgsqlCommand(sqlMes, conn);
             cmdMes.Parameters.AddWithValue("idCliente", idCliente);
             cmdMes.Parameters.AddWithValue("fechaInicio", primerDiaMes);
-            AcumuladoMes = Convert.ToDecimal(await cmdMes.ExecuteScalarAsync());
+            AcumuladoMes = Convert.ToDecimal(await cmdMes.ExecuteScalarAsync() ?? 0);
             
-            // Consulta para acumulado del trimestre
             var sqlTrimestre = @"SELECT COALESCE(SUM(importe_total), 0) 
                                  FROM operaciones 
                                  WHERE id_cliente = @idCliente 
@@ -546,20 +550,17 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             await using var cmdTrimestre = new NpgsqlCommand(sqlTrimestre, conn);
             cmdTrimestre.Parameters.AddWithValue("idCliente", idCliente);
             cmdTrimestre.Parameters.AddWithValue("fechaInicio", primerDiaTrimestre);
-            AcumuladoTrimestre = Convert.ToDecimal(await cmdTrimestre.ExecuteScalarAsync());
+            AcumuladoTrimestre = Convert.ToDecimal(await cmdTrimestre.ExecuteScalarAsync() ?? 0);
             
-            // Calcular disponible y estado
             DisponibleTrimestre = LIMITE_TRIMESTRE - AcumuladoTrimestre;
             LimiteTrimestreExcedido = AcumuladoTrimestre >= LIMITE_TRIMESTRE;
             MostrarDisponibleTrimestre = !LimiteTrimestreExcedido;
             
-            // Notificar cambios de colores
             OnPropertyChanged(nameof(ColorAcumuladoTrimestre));
             OnPropertyChanged(nameof(ColorTextoAcumuladoTrimestre));
         }
-        catch (Exception ex)
+        catch
         {
-            ErrorMessage = $"Error al cargar acumulados: {ex.Message}";
             AcumuladoMes = 0;
             AcumuladoTrimestre = 0;
             DisponibleTrimestre = LIMITE_TRIMESTRE;
@@ -573,7 +574,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     }
 
     // ═══════════════════════════════════════════════════════════
-    // CARGA DE MARGEN (INTERNO)
+    // CARGA DE MARGEN
     // ═══════════════════════════════════════════════════════════
 
     private async Task CargarMargenGananciaAsync()
@@ -693,16 +694,11 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 
                 await using var reader = await cmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
-                {
                     favoriteCodes.Add(reader.GetString(0));
-                }
             }
             
-            // Si no hay guardadas en BD, usar predefinidas
             if (favoriteCodes.Count == 0)
-            {
                 favoriteCodes = _favoriteCodes;
-            }
             
             var favorites = await _currencyService.GetFavoriteCurrenciesAsync(favoriteCodes);
             foreach (var fav in favorites)
@@ -724,7 +720,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     }
 
     // ═══════════════════════════════════════════════════════════
-    // SELECTOR DE DIVISAS (POPUP)
+    // SELECTOR DE DIVISAS
     // ═══════════════════════════════════════════════════════════
     
     [RelayCommand]
@@ -791,10 +787,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             };
             FavoriteCurrencies.Add(fav);
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"Error al agregar divisa: {ex.Message}";
-        }
+        catch { }
         
         MostrarSelectorDivisas = false;
     }
@@ -820,11 +813,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             
             FavoriteCurrencies.Remove(divisa);
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"Error al quitar divisa: {ex.Message}";
-        }
+        catch { }
     }
+    
     partial void OnBusquedaDivisaChanged(string value)
     {
         if (MostrarSelectorDivisas)
@@ -895,26 +886,18 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     partial void OnAmountReceivedChanged(string value)
     {
         if (!_calculandoDesdeEuros)
-        {
             CalcularDesdeDivisa();
-        }
     }
     
     partial void OnTotalInEurosTextoChanged(string value)
     {
         if (!_calculandoDesdeDivisa)
-        {
             CalcularDesdeEuros();
-        }
     }
 
-    /// <summary>
-    /// Calcula euros a partir de la cantidad de divisa ingresada
-    /// </summary>
     private void CalcularDesdeDivisa()
     {
         if (_calculandoDesdeEuros) return;
-        
         _calculandoDesdeDivisa = true;
         
         try
@@ -928,15 +911,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             }
 
             var textoLimpio = AmountReceived.Replace(",", ".");
-            if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidad))
-            {
-                TotalInEuros = 0;
-                TotalInEurosTexto = "0,00";
-                ValidarOperacion();
-                return;
-            }
-
-            if (cantidad <= 0)
+            if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidad) || cantidad <= 0)
             {
                 TotalInEuros = 0;
                 TotalInEurosTexto = "0,00";
@@ -954,13 +929,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         }
     }
     
-    /// <summary>
-    /// Calcula cantidad de divisa a partir de los euros ingresados
-    /// </summary>
     private void CalcularDesdeEuros()
     {
         if (_calculandoDesdeDivisa) return;
-        
         _calculandoDesdeEuros = true;
         
         try
@@ -974,15 +945,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             }
 
             var textoLimpio = TotalInEurosTexto.Replace(",", ".");
-            if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal euros))
-            {
-                AmountReceived = "0.00";
-                TotalInEuros = 0;
-                ValidarOperacion();
-                return;
-            }
-
-            if (euros <= 0)
+            if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal euros) || euros <= 0)
             {
                 AmountReceived = "0.00";
                 TotalInEuros = 0;
@@ -992,7 +955,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
 
             TotalInEuros = euros;
             
-            // Calcular divisa: euros / tasa = cantidad divisa
             if (SelectedCurrency.RateWithMargin > 0)
             {
                 decimal cantidadDivisa = euros / SelectedCurrency.RateWithMargin;
@@ -1016,7 +978,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     }
 
     // ═══════════════════════════════════════════════════════════
-    // BÚSQUEDA DE CLIENTES - FILTRADO POR COMERCIO
+    // BÚSQUEDA DE CLIENTES
     // ═══════════════════════════════════════════════════════════
     
     [RelayCommand]
@@ -1031,10 +993,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         await BuscarClientesAsync(BusquedaCliente);
     }
     
-    /// <summary>
-    /// Busca clientes FILTRADOS POR COMERCIO
-    /// Los clientes pertenecen al comercio, se comparten entre locales del mismo comercio
-    /// </summary>
     private async Task BuscarClientesAsync(string? termino)
     {
         try
@@ -1053,14 +1011,11 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                     "Nombre" => @"(nombre ILIKE @termino OR apellidos ILIKE @termino 
                                   OR COALESCE(segundo_nombre, '') ILIKE @termino 
                                   OR COALESCE(segundo_apellido, '') ILIKE @termino
-                                  OR CONCAT(nombre, ' ', apellidos) ILIKE @termino
-                                  OR CONCAT(nombre, ' ', COALESCE(segundo_nombre, ''), ' ', apellidos, ' ', COALESCE(segundo_apellido, '')) ILIKE @termino)",
+                                  OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)",
                     "Documento" => "documento_numero ILIKE @termino",
                     "Telefono" => "telefono ILIKE @termino",
                     _ => @"(documento_numero ILIKE @termino OR telefono ILIKE @termino OR nombre ILIKE @termino 
-                           OR apellidos ILIKE @termino OR COALESCE(segundo_nombre, '') ILIKE @termino
-                           OR COALESCE(segundo_apellido, '') ILIKE @termino
-                           OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)"
+                           OR apellidos ILIKE @termino OR CONCAT(nombre, ' ', apellidos) ILIKE @termino)"
                 };
             }
             else
@@ -1068,11 +1023,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 whereClause = "1=1";
             }
 
-            // CAMBIO PRINCIPAL: Filtrar por COMERCIO en lugar de local
-            // Los clientes son unicos por comercio, compartidos entre locales del mismo comercio
-            var comercioFilter = _idComercioActual > 0 
-                ? " AND id_comercio_registro = @idComercio" 
-                : "";
+            var comercioFilter = _idComercioActual > 0 ? " AND id_comercio_registro = @idComercio" : "";
 
             var sql = $@"SELECT DISTINCT id_cliente, nombre, apellidos, telefono, direccion,
                                COALESCE(nacionalidad, '') as nacionalidad, 
@@ -1124,7 +1075,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             }
 
             if (!ClientesEncontrados.Any())
-                ErrorMessage = usarTermino ? "No se encontraron clientes con ese criterio en este comercio" : "No hay clientes registrados en este comercio";
+                ErrorMessage = usarTermino ? "No se encontraron clientes" : "No hay clientes registrados";
         }
         catch (Exception ex)
         {
@@ -1142,10 +1093,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         if (cliente == null) return;
         ClienteSeleccionado = cliente;
         ValidarOperacion();
-        
-        // Cargar acumulados del cliente
         await CargarAcumuladosClienteAsync(cliente.IdCliente);
-        
         OcultarTodasLasVistas();
         VistaTransaccion = true;
     }
@@ -1177,10 +1125,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         ImagenDocumentoTraseraPreview = null;
     }
 
-    /// <summary>
-    /// Guarda nuevo cliente ASOCIADO AL COMERCIO
-    /// Se registra id_comercio_registro, id_local_registro e id_usuario_registro
-    /// </summary>
     [RelayCommand]
     private async Task GuardarNuevoClienteAsync()
     {
@@ -1209,7 +1153,32 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                     fechaCaducidad = fc;
             }
 
-            // CAMBIO: Agregar id_comercio_registro e id_usuario_registro
+            var sqlVerificar = @"SELECT COUNT(*) FROM clientes 
+                                 WHERE UPPER(documento_tipo) = @tipoDoc 
+                                 AND UPPER(documento_numero) = @numDoc 
+                                 AND UPPER(nombre) = @nombre
+                                 AND UPPER(apellidos) = @apellido
+                                 AND fecha_nacimiento = @fechaNac
+                                 AND id_comercio_registro = @idComercio
+                                 AND activo = true";
+            
+            await using var cmdVerificar = new NpgsqlCommand(sqlVerificar, conn);
+            cmdVerificar.Parameters.AddWithValue("tipoDoc", NuevoTipoDocumento.ToUpper());
+            cmdVerificar.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento.Trim().ToUpper());
+            cmdVerificar.Parameters.AddWithValue("nombre", NuevoNombre.Trim().ToUpper());
+            cmdVerificar.Parameters.AddWithValue("apellido", NuevoApellido.Trim().ToUpper());
+            cmdVerificar.Parameters.AddWithValue("fechaNac", (object?)fechaNacimiento ?? DBNull.Value);
+            cmdVerificar.Parameters.AddWithValue("idComercio", _idComercioActual > 0 ? _idComercioActual : (object)DBNull.Value);
+
+            var existe = Convert.ToInt32(await cmdVerificar.ExecuteScalarAsync()) > 0;
+            
+            if (existe)
+            {
+                ErrorMessage = $"Ya existe un cliente con estos datos. Use la busqueda.";
+                IsLoading = false;
+                return;
+            }
+
             var sql = @"INSERT INTO clientes 
                         (nombre, segundo_nombre, apellidos, segundo_apellido, 
                          telefono, direccion, nacionalidad,
@@ -1233,12 +1202,11 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmd.Parameters.AddWithValue("direccion", NuevaDireccion ?? "");
             cmd.Parameters.AddWithValue("nacionalidad", NuevaNacionalidad ?? "");
             cmd.Parameters.AddWithValue("tipoDoc", NuevoTipoDocumento);
-            cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento);
+            cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento.Trim().ToUpper());
             cmd.Parameters.AddWithValue("caducidad", (object?)fechaCaducidad ?? DBNull.Value);
             cmd.Parameters.AddWithValue("fechaNac", (object?)fechaNacimiento ?? DBNull.Value);
             cmd.Parameters.AddWithValue("imagenFrontal", (object?)NuevaImagenDocumentoFrontal ?? DBNull.Value);
             cmd.Parameters.AddWithValue("imagenTrasera", (object?)NuevaImagenDocumentoTrasera ?? DBNull.Value);
-            // NUEVOS CAMPOS: comercio, local y usuario
             cmd.Parameters.AddWithValue("idComercio", _idComercioActual > 0 ? _idComercioActual : DBNull.Value);
             cmd.Parameters.AddWithValue("idLocal", _idLocalActual > 0 ? _idLocalActual : DBNull.Value);
             cmd.Parameters.AddWithValue("idUsuario", _idUsuarioActual > 0 ? _idUsuarioActual : DBNull.Value);
@@ -1256,21 +1224,19 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 Direccion = NuevaDireccion ?? "",
                 Nacionalidad = NuevaNacionalidad ?? "",
                 TipoDocumento = NuevoTipoDocumento,
-                NumeroDocumento = NuevoNumeroDocumento,
+                NumeroDocumento = NuevoNumeroDocumento.Trim().ToUpper(),
                 CaducidadDocumento = fechaCaducidad,
                 FechaNacimiento = fechaNacimiento,
                 ImagenDocumentoFrontal = NuevaImagenDocumentoFrontal,
-                ImagenDocumentoTrasera = NuevaImagenDocumentoTrasera,
-                IdComercioRegistro = _idComercioActual > 0 ? _idComercioActual : null,
-                IdLocalRegistro = _idLocalActual > 0 ? _idLocalActual : null,
-                IdUsuarioRegistro = _idUsuarioActual > 0 ? _idUsuarioActual : null
+                ImagenDocumentoTrasera = NuevaImagenDocumentoTrasera
             };
 
             ClienteSeleccionado = nuevoCliente;
+            await CargarAcumuladosClienteAsync(idCliente);
             LimpiarFormularioCliente();
             
             OcultarTodasLasVistas();
-            VistaPrincipal = true;
+            VistaTransaccion = true;
         }
         catch (Exception ex)
         {
@@ -1282,9 +1248,6 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         }
     }
     
-    /// <summary>
-    /// Guarda los cambios del cliente editado y vuelve a la transaccion
-    /// </summary>
     [RelayCommand]
     private async Task GuardarEdicionClienteAsync()
     {
@@ -1294,20 +1257,13 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             return;
         }
         
-        // Validaciones
-        if (string.IsNullOrWhiteSpace(NuevoNombre))
+        if (string.IsNullOrWhiteSpace(NuevoNombre) || string.IsNullOrWhiteSpace(NuevoApellido) ||
+            string.IsNullOrWhiteSpace(NuevaDireccion) || string.IsNullOrWhiteSpace(NuevoTipoDocumento) ||
+            string.IsNullOrWhiteSpace(NuevoNumeroDocumento) || string.IsNullOrWhiteSpace(NuevaNacionalidad) ||
+            string.IsNullOrWhiteSpace(NuevaFechaNacimientoTexto) || string.IsNullOrWhiteSpace(NuevaCaducidadDocumentoTexto) ||
+            !TieneImagenDocumentoFrontal || !TieneImagenDocumentoTrasera)
         {
-            ErrorMessage = "El primer nombre es obligatorio";
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(NuevoApellido))
-        {
-            ErrorMessage = "El primer apellido es obligatorio";
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(NuevoNumeroDocumento))
-        {
-            ErrorMessage = "El numero de documento es obligatorio";
+            ErrorMessage = "Todos los campos obligatorios deben estar completos";
             return;
         }
         
@@ -1322,31 +1278,20 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             DateTime? fechaNacimiento = null;
             DateTime? fechaCaducidad = null;
 
-            if (!string.IsNullOrWhiteSpace(NuevaFechaNacimientoTexto))
-            {
-                if (DateTime.TryParseExact(NuevaFechaNacimientoTexto, "dd/MM/yyyy", 
-                    CultureInfo.InvariantCulture, DateTimeStyles.None, out var fn))
-                    fechaNacimiento = fn;
-            }
+            if (DateTime.TryParseExact(NuevaFechaNacimientoTexto, "dd/MM/yyyy", 
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var fn))
+                fechaNacimiento = fn;
 
-            if (!string.IsNullOrWhiteSpace(NuevaCaducidadDocumentoTexto))
-            {
-                if (DateTime.TryParseExact(NuevaCaducidadDocumentoTexto, "dd/MM/yyyy", 
-                    CultureInfo.InvariantCulture, DateTimeStyles.None, out var fc))
-                    fechaCaducidad = fc;
-            }
+            if (DateTime.TryParseExact(NuevaCaducidadDocumentoTexto, "dd/MM/yyyy", 
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var fc))
+                fechaCaducidad = fc;
 
             var sql = @"UPDATE clientes SET
-                        nombre = @nombre,
-                        segundo_nombre = @segundoNombre,
-                        apellidos = @apellido,
-                        segundo_apellido = @segundoApellido,
-                        telefono = @telefono,
-                        direccion = @direccion,
-                        nacionalidad = @nacionalidad,
-                        documento_tipo = @tipoDoc,
-                        documento_numero = @numDoc,
-                        caducidad_documento = @caducidad,
+                        nombre = @nombre, segundo_nombre = @segundoNombre,
+                        apellidos = @apellido, segundo_apellido = @segundoApellido,
+                        telefono = @telefono, direccion = @direccion,
+                        nacionalidad = @nacionalidad, documento_tipo = @tipoDoc,
+                        documento_numero = @numDoc, caducidad_documento = @caducidad,
                         fecha_nacimiento = @fechaNac,
                         imagen_documento_frontal = @imagenFrontal,
                         imagen_documento_trasera = @imagenTrasera
@@ -1362,7 +1307,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmd.Parameters.AddWithValue("direccion", NuevaDireccion ?? "");
             cmd.Parameters.AddWithValue("nacionalidad", NuevaNacionalidad ?? "");
             cmd.Parameters.AddWithValue("tipoDoc", NuevoTipoDocumento);
-            cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento);
+            cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento.Trim().ToUpper());
             cmd.Parameters.AddWithValue("caducidad", (object?)fechaCaducidad ?? DBNull.Value);
             cmd.Parameters.AddWithValue("fechaNac", (object?)fechaNacimiento ?? DBNull.Value);
             cmd.Parameters.AddWithValue("imagenFrontal", (object?)NuevaImagenDocumentoFrontal ?? DBNull.Value);
@@ -1370,8 +1315,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
 
             await cmd.ExecuteNonQueryAsync();
 
-            // Crear NUEVO objeto para forzar notificación de cambios en la vista
-            var clienteActualizado = new ClienteModel
+            ClienteSeleccionado = new ClienteModel
             {
                 IdCliente = _idClienteEditando,
                 Nombre = NuevoNombre,
@@ -1382,26 +1326,19 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 Direccion = NuevaDireccion ?? "",
                 Nacionalidad = NuevaNacionalidad ?? "",
                 TipoDocumento = NuevoTipoDocumento,
-                NumeroDocumento = NuevoNumeroDocumento,
+                NumeroDocumento = NuevoNumeroDocumento.Trim().ToUpper(),
                 CaducidadDocumento = fechaCaducidad,
                 FechaNacimiento = fechaNacimiento,
                 ImagenDocumentoFrontal = NuevaImagenDocumentoFrontal,
-                ImagenDocumentoTrasera = NuevaImagenDocumentoTrasera,
-                IdComercioRegistro = ClienteSeleccionado?.IdComercioRegistro,
-                IdLocalRegistro = ClienteSeleccionado?.IdLocalRegistro,
-                IdUsuarioRegistro = ClienteSeleccionado?.IdUsuarioRegistro
+                ImagenDocumentoTrasera = NuevaImagenDocumentoTrasera
             };
             
-            // Asignar nuevo objeto para que la vista detecte el cambio
-            ClienteSeleccionado = clienteActualizado;
-            
-            // Volver a la transaccion
             OcultarTodasLasVistas();
             VistaTransaccion = true;
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Error al actualizar cliente: {ex.Message}";
+            ErrorMessage = $"Error al actualizar: {ex.Message}";
         }
         finally
         {
@@ -1421,9 +1358,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         try
         {
             using var stream = new MemoryStream(imagen);
-            ImagenDocumentoFrontalPreview = new Avalonia.Media.Imaging.Bitmap(stream);
+            ImagenDocumentoFrontalPreview = new Bitmap(stream);
         }
-        catch { ImagenDocumentoFrontalPreview = null; }
+        catch { }
     }
     
     public void SetImagenDocumentoTrasera(byte[] imagen)
@@ -1434,9 +1371,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         try
         {
             using var stream = new MemoryStream(imagen);
-            ImagenDocumentoTraseraPreview = new Avalonia.Media.Imaging.Bitmap(stream);
+            ImagenDocumentoTraseraPreview = new Bitmap(stream);
         }
-        catch { ImagenDocumentoTraseraPreview = null; }
+        catch { }
     }
     
     [RelayCommand]
@@ -1487,7 +1424,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     }
 
     // ═══════════════════════════════════════════════════════════
-    // TRANSACCIÓN - SOLO MUESTRA RESUMEN (NO GUARDA AÚN)
+    // TRANSACCIÓN - PREPARAR RESUMEN (solo preview, NO incrementa)
     // ═══════════════════════════════════════════════════════════
     
     [RelayCommand]
@@ -1504,44 +1441,39 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         
         try
         {
-            // Solo preparar datos para mostrar en el resumen
-            // NO guardar en base de datos todavía
-            
             FechaOperacion = ObtenerHoraEspana();
             _operacionGuardada = false;
             
-            // Generar número de operación para mostrar (pero sin guardarlo aún)
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            int idLocalParaOperacion = _idLocalActual;
+            int idLocalParaPreview = _idLocalActual;
             
-            if (idLocalParaOperacion <= 0)
+            if (idLocalParaPreview <= 0)
             {
                 var sqlPrimerLocal = "SELECT id_local FROM locales WHERE activo = true ORDER BY id_local LIMIT 1";
                 await using var cmdPrimer = new NpgsqlCommand(sqlPrimerLocal, conn);
                 var result = await cmdPrimer.ExecuteScalarAsync();
                 if (result != null)
-                    idLocalParaOperacion = Convert.ToInt32(result);
+                    idLocalParaPreview = Convert.ToInt32(result);
             }
             
-            // Obtener el siguiente número sin incrementar (solo para mostrar)
+            // Solo LEER el siguiente numero (sin incrementar) para mostrar preview
             var sqlVerificar = @"SELECT COALESCE(ultimo_correlativo, 0) + 1 FROM correlativos_operaciones 
                                 WHERE id_local = @idLocal AND prefijo = 'DI'";
             await using var cmdVerificar = new NpgsqlCommand(sqlVerificar, conn);
-            cmdVerificar.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
+            cmdVerificar.Parameters.AddWithValue("idLocal", idLocalParaPreview);
             var siguiente = await cmdVerificar.ExecuteScalarAsync();
-            int numeroSiguiente = siguiente != null && siguiente != DBNull.Value ? Convert.ToInt32(siguiente) : 1;
+            int numeroPreview = siguiente != null && siguiente != DBNull.Value ? Convert.ToInt32(siguiente) : 1;
             
-            NumeroOperacionDisplay = $"DI{numeroSiguiente:D4}";
+            NumeroOperacionDisplay = $"DI{numeroPreview:D4}";
             
-            // Mostrar resumen sin guardar
             OcultarTodasLasVistas();
             VistaResumen = true;
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Error al preparar transaccion: {ex.Message}";
+            ErrorMessage = $"Error al preparar: {ex.Message}";
         }
         finally
         {
@@ -1550,262 +1482,229 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     }
     
     /// <summary>
-    /// Guarda la operación en la base de datos (llamado desde Finalizar)
+    /// Guarda la operación COMPLETA en una sola transacción (incluyendo correlativo)
     /// </summary>
-    private async Task<bool> GuardarOperacionEnBDAsync()
+    private async Task<(bool exito, string mensaje)> GuardarOperacionCompletaAsync()
     {
-        IsLoading = true;
-        ErrorMessage = string.Empty;
-        
         try
         {
+            if (ClienteSeleccionado == null)
+                return (false, "Error: No hay cliente seleccionado.");
+            
+            if (SelectedCurrency == null)
+                return (false, "Error: No hay divisa seleccionada.");
+            
+            var textoLimpio = AmountReceived?.Replace(",", ".") ?? "0";
+            if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidadOrigen) || cantidadOrigen <= 0)
+                return (false, "Error: Cantidad de divisa invalida.");
+            
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            var textoLimpio = AmountReceived.Replace(",", ".");
-            decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidadOrigen);
+            // TRANSACCIÓN ÚNICA PARA TODO
+            await using var transaction = await conn.BeginTransactionAsync();
             
-            // Obtener datos del local y comercio
-            int idComercioParaOperacion = _idComercioActual;
-            int idLocalParaOperacion = _idLocalActual;
-            string codigoLocal = "SIN-LOCAL";
-            
-            // Si tenemos local, obtener su comercio y código
-            if (idLocalParaOperacion > 0)
+            try
             {
-                var sqlLocal = "SELECT id_comercio, codigo_local FROM locales WHERE id_local = @idLocal";
-                await using var cmdLocal = new NpgsqlCommand(sqlLocal, conn);
-                cmdLocal.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
-                await using var reader = await cmdLocal.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
+                // 1. Obtener datos del local
+                int idComercioOp = _idComercioActual;
+                int idLocalOp = _idLocalActual;
+                string codigoLocal = "SIN-LOCAL";
+                
+                if (idLocalOp > 0)
                 {
-                    idComercioParaOperacion = reader.GetInt32(0);
-                    codigoLocal = reader.GetString(1);
+                    var sqlLocal = "SELECT id_comercio, codigo_local FROM locales WHERE id_local = @idLocal";
+                    await using var cmdLocal = new NpgsqlCommand(sqlLocal, conn, transaction);
+                    cmdLocal.Parameters.AddWithValue("idLocal", idLocalOp);
+                    await using var reader = await cmdLocal.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        idComercioOp = reader.GetInt32(0);
+                        codigoLocal = reader.GetString(1);
+                    }
+                    await reader.CloseAsync();
                 }
-                await reader.CloseAsync();
-            }
-            
-            // Si no tenemos local o comercio válido, obtener el primero disponible de la BD
-            if (idLocalParaOperacion <= 0 || idComercioParaOperacion <= 0)
-            {
-                var sqlPrimerLocal = @"SELECT l.id_local, l.id_comercio, l.codigo_local 
-                                       FROM locales l 
-                                       WHERE l.activo = true 
-                                       ORDER BY l.id_local 
-                                       LIMIT 1";
-                await using var cmdPrimer = new NpgsqlCommand(sqlPrimerLocal, conn);
-                await using var readerPrimer = await cmdPrimer.ExecuteReaderAsync();
-                if (await readerPrimer.ReadAsync())
+                
+                if (idLocalOp <= 0 || idComercioOp <= 0)
                 {
-                    idLocalParaOperacion = readerPrimer.GetInt32(0);
-                    idComercioParaOperacion = readerPrimer.GetInt32(1);
-                    codigoLocal = readerPrimer.GetString(2);
+                    var sqlPrimer = @"SELECT id_local, id_comercio, codigo_local 
+                                     FROM locales WHERE activo = true ORDER BY id_local LIMIT 1";
+                    await using var cmdPrimer = new NpgsqlCommand(sqlPrimer, conn, transaction);
+                    await using var readerPrimer = await cmdPrimer.ExecuteReaderAsync();
+                    if (await readerPrimer.ReadAsync())
+                    {
+                        idLocalOp = readerPrimer.GetInt32(0);
+                        idComercioOp = readerPrimer.GetInt32(1);
+                        codigoLocal = readerPrimer.GetString(2);
+                    }
+                    await readerPrimer.CloseAsync();
                 }
-                await readerPrimer.CloseAsync();
-            }
-            
-            // Verificar que tenemos datos válidos
-            if (idLocalParaOperacion <= 0 || idComercioParaOperacion <= 0)
-            {
-                ErrorMessage = "Error: No se encontro un local/comercio valido en el sistema.";
-                return false;
-            }
-            
-            // Datos del usuario - obtener el primero si no hay sesión
-            int idUsuarioParaOperacion = _idUsuarioActual;
-            string nombreUsuario = _nombreUsuarioActual ?? "";
-            string numeroUsuario = _numeroUsuarioActual ?? "";
-            
-            if (idUsuarioParaOperacion <= 0)
-            {
-                var sqlPrimerUsuario = @"SELECT id_usuario, 
-                                         COALESCE(nombre, '') || ' ' || COALESCE(apellidos, '') as nombre_completo,
-                                         COALESCE(numero_usuario, 'USR001') as numero
-                                         FROM usuarios 
-                                         WHERE activo = true 
-                                         ORDER BY id_usuario 
-                                         LIMIT 1";
-                await using var cmdUsuario = new NpgsqlCommand(sqlPrimerUsuario, conn);
-                await using var readerUsuario = await cmdUsuario.ExecuteReaderAsync();
-                if (await readerUsuario.ReadAsync())
+                
+                if (idLocalOp <= 0 || idComercioOp <= 0)
                 {
-                    idUsuarioParaOperacion = readerUsuario.GetInt32(0);
-                    nombreUsuario = readerUsuario.GetString(1).Trim();
-                    numeroUsuario = readerUsuario.GetString(2);
+                    await transaction.RollbackAsync();
+                    return (false, "Error: No se encontro local/comercio valido.");
                 }
-                await readerUsuario.CloseAsync();
-            }
-            
-            if (idUsuarioParaOperacion <= 0)
-            {
-                ErrorMessage = "Error: No se encontro un usuario valido en el sistema.";
-                return false;
-            }
-            
-            if (string.IsNullOrEmpty(nombreUsuario))
-                nombreUsuario = "Usuario Sistema";
-            if (string.IsNullOrEmpty(numeroUsuario))
-                numeroUsuario = "SYS001";
-            
-            // Nombre del cliente
-            string nombreCliente = ClienteSeleccionado?.NombreCompleto ?? "Cliente";
-            if (string.IsNullOrEmpty(nombreCliente))
-                nombreCliente = $"{ClienteSeleccionado?.Nombre} {ClienteSeleccionado?.Apellido}".Trim();
-            if (string.IsNullOrEmpty(nombreCliente))
-                nombreCliente = "Cliente sin nombre";
-            
-            // Generar número de operación único: DI + secuencial
-            var numeroOperacionGenerado = await ObtenerSiguienteNumeroOperacionAsync(conn, idLocalParaOperacion, "DI");
-            var horaOperacion = ObtenerHoraEspana();
-            
-            var sqlOperacion = @"INSERT INTO operaciones 
-                                (numero_operacion, id_comercio, id_local, codigo_local, 
-                                 id_usuario, nombre_usuario, numero_usuario,
-                                 id_cliente, nombre_cliente, modulo, tipo_operacion,
-                                 importe_total, estado, fecha_operacion, hora_operacion, observaciones)
-                                VALUES 
-                                (@numOp, @idComercio, @idLocal, @codigoLocal,
-                                 @idUsuario, @nombreUsuario, @numeroUsuario,
-                                 @idCliente, @nombreCliente, 'DIVISAS', 'COMPRA',
-                                 @importe, 'COMPLETADA', @fecha, @hora, @obs)
-                                RETURNING id_operacion";
-            
-            await using var cmdOp = new NpgsqlCommand(sqlOperacion, conn);
-            cmdOp.Parameters.AddWithValue("numOp", numeroOperacionGenerado);
-            cmdOp.Parameters.AddWithValue("idComercio", idComercioParaOperacion);
-            cmdOp.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
-            cmdOp.Parameters.AddWithValue("codigoLocal", codigoLocal);
-            cmdOp.Parameters.AddWithValue("idUsuario", idUsuarioParaOperacion);
-            cmdOp.Parameters.AddWithValue("nombreUsuario", nombreUsuario);
-            cmdOp.Parameters.AddWithValue("numeroUsuario", numeroUsuario);
-            cmdOp.Parameters.AddWithValue("idCliente", ClienteSeleccionado!.IdCliente);
-            cmdOp.Parameters.AddWithValue("nombreCliente", nombreCliente);
-            cmdOp.Parameters.AddWithValue("importe", TotalInEuros);
-            cmdOp.Parameters.AddWithValue("fecha", horaOperacion);
-            cmdOp.Parameters.AddWithValue("hora", horaOperacion.TimeOfDay);
-            cmdOp.Parameters.AddWithValue("obs", $"Compra de {cantidadOrigen} {SelectedCurrency!.Code}");
-            
-            NumeroOperacion = Convert.ToInt64(await cmdOp.ExecuteScalarAsync());
-            
-            var sqlDetalle = @"INSERT INTO operaciones_divisas 
+                
+                // 2. Datos del usuario
+                int idUsuarioOp = _idUsuarioActual;
+                string nombreUsuario = _nombreUsuarioActual ?? "";
+                string numeroUsuario = _numeroUsuarioActual ?? "";
+                
+                if (idUsuarioOp <= 0)
+                {
+                    var sqlUser = @"SELECT id_usuario, COALESCE(nombre, '') || ' ' || COALESCE(apellidos, ''),
+                                   COALESCE(numero_usuario, 'USR001')
+                                   FROM usuarios WHERE activo = true ORDER BY id_usuario LIMIT 1";
+                    await using var cmdUser = new NpgsqlCommand(sqlUser, conn, transaction);
+                    await using var readerUser = await cmdUser.ExecuteReaderAsync();
+                    if (await readerUser.ReadAsync())
+                    {
+                        idUsuarioOp = readerUser.GetInt32(0);
+                        nombreUsuario = readerUser.GetString(1).Trim();
+                        numeroUsuario = readerUser.GetString(2);
+                    }
+                    await readerUser.CloseAsync();
+                }
+                
+                if (idUsuarioOp <= 0)
+                {
+                    await transaction.RollbackAsync();
+                    return (false, "Error: No se encontro usuario valido.");
+                }
+                
+                if (string.IsNullOrEmpty(nombreUsuario)) nombreUsuario = "Usuario Sistema";
+                if (string.IsNullOrEmpty(numeroUsuario)) numeroUsuario = "SYS001";
+                
+                string nombreCliente = ClienteSeleccionado.NombreCompleto ?? 
+                    $"{ClienteSeleccionado.Nombre} {ClienteSeleccionado.Apellido}".Trim();
+                if (string.IsNullOrEmpty(nombreCliente)) nombreCliente = "Cliente";
+                
+                var horaOp = ObtenerHoraEspana();
+                
+                // 3. OBTENER E INCREMENTAR CORRELATIVO (con bloqueo)
+                int nuevoCorrelativo;
+                var sqlCheck = @"SELECT ultimo_correlativo FROM correlativos_operaciones 
+                                WHERE id_local = @idLocal AND prefijo = 'DI' FOR UPDATE";
+                
+                await using var cmdCheck = new NpgsqlCommand(sqlCheck, conn, transaction);
+                cmdCheck.Parameters.AddWithValue("idLocal", idLocalOp);
+                var resultado = await cmdCheck.ExecuteScalarAsync();
+                
+                if (resultado == null || resultado == DBNull.Value)
+                {
+                    nuevoCorrelativo = 1;
+                    var sqlIns = @"INSERT INTO correlativos_operaciones (id_local, prefijo, ultimo_correlativo, fecha_ultimo_uso)
+                                  VALUES (@idLocal, 'DI', @correlativo, @fecha)";
+                    await using var cmdIns = new NpgsqlCommand(sqlIns, conn, transaction);
+                    cmdIns.Parameters.AddWithValue("idLocal", idLocalOp);
+                    cmdIns.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
+                    cmdIns.Parameters.AddWithValue("fecha", horaOp);
+                    await cmdIns.ExecuteNonQueryAsync();
+                }
+                else
+                {
+                    nuevoCorrelativo = Convert.ToInt32(resultado) + 1;
+                    var sqlUpd = @"UPDATE correlativos_operaciones 
+                                  SET ultimo_correlativo = @correlativo, fecha_ultimo_uso = @fecha
+                                  WHERE id_local = @idLocal AND prefijo = 'DI'";
+                    await using var cmdUpd = new NpgsqlCommand(sqlUpd, conn, transaction);
+                    cmdUpd.Parameters.AddWithValue("idLocal", idLocalOp);
+                    cmdUpd.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
+                    cmdUpd.Parameters.AddWithValue("fecha", horaOp);
+                    await cmdUpd.ExecuteNonQueryAsync();
+                }
+                
+                string numOpGenerado = $"DI{nuevoCorrelativo:D4}";
+                
+                // 4. INSERTAR OPERACIÓN
+                var sqlOp = @"INSERT INTO operaciones 
+                             (numero_operacion, id_comercio, id_local, codigo_local, 
+                              id_usuario, nombre_usuario, numero_usuario,
+                              id_cliente, nombre_cliente, modulo, tipo_operacion,
+                              importe_total, estado, fecha_operacion, hora_operacion, observaciones)
+                             VALUES 
+                             (@numOp, @idComercio, @idLocal, @codigoLocal,
+                              @idUsuario, @nombreUsuario, @numeroUsuario,
+                              @idCliente, @nombreCliente, 'DIVISAS', 'COMPRA',
+                              @importe, 'COMPLETADA', @fecha, @hora, @obs)
+                             RETURNING id_operacion";
+                
+                await using var cmdOp = new NpgsqlCommand(sqlOp, conn, transaction);
+                cmdOp.Parameters.AddWithValue("numOp", numOpGenerado);
+                cmdOp.Parameters.AddWithValue("idComercio", idComercioOp);
+                cmdOp.Parameters.AddWithValue("idLocal", idLocalOp);
+                cmdOp.Parameters.AddWithValue("codigoLocal", codigoLocal);
+                cmdOp.Parameters.AddWithValue("idUsuario", idUsuarioOp);
+                cmdOp.Parameters.AddWithValue("nombreUsuario", nombreUsuario);
+                cmdOp.Parameters.AddWithValue("numeroUsuario", numeroUsuario);
+                cmdOp.Parameters.AddWithValue("idCliente", ClienteSeleccionado.IdCliente);
+                cmdOp.Parameters.AddWithValue("nombreCliente", nombreCliente);
+                cmdOp.Parameters.AddWithValue("importe", TotalInEuros);
+                cmdOp.Parameters.AddWithValue("fecha", horaOp);
+                cmdOp.Parameters.AddWithValue("hora", horaOp.TimeOfDay);
+                cmdOp.Parameters.AddWithValue("obs", $"Compra de {cantidadOrigen} {SelectedCurrency.Code}");
+                
+                var idOperacion = Convert.ToInt64(await cmdOp.ExecuteScalarAsync());
+                
+                // 5. INSERTAR DETALLE DIVISAS
+                var sqlDet = @"INSERT INTO operaciones_divisas 
                               (id_operacion, divisa_origen, divisa_destino, 
                                cantidad_origen, cantidad_destino, tipo_cambio, tipo_cambio_aplicado)
-                              VALUES 
-                              (@idOp, @divisaOrigen, 'EUR', @cantOrigen, @cantDestino, @tasa, @tasaAplicada)";
-            
-            await using var cmdDet = new NpgsqlCommand(sqlDetalle, conn);
-            cmdDet.Parameters.AddWithValue("idOp", NumeroOperacion);
-            cmdDet.Parameters.AddWithValue("divisaOrigen", SelectedCurrency.Code);
-            cmdDet.Parameters.AddWithValue("cantOrigen", cantidadOrigen);
-            cmdDet.Parameters.AddWithValue("cantDestino", TotalInEuros);
-            cmdDet.Parameters.AddWithValue("tasa", SelectedCurrency.RateToEur);
-            cmdDet.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
-            
-            await cmdDet.ExecuteNonQueryAsync();
-            
-            // Registrar las divisas recibidas por el local/comercio (balance de divisas)
-            var sqlBalance = @"INSERT INTO balance_divisas 
+                              VALUES (@idOp, @divisaOrigen, 'EUR', @cantOrigen, @cantDestino, @tasa, @tasaAplicada)";
+                
+                await using var cmdDet = new NpgsqlCommand(sqlDet, conn, transaction);
+                cmdDet.Parameters.AddWithValue("idOp", idOperacion);
+                cmdDet.Parameters.AddWithValue("divisaOrigen", SelectedCurrency.Code);
+                cmdDet.Parameters.AddWithValue("cantOrigen", cantidadOrigen);
+                cmdDet.Parameters.AddWithValue("cantDestino", TotalInEuros);
+                cmdDet.Parameters.AddWithValue("tasa", SelectedCurrency.RateToEur);
+                cmdDet.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
+                await cmdDet.ExecuteNonQueryAsync();
+                
+                // 6. INSERTAR BALANCE DIVISAS
+                var sqlBal = @"INSERT INTO balance_divisas 
                               (id_comercio, id_local, id_usuario, id_operacion,
-                               codigo_divisa, nombre_divisa,
-                               cantidad_recibida, cantidad_entregada_eur,
-                               tasa_cambio_momento, tasa_cambio_aplicada,
-                               tipo_movimiento, observaciones, fecha_registro)
-                              VALUES 
-                              (@idComercio, @idLocal, @idUsuario, @idOperacion,
-                               @codigoDivisa, @nombreDivisa,
-                               @cantidadRecibida, @cantidadEntregada,
-                               @tasaMomento, @tasaAplicada,
-                               'ENTRADA', @obs, @fechaRegistro)";
-            
-            await using var cmdBalance = new NpgsqlCommand(sqlBalance, conn);
-            cmdBalance.Parameters.AddWithValue("idComercio", idComercioParaOperacion);
-            cmdBalance.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
-            cmdBalance.Parameters.AddWithValue("idUsuario", idUsuarioParaOperacion);
-            cmdBalance.Parameters.AddWithValue("idOperacion", NumeroOperacion);
-            cmdBalance.Parameters.AddWithValue("codigoDivisa", SelectedCurrency.Code);
-            cmdBalance.Parameters.AddWithValue("nombreDivisa", SelectedCurrency.Name);
-            cmdBalance.Parameters.AddWithValue("cantidadRecibida", cantidadOrigen);
-            cmdBalance.Parameters.AddWithValue("cantidadEntregada", TotalInEuros);
-            cmdBalance.Parameters.AddWithValue("tasaMomento", SelectedCurrency.RateToEur);
-            cmdBalance.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
-            cmdBalance.Parameters.AddWithValue("obs", $"Compra de {cantidadOrigen} {SelectedCurrency.Code} - Cliente: {nombreCliente}");
-            cmdBalance.Parameters.AddWithValue("fechaRegistro", horaOperacion);
-            
-            await cmdBalance.ExecuteNonQueryAsync();
-            
-            // Actualizar el número mostrado con el real
-            NumeroOperacionDisplay = numeroOperacionGenerado;
-            FechaOperacion = horaOperacion;
-            _operacionGuardada = true;
-            
-            return true;
+                               codigo_divisa, nombre_divisa, cantidad_recibida, cantidad_entregada_eur,
+                               tasa_cambio_momento, tasa_cambio_aplicada, tipo_movimiento, observaciones, fecha_registro)
+                              VALUES (@idComercio, @idLocal, @idUsuario, @idOperacion,
+                               @codigoDivisa, @nombreDivisa, @cantRecibida, @cantEntregada,
+                               @tasaMomento, @tasaAplicada, 'ENTRADA', @obs, @fechaReg)";
+                
+                await using var cmdBal = new NpgsqlCommand(sqlBal, conn, transaction);
+                cmdBal.Parameters.AddWithValue("idComercio", idComercioOp);
+                cmdBal.Parameters.AddWithValue("idLocal", idLocalOp);
+                cmdBal.Parameters.AddWithValue("idUsuario", idUsuarioOp);
+                cmdBal.Parameters.AddWithValue("idOperacion", idOperacion);
+                cmdBal.Parameters.AddWithValue("codigoDivisa", SelectedCurrency.Code);
+                cmdBal.Parameters.AddWithValue("nombreDivisa", SelectedCurrency.Name);
+                cmdBal.Parameters.AddWithValue("cantRecibida", cantidadOrigen);
+                cmdBal.Parameters.AddWithValue("cantEntregada", TotalInEuros);
+                cmdBal.Parameters.AddWithValue("tasaMomento", SelectedCurrency.RateToEur);
+                cmdBal.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
+                cmdBal.Parameters.AddWithValue("obs", $"Compra {cantidadOrigen} {SelectedCurrency.Code} - {nombreCliente}");
+                cmdBal.Parameters.AddWithValue("fechaReg", horaOp);
+                await cmdBal.ExecuteNonQueryAsync();
+                
+                // COMMIT
+                await transaction.CommitAsync();
+                
+                // Actualizar en memoria
+                NumeroOperacion = idOperacion;
+                NumeroOperacionDisplay = numOpGenerado;
+                FechaOperacion = horaOp;
+                
+                return (true, "Operacion guardada correctamente");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return (false, $"Error en transaccion: {ex.Message}");
+            }
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Error al guardar transaccion: {ex.Message}";
-            return false;
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-
-    /// <summary>
-    /// Obtiene el siguiente número de operación correlativo para un local y tipo.
-    /// </summary>
-    private async Task<string> ObtenerSiguienteNumeroOperacionAsync(NpgsqlConnection conn, int idLocal, string prefijo)
-    {
-        await using var transaction = await conn.BeginTransactionAsync();
-        
-        try
-        {
-            var sqlVerificar = @"SELECT ultimo_correlativo FROM correlativos_operaciones 
-                                WHERE id_local = @idLocal AND prefijo = @prefijo
-                                FOR UPDATE";
-            
-            await using var cmdVerificar = new NpgsqlCommand(sqlVerificar, conn, transaction);
-            cmdVerificar.Parameters.AddWithValue("idLocal", idLocal);
-            cmdVerificar.Parameters.AddWithValue("prefijo", prefijo);
-            
-            var resultado = await cmdVerificar.ExecuteScalarAsync();
-            
-            int nuevoCorrelativo;
-            var horaEspana = ObtenerHoraEspana();
-            
-            if (resultado == null)
-            {
-                nuevoCorrelativo = 1;
-                var sqlInsertar = @"INSERT INTO correlativos_operaciones (id_local, prefijo, ultimo_correlativo, fecha_ultimo_uso)
-                                    VALUES (@idLocal, @prefijo, @correlativo, @fecha)";
-                await using var cmdInsertar = new NpgsqlCommand(sqlInsertar, conn, transaction);
-                cmdInsertar.Parameters.AddWithValue("idLocal", idLocal);
-                cmdInsertar.Parameters.AddWithValue("prefijo", prefijo);
-                cmdInsertar.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
-                cmdInsertar.Parameters.AddWithValue("fecha", horaEspana);
-                await cmdInsertar.ExecuteNonQueryAsync();
-            }
-            else
-            {
-                nuevoCorrelativo = Convert.ToInt32(resultado) + 1;
-                var sqlActualizar = @"UPDATE correlativos_operaciones 
-                                    SET ultimo_correlativo = @correlativo, fecha_ultimo_uso = @fecha
-                                    WHERE id_local = @idLocal AND prefijo = @prefijo";
-                await using var cmdActualizar = new NpgsqlCommand(sqlActualizar, conn, transaction);
-                cmdActualizar.Parameters.AddWithValue("idLocal", idLocal);
-                cmdActualizar.Parameters.AddWithValue("prefijo", prefijo);
-                cmdActualizar.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
-                cmdActualizar.Parameters.AddWithValue("fecha", horaEspana);
-                await cmdActualizar.ExecuteNonQueryAsync();
-            }
-            
-            await transaction.CommitAsync();
-            return $"{prefijo}{nuevoCorrelativo:D4}";
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
+            return (false, $"Error de conexion: {ex.Message}");
         }
     }
     
