@@ -19,6 +19,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     
     private readonly CurrencyExchangeService _currencyService;
     
+    // Zona horaria de España (Europe/Madrid)
+    private static readonly TimeZoneInfo _zonaHorariaEspana = TimeZoneInfo.FindSystemTimeZoneById(
+        OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
+    
     // Margen de ganancia (INTERNO - NUNCA MOSTRAR AL USUARIO)
     private decimal _margenGanancia = 10.00m;
     private int _idLocalActual = 0;
@@ -137,13 +141,18 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private bool _mostrarSelectorDivisas = false;
 
     // ═══════════════════════════════════════════════════════════
-    // CALCULADORA
+    // CALCULADORA - BIDIRECCIONAL
     // ═══════════════════════════════════════════════════════════
     
     [ObservableProperty] private string _amountReceived = string.Empty;
+    [ObservableProperty] private string _totalInEurosTexto = string.Empty;
     [ObservableProperty] private decimal _totalInEuros;
     [ObservableProperty] private decimal _currentRate;
     [ObservableProperty] private string _rateDisplayText = string.Empty;
+    
+    // Flag para evitar loop infinito en cálculo bidireccional
+    private bool _calculandoDesdeDivisa = false;
+    private bool _calculandoDesdeEuros = false;
 
     // ═══════════════════════════════════════════════════════════
     // OPERACIÓN / TRANSACCIÓN
@@ -152,6 +161,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private long _numeroOperacion = 0;
     [ObservableProperty] private string _numeroOperacionDisplay = string.Empty;
     [ObservableProperty] private DateTime _fechaOperacion;
+    
+    // Flag para saber si la operación ya fue guardada
+    private bool _operacionGuardada = false;
 
     // ═══════════════════════════════════════════════════════════
     // ESTADOS
@@ -205,6 +217,15 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         _numeroUsuarioActual = numeroUsuario;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // ZONA HORARIA - ESPAÑA
+    // ═══════════════════════════════════════════════════════════
+    
+    private DateTime ObtenerHoraEspana()
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _zonaHorariaEspana);
+    }
+
     private async void InitializeAsync()
     {
         ActualizarNombresMesYTrimestre();
@@ -214,7 +235,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     
     private void ActualizarNombresMesYTrimestre()
     {
-        var ahora = DateTime.Now;
+        var ahora = ObtenerHoraEspana();
         var cultura = new CultureInfo("es-ES");
         
         // Nombre del mes
@@ -362,6 +383,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [RelayCommand]
     private void VolverATransaccion()
     {
+        // Si vuelve desde el resumen sin finalizar, no se guarda nada
         OcultarTodasLasVistas();
         ErrorMessage = string.Empty;
         VistaTransaccion = true;
@@ -400,8 +422,9 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             if (DateTime.TryParseExact(NuevaFechaNacimientoTexto, "dd/MM/yyyy", 
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var fechaNac))
             {
-                var edad = DateTime.Today.Year - fechaNac.Year;
-                if (fechaNac.Date > DateTime.Today.AddYears(-edad)) edad--;
+                var hoy = ObtenerHoraEspana().Date;
+                var edad = hoy.Year - fechaNac.Year;
+                if (fechaNac.Date > hoy.AddYears(-edad)) edad--;
                 
                 if (edad < 18)
                 {
@@ -422,7 +445,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             if (DateTime.TryParseExact(NuevaCaducidadDocumentoTexto, "dd/MM/yyyy", 
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var fechaCad))
             {
-                if (fechaCad.Date < DateTime.Today)
+                if (fechaCad.Date < ObtenerHoraEspana().Date)
                 {
                     ErrorMessage = "El documento esta vencido. No puede realizar operaciones.";
                     return;
@@ -441,14 +464,31 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         VistaConfirmacionCliente = true;
     }
     
+    /// <summary>
+    /// FINALIZAR: Guarda la operación en BD y vuelve a principal
+    /// </summary>
     [RelayCommand]
-    private void FinalizarYVolverAPrincipal()
+    private async Task FinalizarYVolverAPrincipalAsync()
     {
+        // Solo guardar si no se ha guardado antes
+        if (!_operacionGuardada)
+        {
+            var guardadoExitoso = await GuardarOperacionEnBDAsync();
+            if (!guardadoExitoso)
+            {
+                // Si hay error, no salir del resumen
+                return;
+            }
+        }
+        
+        // Limpiar datos de la operación
         ClienteSeleccionado = null;
         AmountReceived = string.Empty;
+        TotalInEurosTexto = string.Empty;
         TotalInEuros = 0;
         NumeroOperacion = 0;
         NumeroOperacionDisplay = string.Empty;
+        _operacionGuardada = false;
         
         OcultarTodasLasVistas();
         VistaPrincipal = true;
@@ -473,7 +513,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            var ahora = DateTime.Now;
+            var ahora = ObtenerHoraEspana();
             
             // Primer día del mes actual
             var primerDiaMes = new DateTime(ahora.Year, ahora.Month, 1);
@@ -833,12 +873,12 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             BusquedaDivisaCalculadora = $"{currency.Code} | {currency.Name}";
             CurrentRate = currency.RateWithMargin;
             RateDisplayText = $"1 {currency.Code} = {currency.RateWithMargin:N2} EUR";
-            CalcularConversion();
+            CalcularDesdeDivisa();
         }
     }
 
     // ═══════════════════════════════════════════════════════════
-    // CALCULADORA
+    // CALCULADORA BIDIRECCIONAL
     // ═══════════════════════════════════════════════════════════
 
     partial void OnSelectedCurrencyChanged(CurrencyModel? value)
@@ -848,38 +888,123 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             CurrentRate = value.RateWithMargin;
             RateDisplayText = $"1 {value.Code} = {value.RateWithMargin:N4} EUR";
             BusquedaDivisaCalculadora = $"{value.Code} | {value.Name}";
-            CalcularConversion();
+            CalcularDesdeDivisa();
         }
     }
 
-    partial void OnAmountReceivedChanged(string value) => CalcularConversion();
-
-    private void CalcularConversion()
+    partial void OnAmountReceivedChanged(string value)
     {
-        if (SelectedCurrency == null || string.IsNullOrWhiteSpace(AmountReceived))
+        if (!_calculandoDesdeEuros)
         {
-            TotalInEuros = 0;
-            ValidarOperacion();
-            return;
+            CalcularDesdeDivisa();
         }
-
-        var textoLimpio = AmountReceived.Replace(",", ".");
-        if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidad))
+    }
+    
+    partial void OnTotalInEurosTextoChanged(string value)
+    {
+        if (!_calculandoDesdeDivisa)
         {
-            TotalInEuros = 0;
-            ValidarOperacion();
-            return;
+            CalcularDesdeEuros();
         }
+    }
 
-        if (cantidad <= 0)
+    /// <summary>
+    /// Calcula euros a partir de la cantidad de divisa ingresada
+    /// </summary>
+    private void CalcularDesdeDivisa()
+    {
+        if (_calculandoDesdeEuros) return;
+        
+        _calculandoDesdeDivisa = true;
+        
+        try
         {
-            TotalInEuros = 0;
-            ValidarOperacion();
-            return;
-        }
+            if (SelectedCurrency == null || string.IsNullOrWhiteSpace(AmountReceived))
+            {
+                TotalInEuros = 0;
+                TotalInEurosTexto = "0,00";
+                ValidarOperacion();
+                return;
+            }
 
-        TotalInEuros = cantidad * SelectedCurrency.RateWithMargin;
-        ValidarOperacion();
+            var textoLimpio = AmountReceived.Replace(",", ".");
+            if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidad))
+            {
+                TotalInEuros = 0;
+                TotalInEurosTexto = "0,00";
+                ValidarOperacion();
+                return;
+            }
+
+            if (cantidad <= 0)
+            {
+                TotalInEuros = 0;
+                TotalInEurosTexto = "0,00";
+                ValidarOperacion();
+                return;
+            }
+
+            TotalInEuros = cantidad * SelectedCurrency.RateWithMargin;
+            TotalInEurosTexto = TotalInEuros.ToString("N2", new CultureInfo("es-ES"));
+            ValidarOperacion();
+        }
+        finally
+        {
+            _calculandoDesdeDivisa = false;
+        }
+    }
+    
+    /// <summary>
+    /// Calcula cantidad de divisa a partir de los euros ingresados
+    /// </summary>
+    private void CalcularDesdeEuros()
+    {
+        if (_calculandoDesdeDivisa) return;
+        
+        _calculandoDesdeEuros = true;
+        
+        try
+        {
+            if (SelectedCurrency == null || string.IsNullOrWhiteSpace(TotalInEurosTexto))
+            {
+                AmountReceived = "0.00";
+                TotalInEuros = 0;
+                ValidarOperacion();
+                return;
+            }
+
+            var textoLimpio = TotalInEurosTexto.Replace(",", ".");
+            if (!decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal euros))
+            {
+                AmountReceived = "0.00";
+                TotalInEuros = 0;
+                ValidarOperacion();
+                return;
+            }
+
+            if (euros <= 0)
+            {
+                AmountReceived = "0.00";
+                TotalInEuros = 0;
+                ValidarOperacion();
+                return;
+            }
+
+            TotalInEuros = euros;
+            
+            // Calcular divisa: euros / tasa = cantidad divisa
+            if (SelectedCurrency.RateWithMargin > 0)
+            {
+                decimal cantidadDivisa = euros / SelectedCurrency.RateWithMargin;
+                AmountReceived = cantidadDivisa.ToString("N2", CultureInfo.InvariantCulture);
+            }
+            
+            ValidarOperacion();
+        }
+        finally
+        {
+            _calculandoDesdeEuros = false;
+        }
     }
 
     private void ValidarOperacion()
@@ -1362,7 +1487,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     }
 
     // ═══════════════════════════════════════════════════════════
-    // TRANSACCIÓN
+    // TRANSACCIÓN - SOLO MUESTRA RESUMEN (NO GUARDA AÚN)
     // ═══════════════════════════════════════════════════════════
     
     [RelayCommand]
@@ -1379,13 +1504,66 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         
         try
         {
+            // Solo preparar datos para mostrar en el resumen
+            // NO guardar en base de datos todavía
+            
+            FechaOperacion = ObtenerHoraEspana();
+            _operacionGuardada = false;
+            
+            // Generar número de operación para mostrar (pero sin guardarlo aún)
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+            
+            int idLocalParaOperacion = _idLocalActual;
+            
+            if (idLocalParaOperacion <= 0)
+            {
+                var sqlPrimerLocal = "SELECT id_local FROM locales WHERE activo = true ORDER BY id_local LIMIT 1";
+                await using var cmdPrimer = new NpgsqlCommand(sqlPrimerLocal, conn);
+                var result = await cmdPrimer.ExecuteScalarAsync();
+                if (result != null)
+                    idLocalParaOperacion = Convert.ToInt32(result);
+            }
+            
+            // Obtener el siguiente número sin incrementar (solo para mostrar)
+            var sqlVerificar = @"SELECT COALESCE(ultimo_correlativo, 0) + 1 FROM correlativos_operaciones 
+                                WHERE id_local = @idLocal AND prefijo = 'DI'";
+            await using var cmdVerificar = new NpgsqlCommand(sqlVerificar, conn);
+            cmdVerificar.Parameters.AddWithValue("idLocal", idLocalParaOperacion);
+            var siguiente = await cmdVerificar.ExecuteScalarAsync();
+            int numeroSiguiente = siguiente != null && siguiente != DBNull.Value ? Convert.ToInt32(siguiente) : 1;
+            
+            NumeroOperacionDisplay = $"DI{numeroSiguiente:D4}";
+            
+            // Mostrar resumen sin guardar
+            OcultarTodasLasVistas();
+            VistaResumen = true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al preparar transaccion: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+    
+    /// <summary>
+    /// Guarda la operación en la base de datos (llamado desde Finalizar)
+    /// </summary>
+    private async Task<bool> GuardarOperacionEnBDAsync()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+        
+        try
+        {
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
             var textoLimpio = AmountReceived.Replace(",", ".");
             decimal.TryParse(textoLimpio, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidadOrigen);
-            
-            FechaOperacion = DateTime.Now;
             
             // Obtener datos del local y comercio
             int idComercioParaOperacion = _idComercioActual;
@@ -1430,7 +1608,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             if (idLocalParaOperacion <= 0 || idComercioParaOperacion <= 0)
             {
                 ErrorMessage = "Error: No se encontro un local/comercio valido en el sistema.";
-                return;
+                return false;
             }
             
             // Datos del usuario - obtener el primero si no hay sesión
@@ -1461,7 +1639,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             if (idUsuarioParaOperacion <= 0)
             {
                 ErrorMessage = "Error: No se encontro un usuario valido en el sistema.";
-                return;
+                return false;
             }
             
             if (string.IsNullOrEmpty(nombreUsuario))
@@ -1476,19 +1654,20 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             if (string.IsNullOrEmpty(nombreCliente))
                 nombreCliente = "Cliente sin nombre";
             
-            // Generar número de operación único: DI + YYYYMMDD + secuencial
+            // Generar número de operación único: DI + secuencial
             var numeroOperacionGenerado = await ObtenerSiguienteNumeroOperacionAsync(conn, idLocalParaOperacion, "DI");
+            var horaOperacion = ObtenerHoraEspana();
             
             var sqlOperacion = @"INSERT INTO operaciones 
                                 (numero_operacion, id_comercio, id_local, codigo_local, 
                                  id_usuario, nombre_usuario, numero_usuario,
                                  id_cliente, nombre_cliente, modulo, tipo_operacion,
-                                 importe_total, estado, fecha_operacion, observaciones)
+                                 importe_total, estado, fecha_operacion, hora_operacion, observaciones)
                                 VALUES 
                                 (@numOp, @idComercio, @idLocal, @codigoLocal,
                                  @idUsuario, @nombreUsuario, @numeroUsuario,
                                  @idCliente, @nombreCliente, 'DIVISAS', 'COMPRA',
-                                 @importe, 'COMPLETADA', @fecha, @obs)
+                                 @importe, 'COMPLETADA', @fecha, @hora, @obs)
                                 RETURNING id_operacion";
             
             await using var cmdOp = new NpgsqlCommand(sqlOperacion, conn);
@@ -1502,7 +1681,8 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmdOp.Parameters.AddWithValue("idCliente", ClienteSeleccionado!.IdCliente);
             cmdOp.Parameters.AddWithValue("nombreCliente", nombreCliente);
             cmdOp.Parameters.AddWithValue("importe", TotalInEuros);
-            cmdOp.Parameters.AddWithValue("fecha", FechaOperacion);
+            cmdOp.Parameters.AddWithValue("fecha", horaOperacion);
+            cmdOp.Parameters.AddWithValue("hora", horaOperacion.TimeOfDay);
             cmdOp.Parameters.AddWithValue("obs", $"Compra de {cantidadOrigen} {SelectedCurrency!.Code}");
             
             NumeroOperacion = Convert.ToInt64(await cmdOp.ExecuteScalarAsync());
@@ -1529,13 +1709,13 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                                codigo_divisa, nombre_divisa,
                                cantidad_recibida, cantidad_entregada_eur,
                                tasa_cambio_momento, tasa_cambio_aplicada,
-                               tipo_movimiento, observaciones)
+                               tipo_movimiento, observaciones, fecha_registro)
                               VALUES 
                               (@idComercio, @idLocal, @idUsuario, @idOperacion,
                                @codigoDivisa, @nombreDivisa,
                                @cantidadRecibida, @cantidadEntregada,
                                @tasaMomento, @tasaAplicada,
-                               'ENTRADA', @obs)";
+                               'ENTRADA', @obs, @fechaRegistro)";
             
             await using var cmdBalance = new NpgsqlCommand(sqlBalance, conn);
             cmdBalance.Parameters.AddWithValue("idComercio", idComercioParaOperacion);
@@ -1549,18 +1729,21 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmdBalance.Parameters.AddWithValue("tasaMomento", SelectedCurrency.RateToEur);
             cmdBalance.Parameters.AddWithValue("tasaAplicada", SelectedCurrency.RateWithMargin);
             cmdBalance.Parameters.AddWithValue("obs", $"Compra de {cantidadOrigen} {SelectedCurrency.Code} - Cliente: {nombreCliente}");
+            cmdBalance.Parameters.AddWithValue("fechaRegistro", horaOperacion);
             
             await cmdBalance.ExecuteNonQueryAsync();
             
-            // Usar el número generado para mostrar
+            // Actualizar el número mostrado con el real
             NumeroOperacionDisplay = numeroOperacionGenerado;
+            FechaOperacion = horaOperacion;
+            _operacionGuardada = true;
             
-            OcultarTodasLasVistas();
-            VistaResumen = true;
+            return true;
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Error al realizar transaccion: {ex.Message}";
+            ErrorMessage = $"Error al guardar transaccion: {ex.Message}";
+            return false;
         }
         finally
         {
@@ -1588,6 +1771,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             var resultado = await cmdVerificar.ExecuteScalarAsync();
             
             int nuevoCorrelativo;
+            var horaEspana = ObtenerHoraEspana();
             
             if (resultado == null)
             {
@@ -1598,7 +1782,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 cmdInsertar.Parameters.AddWithValue("idLocal", idLocal);
                 cmdInsertar.Parameters.AddWithValue("prefijo", prefijo);
                 cmdInsertar.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
-                cmdInsertar.Parameters.AddWithValue("fecha", DateTime.Now);
+                cmdInsertar.Parameters.AddWithValue("fecha", horaEspana);
                 await cmdInsertar.ExecuteNonQueryAsync();
             }
             else
@@ -1611,7 +1795,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 cmdActualizar.Parameters.AddWithValue("idLocal", idLocal);
                 cmdActualizar.Parameters.AddWithValue("prefijo", prefijo);
                 cmdActualizar.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
-                cmdActualizar.Parameters.AddWithValue("fecha", DateTime.Now);
+                cmdActualizar.Parameters.AddWithValue("fecha", horaEspana);
                 await cmdActualizar.ExecuteNonQueryAsync();
             }
             

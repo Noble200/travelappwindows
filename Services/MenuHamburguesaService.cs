@@ -30,6 +30,17 @@ namespace Allva.Desktop.Services
         /// </summary>
         private void RegistrarPanelesDisponibles()
         {
+            // Panel de Packs de Alimentos
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "packs_alimentos",
+                Titulo = "Packs Alimentos",
+                Descripcion = "Gestión de packs de alimentos",
+                Orden = 5,
+                Habilitado = true,
+                TipoVista = typeof(PacksAlimentosView)
+            });
+
             // Panel de APIs
             RegistrarItem(new MenuHamburguesaItem
             {

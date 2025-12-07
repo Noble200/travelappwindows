@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Allva.Desktop.Views;
 using Allva.Desktop.Views.PanelDivisas;
+using Allva.Desktop.Views.PanelPackAlimentos;
 using Allva.Desktop.Views.MenuHamburguesa;
 using Allva.Desktop.Services;
 
@@ -128,7 +129,8 @@ public partial class MainDashboardViewModel : ObservableObject
     private UserControl CreateFoodPacksView()
     {
         var view = new FoodPacksView();
-        view.DataContext = new FoodPacksViewModel();
+        var viewModel = new FoodPacksViewModel(_idComercio, _idLocal);
+        view.DataContext = viewModel;
         return view;
     }
 
@@ -148,7 +150,7 @@ public partial class MainDashboardViewModel : ObservableObject
 
     private UserControl CreateOperacionesView()
     {
-        var view = new OperacionesView(_idComercio, _idLocal, LocalCode);
+        var view = new OperacionesView(_idComercio, _idLocal, LocalCode, _idUsuario, UserName);
         return view;
     }
 }
