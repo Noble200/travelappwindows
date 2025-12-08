@@ -29,8 +29,6 @@ public static class HistorialPdfService
         public FiltrosReporte Filtros { get; set; } = new();
         public decimal BalanceActualEuros { get; set; }
         public decimal TotalDivisasValor { get; set; }
-        public decimal SalidaEuros { get; set; }
-        public decimal EntradaEuros { get; set; }
         public List<DivisaBalance> DesgloseDivisas { get; set; } = new();
         public List<OperacionReporte> Operaciones { get; set; } = new();
     }
@@ -154,19 +152,21 @@ public static class HistorialPdfService
             
             column.Item().Height(10);
             
-            // Resumen de balances - 4 recuadros
+            // Resumen de balances - Solo T.Euros y T.Divisa
             column.Item().Row(row =>
             {
-                // T.Euros
-                row.RelativeItem().Border(1).BorderColor(ColorAzul).Column(balCol =>
+                // T.Euros con color dinamico (verde si positivo, rojo si negativo)
+                var colorTotalEuros = datos.BalanceActualEuros >= 0 ? "#008800" : "#CC3333";
+                
+                row.RelativeItem().Border(1).BorderColor(colorTotalEuros).Column(balCol =>
                 {
-                    balCol.Item().Background(ColorAzul).Padding(5)
+                    balCol.Item().Background(colorTotalEuros).Padding(5)
                         .Text("T.Euros").FontSize(10).Bold().FontColor(Colors.White).AlignCenter();
                     balCol.Item().Padding(8).Text($"{datos.BalanceActualEuros:N2}")
-                        .FontSize(14).Bold().AlignCenter();
+                        .FontSize(14).Bold().FontColor(colorTotalEuros).AlignCenter();
                 });
                 
-                row.ConstantItem(8);
+                row.ConstantItem(15);
                 
                 // T.Divisa
                 row.RelativeItem().Border(1).BorderColor(ColorAzul).Column(divCol =>
@@ -176,43 +176,33 @@ public static class HistorialPdfService
                     divCol.Item().Padding(8).Text($"{datos.TotalDivisasValor:N2}")
                         .FontSize(14).Bold().AlignCenter();
                 });
-                
-                row.ConstantItem(8);
-                
-                // S.Euros
-                row.RelativeItem().Border(1).BorderColor("#CC3333").Column(sCol =>
-                {
-                    sCol.Item().Background("#CC3333").Padding(5)
-                        .Text("S.Euros").FontSize(10).Bold().FontColor(Colors.White).AlignCenter();
-                    sCol.Item().Padding(8).Text($"{datos.SalidaEuros:N2}")
-                        .FontSize(14).Bold().FontColor("#CC3333").AlignCenter();
-                });
-                
-                row.ConstantItem(8);
-                
-                // E.Euros
-                row.RelativeItem().Border(1).BorderColor("#008800").Column(eCol =>
-                {
-                    eCol.Item().Background("#008800").Padding(5)
-                        .Text("E.Euros").FontSize(10).Bold().FontColor(Colors.White).AlignCenter();
-                    eCol.Item().Padding(8).Text($"{datos.EntradaEuros:N2}")
-                        .FontSize(14).Bold().FontColor("#008800").AlignCenter();
-                });
             });
             
-            column.Item().Height(5);
+            column.Item().Height(8);
             
             // Desglose de divisas
             if (datos.DesgloseDivisas.Any())
             {
-                column.Item().Border(1).BorderColor(Colors.Grey.Lighten1).Padding(8).Column(desCol =>
+                column.Item().Border(1).BorderColor(Colors.Grey.Lighten1).Padding(10).Column(desCol =>
                 {
                     desCol.Item().Text("DESGLOSE DE DIVISAS").Bold().FontSize(10);
-                    desCol.Item().Height(3);
+                    desCol.Item().Height(5);
                     
-                    var divisasTexto = string.Join("  |  ", 
-                        datos.DesgloseDivisas.Select(d => $"{d.CodigoDivisa}: {d.Cantidad:N2}"));
-                    desCol.Item().Text(divisasTexto).FontSize(9);
+                    // Mostrar cada divisa con su cantidad
+                    desCol.Item().Row(divisasRow =>
+                    {
+                        foreach (var divisa in datos.DesgloseDivisas)
+                        {
+                            divisasRow.AutoItem().Padding(5).Border(1).BorderColor(ColorAzul).Column(dCol =>
+                            {
+                                dCol.Item().Background(ColorAzul).Padding(4)
+                                    .Text(divisa.CodigoDivisa).FontSize(9).Bold().FontColor(Colors.White).AlignCenter();
+                                dCol.Item().Padding(6).Text($"{divisa.Cantidad:N2}")
+                                    .FontSize(11).Bold().AlignCenter();
+                            });
+                            divisasRow.ConstantItem(8);
+                        }
+                    });
                 });
             }
             

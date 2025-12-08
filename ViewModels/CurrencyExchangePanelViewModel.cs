@@ -661,12 +661,12 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 if (rates.TryGetValue(currency.Code, out decimal rate))
                 {
                     currency.RateToEur = rate;
-                    currency.RateWithMargin = rate * (1m - (_margenGanancia / 100m));
+                    currency.RateWithMargin = rate / (1m + (_margenGanancia / 100m));
                 }
                 else
                 {
                     currency.RateToEur = 1m;
-                    currency.RateWithMargin = 1m * (1m - (_margenGanancia / 100m));
+                    currency.RateWithMargin = 1m / (1m + (_margenGanancia / 100m));  
                 }
                 currency.DisplayText = $"{currency.Code} | {currency.Name}";
             }
@@ -718,7 +718,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             
             var favorites = await _currencyService.GetFavoriteCurrenciesAsync(favoriteCodes);
             foreach (var fav in favorites)
-                fav.RateWithMargin = fav.RateToEur * (1m - (_margenGanancia / 100m));
+                fav.RateWithMargin = fav.RateToEur / (1m + (_margenGanancia / 100m));
             
             FavoriteCurrencies = new ObservableCollection<FavoriteCurrencyModel>(favorites);
         }
@@ -731,6 +731,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshRatesAsync()
     {
+        await CargarMargenGananciaAsync();
         await _currencyService.ReloadConfigurationAsync();
         await LoadDataAsync();
     }

@@ -91,6 +91,7 @@ public partial class MainDashboardViewModel : ObservableObject
             "billetes" => CreateFlightTicketsView(),
             "viajes" => CreateTravelPacksView(),
             "operaciones" => CreateOperacionesView(),
+            "balancecuentas" => CreateBalanceCuentasView(),
             _ => CreateLatestNewsView()
         };
     }
@@ -151,6 +152,12 @@ public partial class MainDashboardViewModel : ObservableObject
     private UserControl CreateOperacionesView()
     {
         var view = new OperacionesView(_idComercio, _idLocal, LocalCode, _idUsuario, UserName);
+        return view;
+    }
+    
+    private UserControl CreateBalanceCuentasView()
+    {
+        var view = new BalancedeCuentasView(_idComercio, _idLocal, LocalCode, _idUsuario, UserName);
         return view;
     }
 }

@@ -609,6 +609,7 @@ public partial class ManageDivisasViewModel : ObservableObject
         await using var conn = new NpgsqlConnection(ConnectionString);
         await conn.OpenAsync();
 
+        // Actualizar el valor global en configuracion_sistema
         var sql = @"
             INSERT INTO configuracion_sistema (clave, valor_decimal, descripcion)
             VALUES ('margen_divisas_global', @valor, 'Margen global para operaciones de divisas')
@@ -618,6 +619,16 @@ public partial class ManageDivisasViewModel : ObservableObject
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("valor", nuevoMargen);
         await cmd.ExecuteNonQueryAsync();
+
+        // Resetear todos los comercios para que usen el margen global
+        var sqlComercios = "UPDATE comercios SET porcentaje_comision_divisas = 0";
+        await using var cmdComercios = new NpgsqlCommand(sqlComercios, conn);
+        await cmdComercios.ExecuteNonQueryAsync();
+
+        // Resetear todos los locales para que usen el margen global
+        var sqlLocales = "UPDATE locales SET comision_divisas = 0";
+        await using var cmdLocales = new NpgsqlCommand(sqlLocales, conn);
+        await cmdLocales.ExecuteNonQueryAsync();
 
         MargenGlobal = nuevoMargen;
         MargenGlobalTexto = nuevoMargen.ToString("N2");
