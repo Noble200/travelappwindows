@@ -1,0 +1,355 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Allva.Desktop.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="1400" d:DesignHeight="900"
+             x:Class="Allva.Desktop.Views.MainDashboardView"
+             x:DataType="vm:MainDashboardViewModel">
+
+    <UserControl.Styles>
+        <!-- Estilo base para botones del menu -->
+        <Style Selector="Button.menu-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#595959"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.menu-item:pointerover">
+            <Setter Property="Background" Value="#f3f3f3"/>
+            <Setter Property="Foreground" Value="#0b5394"/>
+        </Style>
+        
+        <!-- Estilo para boton de menu seleccionado -->
+        <Style Selector="Button.menu-item-selected">
+            <Setter Property="Background" Value="#0b5394"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="20,14"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.menu-item-selected:pointerover">
+            <Setter Property="Background" Value="#084171"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        
+        <!-- Estilo para botones de accion en header -->
+        <Style Selector="Button.header-action">
+            <Setter Property="Background" Value="#F5F5F5"/>
+            <Setter Property="Foreground" Value="#595959"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.header-action:pointerover">
+            <Setter Property="Background" Value="#E8E8E8"/>
+            <Setter Property="Foreground" Value="#0b5394"/>
+        </Style>
+        
+        <!-- Estilo para boton de cerrar sesion -->
+        <Style Selector="Button.logout-button">
+            <Setter Property="Background" Value="#0b5394"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.logout-button:pointerover">
+            <Setter Property="Background" Value="#084171"/>
+        </Style>
+        
+        <!-- Estilo para items del menu hamburguesa -->
+        <Style Selector="Button.popup-menu-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.popup-menu-item:pointerover">
+            <Setter Property="Background" Value="#F5F5F5"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Background="#ffd966">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- SIDEBAR IZQUIERDO -->
+        <Border Grid.Column="0" 
+                Background="White"
+                BoxShadow="4 0 12 0 #15000000"
+                ClipToBounds="True">
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                
+                <!-- LOGO -->
+                <Border Grid.Row="0" 
+                        Padding="20,20,20,16"
+                        Background="White">
+                    <Image Source="/Assets/logo.png" 
+                           Height="70"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                </Border>
+
+                <!-- Separador -->
+                <Border Grid.Row="1" 
+                        Height="1"
+                        Background="#E8E8E8"
+                        Margin="20,0,20,12"/>
+
+                <!-- MENU DE NAVEGACION -->
+                <ScrollViewer Grid.Row="2" 
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="2" Margin="0,8,0,0">
+                        
+                        <!-- Titulo seccion -->
+                        <TextBlock Text="NAVEGACION"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#A0A0A0"
+                                   Margin="20,0,20,12"/>
+                        
+                        <!-- Ultimas Noticias -->
+                        <Button Name="BtnDashboard"
+                                Click="NavigateToDashboard"
+                                Classes="menu-item">
+                            <TextBlock Text="Ultimas Noticias"/>
+                        </Button>
+
+                        <!-- Compra de Divisas -->
+                        <Button Name="BtnDivisas"
+                                Click="NavigateToDivisas"
+                                Classes="menu-item">
+                            <TextBlock Text="Compra de Divisas"/>
+                        </Button>
+
+                        <!-- Pack de Alimentos -->
+                        <Button Name="BtnAlimentos"
+                                Click="NavigateToAlimentos"
+                                Classes="menu-item">
+                            <TextBlock Text="Pack de Alimentos"/>
+                        </Button>
+
+                        <!-- Billetes de Avion -->
+                        <Button Name="BtnBilletes"
+                                Click="NavigateToBilletes"
+                                Classes="menu-item">
+                            <TextBlock Text="Billetes de Avion"/>
+                        </Button>
+
+                        <!-- Packs de Viajes -->
+                        <Button Name="BtnViajes"
+                                Click="NavigateToViajes"
+                                Classes="menu-item">
+                            <TextBlock Text="Packs de Viajes"/>
+                        </Button>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- INFO USUARIO Y CERRAR SESION -->
+                <Border Grid.Row="3" 
+                        Background="#FAFAFA" 
+                        BorderBrush="#E8E8E8"
+                        BorderThickness="0,1,0,0"
+                        Padding="20,16">
+                    <StackPanel Spacing="12">
+                        <!-- Info del usuario -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Usuario:" 
+                                       FontSize="11" 
+                                       Foreground="#A0A0A0"
+                                       FontWeight="Medium"/>
+                            <TextBlock Text="{Binding UserName}" 
+                                       FontSize="14" 
+                                       FontWeight="SemiBold"
+                                       Foreground="#0b5394"/>
+                            <TextBlock Text="{Binding LocalCode}" 
+                                       FontSize="12" 
+                                       Foreground="#595959"/>
+                        </StackPanel>
+
+                        <!-- Boton Cerrar Sesion -->
+                        <Button Content="Cerrar Sesion"
+                                Click="CerrarSesion"
+                                Classes="logout-button"
+                                HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- HEADER SUPERIOR -->
+            <Border Grid.Row="0" 
+                    Background="White"
+                    BoxShadow="0 2 8 0 #10000000"
+                    Padding="24,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Titulo del modulo actual -->
+                    <StackPanel Grid.Column="0" 
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                        <TextBlock Name="TxtModuleTitle"
+                                   Text="Ultimas Noticias" 
+                                   FontSize="20" 
+                                   FontWeight="SemiBold"
+                                   Foreground="#0b5394"/>
+                        <TextBlock Name="TxtModuleDescription"
+                                   Text="Mantente informado con las ultimas novedades" 
+                                   FontSize="12" 
+                                   Foreground="#808080"/>
+                    </StackPanel>
+
+                    <!-- Botones de accion -->
+                    <StackPanel Grid.Column="1" 
+                                Orientation="Horizontal" 
+                                Spacing="10"
+                                VerticalAlignment="Center">
+                        
+                        <!-- Boton Notificaciones -->
+                        <Button Name="BtnNotifications"
+                                Classes="header-action"
+                                ToolTip.Tip="Notificaciones"
+                                Click="OpenNotifications">
+                            <Path Data="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
+                                  Fill="{Binding $parent[Button].Foreground}"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Button>
+                        
+                        <!-- Boton Usuario -->
+                        <Button Name="BtnUser"
+                                Classes="header-action"
+                                ToolTip.Tip="Mi Perfil"
+                                Click="OpenUserProfile">
+                            <Path Data="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+                                  Fill="{Binding $parent[Button].Foreground}"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Button>
+                        
+                        <!-- Boton Menu Hamburguesa -->
+                        <Panel>
+                            <Button x:Name="MenuButton"
+                                    Click="MenuButton_Click"
+                                    Classes="header-action"
+                                    ToolTip.Tip="Menu">
+                                <StackPanel Spacing="4" 
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center">
+                                    <Border Width="18" Height="2" Background="#595959" CornerRadius="1"/>
+                                    <Border Width="18" Height="2" Background="#595959" CornerRadius="1"/>
+                                    <Border Width="18" Height="2" Background="#595959" CornerRadius="1"/>
+                                </StackPanel>
+                            </Button>
+                            
+                            <Popup x:Name="MenuPopup" 
+                                   PlacementTarget="{Binding #MenuButton}"
+                                   Placement="BottomEdgeAlignedRight"
+                                   IsLightDismissEnabled="True"
+                                   HorizontalOffset="0"
+                                   VerticalOffset="6">
+                                <Border Background="White"
+                                        CornerRadius="10"
+                                        BoxShadow="0 8 24 0 #30000000"
+                                        MinWidth="220"
+                                        Padding="0">
+                                    <StackPanel>
+                                        <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
+                                            <TextBlock Text="Opciones" 
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#0b5394"/>
+                                        </Border>
+                                        
+                                        <Border Height="1" Background="#EEEEEE"/>
+                                        
+                                        <!-- Operaciones -->
+                                        <Button Classes="popup-menu-item"
+                                                Click="NavigateToOperaciones">
+                                            <TextBlock Text="Operaciones" 
+                                                       FontSize="14" 
+                                                       Foreground="#444444"/>
+                                        </Button>
+                                        
+                                        <Border Height="1" Background="#EEEEEE" Margin="12,0"/>
+                                        
+                                        <!-- Balance de Cuentas -->
+                                        <Button Classes="popup-menu-item"
+                                                Click="NavigateToBalanceCuentas"
+                                                CornerRadius="0,0,10,10">
+                                            <TextBlock Text="Balance de Cuentas" 
+                                                       FontSize="14" 
+                                                       Foreground="#444444"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Panel>
+                        
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- AREA DE CONTENIDO (MODULOS) -->
+            <Border Grid.Row="1" 
+                    Margin="24,20"
+                    Background="White"
+                    CornerRadius="12"
+                    BoxShadow="0 2 12 0 #10000000"
+                    ClipToBounds="True">
+                <ContentControl Content="{Binding CurrentView}"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"/>
+            </Border>
+        </Grid>
+
+    </Grid>
+</UserControl>
