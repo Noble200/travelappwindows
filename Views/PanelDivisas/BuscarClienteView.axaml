@@ -93,6 +93,18 @@
                                 Command="{Binding BuscarClientesManualCommand}">
                             <TextBlock Text="Buscar" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Button>
+
+                        <Button Background="#0b5394"
+                                Foreground="White"
+                                FontWeight="SemiBold"
+                                Padding="20,0"
+                                CornerRadius="6"
+                                VerticalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Command="{Binding IrANuevoClienteCommand}">
+                            <TextBlock Text="Nuevo Cliente +" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>

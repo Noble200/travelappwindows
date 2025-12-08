@@ -199,22 +199,52 @@
                     <StackPanel Spacing="20">
                         
                         <TextBlock Text="¿Qué moneda compras?" Classes="subheader"/>
-                        
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBox Text="{Binding BusquedaDivisaCalculadora}"
-                                     Watermark="Código o nombre..."
-                                     Classes="input"
-                                     Width="180"/>
-                            <ComboBox ItemsSource="{Binding AvailableCurrencies}"
-                                      SelectedItem="{Binding SelectedCurrency}"
-                                      Width="180">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding DisplayText}"/>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </StackPanel>
+
+                        <!-- Autocompletado tipo Google -->
+                        <Grid HorizontalAlignment="Left">
+                            <StackPanel>
+                                <TextBox Text="{Binding BusquedaDivisaCalculadora}"
+                                        Watermark="Escribir codigo o nombre..."
+                                        Classes="input"
+                                        Width="360"
+                                        FontSize="15"/>
+                                
+                                <!-- Lista de sugerencias -->
+                                <Border Background="White"
+                                        BorderBrush="#0b5394"
+                                        BorderThickness="1"
+                                        CornerRadius="0,0,6,6"
+                                        MaxHeight="200"
+                                        Width="360"
+                                        Margin="0,-1,0,0"
+                                        IsVisible="{Binding MostrarSugerenciasDivisa}">
+                                    <ScrollViewer>
+                                        <ItemsControl ItemsSource="{Binding DivisasFiltradas}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Background="Transparent"
+                                                            BorderThickness="0"
+                                                            Padding="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            Command="{Binding $parent[ItemsControl].((vm:CurrencyExchangePanelViewModel)DataContext).SeleccionarDivisaSugeridaCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <Border Background="White" Padding="12,10" Cursor="Hand">
+                                                            <Border.Styles>
+                                                                <Style Selector="Border:pointerover">
+                                                                    <Setter Property="Background" Value="#e3f2fd"/>
+                                                                </Style>
+                                                            </Border.Styles>
+                                                            <TextBlock Text="{Binding DisplayText}" FontSize="14"/>
+                                                        </Border>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
                         
                         <TextBlock Text="{Binding RateDisplayText}"
                                    FontSize="13"
@@ -282,6 +312,26 @@
                                        HorizontalAlignment="Center"
                                        Foreground="#2E7D32"
                                        FontWeight="SemiBold"/>
+                        </Border>
+
+                        <!-- Aviso Hacienda -->
+                        <Border Background="#FFF3E0"
+                                CornerRadius="6"
+                                Padding="12"
+                                BorderBrush="#FF9800"
+                                BorderThickness="1"
+                                IsVisible="{Binding MostrarAvisoHacienda}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="AVISO: Operacion de 1.000 EUR o superior"
+                                        HorizontalAlignment="Center"
+                                        Foreground="#E65100"
+                                        FontWeight="Bold"
+                                        FontSize="14"/>
+                                <TextBlock Text="Esta operacion debe ser comunicada a Hacienda"
+                                        HorizontalAlignment="Center"
+                                        Foreground="#F57C00"
+                                        FontSize="13"/>
+                            </StackPanel>
                         </Border>
                         
                     </StackPanel>
