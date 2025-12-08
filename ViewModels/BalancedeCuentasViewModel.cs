@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
@@ -24,7 +25,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     private readonly int _idUsuario;
     private readonly string _nombreUsuario;
     
-    // Zona horaria de Espana (Europe/Madrid)
     private static readonly TimeZoneInfo _zonaHorariaEspana = TimeZoneInfo.FindSystemTimeZoneById(
         OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
     
@@ -34,7 +34,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     [ObservableProperty]
     private string tabActual = "divisa";
     
-    // Fechas en formato dd/mm/aaaa
     [ObservableProperty]
     private string fechaDesdeTexto = "";
     
@@ -50,18 +49,15 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     [ObservableProperty]
     private string fechaActualTexto = "";
     
-    // Balance - Solo T.Euros y T.Divisa
     [ObservableProperty]
     private string totalEuros = "0.00";
     
     [ObservableProperty]
     private string totalDivisa = "0.00";
     
-    // Color dinamico para T.Euros (verde si positivo, rojo si negativo)
     [ObservableProperty]
     private string totalEurosColor = "#0b5394";
     
-    // Mantenemos estos para calculos internos y PDF
     [ObservableProperty]
     private string salidaEurosTotal = "0.00";
     
@@ -72,7 +68,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     private decimal _salidaEurosNumerico = 0;
     private decimal _entradaEurosNumerico = 0;
     
-    // Deposito en banco
     [ObservableProperty]
     private string divisaDepositoSeleccionada = "";
     
@@ -82,7 +77,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     [ObservableProperty]
     private string cantidadEurosDeposito = "";
     
-    // Transferencia a caja
     [ObservableProperty]
     private string cantidadTraspaso = "";
     
@@ -148,7 +142,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         _ = CargarDatosAsync();
     }
     
-    // Cuando cambia la divisa seleccionada, autocompletar cantidad
     partial void OnDivisaDepositoSeleccionadaChanged(string value)
     {
         if (!string.IsNullOrEmpty(value))
@@ -170,11 +163,7 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     {
         var hoy = ObtenerHoraEspana();
         FechaActualTexto = FormatearFechaCompleta(hoy);
-        
-        // Fecha desde: primer dia del mes
         FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
-        
-        // Fecha hasta: hoy
         FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
     }
     
@@ -241,7 +230,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         {
             var ahora = ObtenerHoraEspana();
             
-            // Crear ViewModel para la ventana de confirmacion
             var confirmacionVM = new ConfirmacionImpresionViewModel
             {
                 FechaGeneracion = ahora.ToString("dd/MM/yyyy"),
@@ -254,7 +242,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 CantidadOperaciones = $"{Operaciones.Count} registros"
             };
             
-            // Cargar filtros aplicados
             var hayFiltros = false;
             
             if (!string.IsNullOrWhiteSpace(FechaDesdeTexto))
@@ -280,7 +267,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             
             confirmacionVM.SinFiltros = !hayFiltros;
             
-            // Desglose de divisas
             if (DivisasDelLocal.Count > 0)
             {
                 confirmacionVM.TieneDivisas = true;
@@ -288,10 +274,8 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 confirmacionVM.DesgloseDivisasTexto = string.Join("  |  ", partes);
             }
             
-            // Mostrar ventana de confirmacion
             var ventanaConfirmacion = new ConfirmacionImpresionView(confirmacionVM);
             
-            // Obtener ventana principal
             Window? mainWindow = null;
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -310,7 +294,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                     await Task.Delay(100);
             }
             
-            // Si confirmo, generar PDF
             if (ventanaConfirmacion.Confirmado)
             {
                 await GenerarPdfHistorial(ahora);
@@ -328,7 +311,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     {
         try
         {
-            // Obtener ventana principal para el dialogo
             Window? mainWindow = null;
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -343,11 +325,9 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 return;
             }
             
-            // Nombre sugerido para el archivo
             var timestamp = fechaHora.ToString("yyyyMMdd_HHmmss");
             var nombreSugerido = $"Historial_{_codigoLocal}_{timestamp}.pdf";
             
-            // Mostrar dialogo para elegir ubicacion (nueva API)
             var storageProvider = mainWindow.StorageProvider;
             
             var archivo = await storageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
@@ -364,7 +344,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 }
             });
             
-            // Si el usuario cancelo el dialogo
             if (archivo == null)
             {
                 return;
@@ -373,7 +352,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             IsLoading = true;
             ErrorMessage = "";
             
-            // Preparar datos del reporte
             var datosReporte = new HistorialPdfService.DatosReporte
             {
                 CodigoLocal = _codigoLocal,
@@ -391,7 +369,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 }
             };
             
-            // Agregar desglose de divisas
             foreach (var div in DivisasDelLocal)
             {
                 datosReporte.DesgloseDivisas.Add(new HistorialPdfService.DivisaBalance
@@ -401,7 +378,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 });
             }
             
-            // Agregar operaciones
             foreach (var op in Operaciones)
             {
                 datosReporte.Operaciones.Add(new HistorialPdfService.OperacionReporte
@@ -416,14 +392,11 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 });
             }
             
-            // Generar PDF
             var pdfBytes = HistorialPdfService.GenerarPdf(datosReporte);
             
-            // Guardar archivo usando StorageProvider
             await using var stream = await archivo.OpenWriteAsync();
             await stream.WriteAsync(pdfBytes);
             
-            // Registrar en base de datos
             await RegistrarGeneracionPdf(fechaHora);
             
             SuccessMessage = "PDF guardado correctamente";
@@ -449,7 +422,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            // Construir texto de filtros aplicados
             var filtrosTexto = "";
             if (!string.IsNullOrWhiteSpace(FechaDesdeTexto))
                 filtrosTexto += $"Fecha desde: {FechaDesdeTexto}; ";
@@ -487,7 +459,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            // No interrumpir el proceso si falla el registro
             System.Diagnostics.Debug.WriteLine($"Error al registrar PDF: {ex.Message}");
         }
     }
@@ -551,7 +522,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             return;
         }
         
-        // Verificar que haya suficiente divisa disponible
         var divisaLocal = DivisasDelLocal.FirstOrDefault(d => d.Codigo == DivisaDepositoSeleccionada);
         if (divisaLocal == null || divisaLocal.Cantidad <= 0)
         {
@@ -579,10 +549,8 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             
             var ahora = ObtenerHoraEspana();
             
-            // Descripcion incluye cantidad de divisa para mostrar en la tabla
             var descripcion = $"Dto Banco: {cantidadDivisa:N2} {DivisaDepositoSeleccionada}";
             
-            // Insertar en balance_cuentas (deposito = entrada de euros)
             var sqlBalance = @"INSERT INTO balance_cuentas 
                               (id_comercio, id_local, codigo_local, id_usuario, 
                                tipo_movimiento, modulo, descripcion, divisa, monto,
@@ -604,7 +572,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             
             await cmdBalance.ExecuteNonQueryAsync();
             
-            // Actualizar balance_divisas (restar la divisa depositada)
             var sqlActualizarDivisa = @"INSERT INTO balance_divisas 
                                         (id_comercio, id_local, id_usuario, codigo_divisa, nombre_divisa,
                                          cantidad_recibida, cantidad_entregada_eur,
@@ -627,7 +594,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             
             await cmdDivisa.ExecuteNonQueryAsync();
             
-            // Recargar datos
             await CargarDatosAsync();
             
             CantidadDivisaDeposito = "";
@@ -674,7 +640,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             return;
         }
         
-        // Verificar que no supere el T.Euros disponible
         if (cantidad > _totalEurosNumerico)
         {
             ErrorMessage = $"No puede transferir mas de {_totalEurosNumerico:N2} EUR";
@@ -693,7 +658,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             
             var ahora = ObtenerHoraEspana();
             
-            // Insertar en balance_cuentas
             var sqlTraspaso = @"INSERT INTO balance_cuentas 
                                (id_comercio, id_local, codigo_local, id_usuario, 
                                 tipo_movimiento, modulo, descripcion, divisa, monto,
@@ -713,7 +677,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             
             await cmd.ExecuteNonQueryAsync();
             
-            // Recargar datos
             await CargarDatosAsync();
             
             CantidadTraspaso = "";
@@ -735,7 +698,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     [RelayCommand]
     private void Volver()
     {
-        // Manejado desde la vista
     }
     
     [RelayCommand]
@@ -744,7 +706,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         if (!string.IsNullOrEmpty(codigoDivisa))
         {
             DivisaDepositoSeleccionada = codigoDivisa;
-            // El autocompletado se hace en OnDivisaDepositoSeleccionadaChanged
         }
     }
     
@@ -776,7 +737,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             var fechaDesde = ParsearFecha(FechaDesdeTexto);
             var fechaHasta = ParsearFecha(FechaHastaTexto);
             
-            // Si hay filtro por numero de operacion, obtener rango de fechas de esas operaciones
             DateTime? fechaHoraMinOp = null;
             DateTime? fechaHoraMaxOp = null;
             
@@ -810,12 +770,10 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 }
             }
             
-            // Cargar todas las operaciones
             await CargarComprasAsync(conn, fechaDesde, fechaHasta);
             await CargarDepositosAsync(conn, fechaDesde, fechaHasta, fechaHoraMinOp, fechaHoraMaxOp);
             await CargarTraspasosAsync(conn, fechaDesde, fechaHasta, fechaHoraMinOp, fechaHoraMaxOp);
             
-            // Ordenar por fecha/hora descendente y reasignar colores alternados
             var operacionesOrdenadas = Operaciones.OrderByDescending(o => o.FechaHoraOrden).ToList();
             Operaciones.Clear();
             
@@ -894,7 +852,9 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 SalidaEuros = $"-{cantidadDestino:N2}",
                 SalidaEurosColor = "#CC3333",
                 EntradaEuros = "",
-                FechaHoraOrden = fechaDb.Date.Add(hora)
+                FechaHoraOrden = fechaDb.Date.Add(hora),
+                EsClickeable = true,
+                TextoSubrayado = TextDecorationCollection.Parse("Underline")
             });
         }
     }
@@ -911,7 +871,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                     AND tipo_movimiento = 'DEPOSITO'
                     AND modulo = 'DIVISAS'";
         
-        // Si hay filtro por operaciones, usar rango de fechas de operaciones
         if (fechaHoraMinOp.HasValue && fechaHoraMaxOp.HasValue)
         {
             sql += " AND fecha_movimiento >= @fechaHoraMin AND fecha_movimiento <= @fechaHoraMax";
@@ -947,10 +906,7 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             var fecha = reader.GetDateTime(0);
             var monto = reader.GetDecimal(1);
             var descripcion = reader.IsDBNull(2) ? "Dto Banco" : reader.GetString(2);
-            var divisa = reader.IsDBNull(3) ? "" : reader.GetString(3);
             
-            // Extraer cantidad de divisa de la descripcion si existe
-            // Formato: "Dto Banco: 500.00 USD"
             var cantidadDivisaTexto = "";
             if (descripcion.Contains(":"))
             {
@@ -971,7 +927,9 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 SalidaEuros = "",
                 SalidaEurosColor = "#666666",
                 EntradaEuros = $"+{monto:N2}",
-                FechaHoraOrden = fecha
+                FechaHoraOrden = fecha,
+                EsClickeable = false,
+                TextoSubrayado = null
             });
         }
     }
@@ -986,7 +944,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                     AND tipo_movimiento = 'TRASPASO'
                     AND modulo = 'DIVISAS'";
         
-        // Si hay filtro por operaciones, usar rango de fechas de operaciones
         if (fechaHoraMinOp.HasValue && fechaHoraMaxOp.HasValue)
         {
             sql += " AND fecha_movimiento >= @fechaHoraMin AND fecha_movimiento <= @fechaHoraMax";
@@ -1032,7 +989,9 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 SalidaEuros = $"{monto:N2}",
                 SalidaEurosColor = "#666666",
                 EntradaEuros = "",
-                FechaHoraOrden = fecha
+                FechaHoraOrden = fecha,
+                EsClickeable = false,
+                TextoSubrayado = null
             });
         }
     }
@@ -1047,7 +1006,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            // Calcular saldo por divisa: ENTRADA - SALIDA
             var sql = @"SELECT 
                             codigo_divisa,
                             SUM(CASE WHEN tipo_movimiento = 'ENTRADA' THEN cantidad_recibida ELSE 0 END) -
@@ -1099,7 +1057,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
             
-            // S.Euros: Suma de euros que salen (compras de divisa)
             var sqlSalidas = @"SELECT COALESCE(SUM(od.cantidad_destino), 0)
                                FROM operaciones_divisas od
                                INNER JOIN operaciones o ON od.id_operacion = o.id_operacion
@@ -1109,7 +1066,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             cmdSalidas.Parameters.AddWithValue("idLocal", _idLocal);
             _salidaEurosNumerico = Convert.ToDecimal(await cmdSalidas.ExecuteScalarAsync() ?? 0);
             
-            // E.Euros: Suma de euros que entran (depositos)
             var sqlEntradas = @"SELECT COALESCE(SUM(monto), 0)
                                 FROM balance_cuentas 
                                 WHERE id_local = @idLocal 
@@ -1120,7 +1076,6 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             cmdEntradas.Parameters.AddWithValue("idLocal", _idLocal);
             _entradaEurosNumerico = Convert.ToDecimal(await cmdEntradas.ExecuteScalarAsync() ?? 0);
             
-            // Traspasos: Se restan del T.Euros
             var sqlTraspasos = @"SELECT COALESCE(SUM(monto), 0)
                                  FROM balance_cuentas 
                                  WHERE id_local = @idLocal 
@@ -1131,19 +1086,15 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             cmdTraspasos.Parameters.AddWithValue("idLocal", _idLocal);
             var traspasos = Convert.ToDecimal(await cmdTraspasos.ExecuteScalarAsync() ?? 0);
             
-            // T.Euros = E.Euros - S.Euros - Traspasos
             _totalEurosNumerico = _entradaEurosNumerico - _salidaEurosNumerico - traspasos;
             
-            // T.Divisa: Suma de todas las divisas disponibles
             decimal totalDivisas = DivisasDelLocal.Sum(d => d.Cantidad);
             
-            // Actualizar UI
             TotalEuros = $"{_totalEurosNumerico:N2}";
             TotalDivisa = $"{totalDivisas:N2}";
             SalidaEurosTotal = $"{_salidaEurosNumerico:N2}";
             EntradaEurosTotal = $"{_entradaEurosNumerico:N2}";
             
-            // Color dinamico para T.Euros: verde si positivo, rojo si negativo
             TotalEurosColor = _totalEurosNumerico >= 0 ? "#008800" : "#CC3333";
         }
         catch (Exception ex)
@@ -1165,6 +1116,8 @@ public class OperacionItem
     public string EntradaEuros { get; set; } = "";
     public string BackgroundColor { get; set; } = "White";
     public DateTime FechaHoraOrden { get; set; } = DateTime.MinValue;
+    public bool EsClickeable { get; set; } = false;
+    public TextDecorationCollection? TextoSubrayado { get; set; } = null;
 }
 
 public class DivisaLocal

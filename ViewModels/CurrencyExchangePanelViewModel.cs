@@ -122,11 +122,30 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private string _nuevaCaducidadDocumentoTexto = string.Empty;
 
     public bool TieneImagenesDocumento => TieneImagenDocumentoFrontal || TieneImagenDocumentoTrasera;
-    public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte" };
+    [ObservableProperty]
+    private ObservableCollection<string> _tiposDocumento = new() { "DNI", "NIE", "Pasaporte" };
     public ObservableCollection<string> TiposResidencia { get; } = new() { "Espanol", "Extranjero" };
 
     [ObservableProperty] 
     private string _nuevoTipoResidencia = string.Empty;
+
+    partial void OnNuevoTipoResidenciaChanged(string value)
+    {
+        if (value == "Espanol")
+        {
+            TiposDocumento = new ObservableCollection<string> { "DNI", "NIE" };
+            if (NuevoTipoDocumento == "Pasaporte")
+                NuevoTipoDocumento = "DNI";
+        }
+        else if (value == "Extranjero")
+        {
+            TiposDocumento = new ObservableCollection<string> { "DNI", "NIE", "Pasaporte" };
+        }
+        else
+        {
+            TiposDocumento = new ObservableCollection<string> { "DNI", "NIE", "Pasaporte" };
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════
     // DIVISAS
@@ -1154,6 +1173,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         NuevoTipoDocumento = "DNI";
         NuevoNumeroDocumento = string.Empty;
         NuevoTipoResidencia = string.Empty;
+        TiposDocumento = new ObservableCollection<string> { "DNI", "NIE", "Pasaporte" };
         NuevaCaducidadDocumentoTexto = string.Empty;
         NuevaFechaNacimientoTexto = string.Empty;
         NuevaImagenDocumentoFrontal = null;
@@ -1625,20 +1645,37 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 
                 var horaOp = ObtenerHoraEspana();
                 
-                // 3. OBTENER E INCREMENTAR CORRELATIVO (con bloqueo)
-                int nuevoCorrelativo;
+                // 3. OBTENER CORRELATIVO - verificar tabla correlativos Y maximo real en operaciones
+                int correlativoTabla = 0;
+                int correlativoReal = 0;
+
+                // Obtener de tabla correlativos
                 var sqlCheck = @"SELECT ultimo_correlativo FROM correlativos_operaciones 
                                 WHERE id_local = @idLocal AND prefijo = 'DI' FOR UPDATE";
-                
                 await using var cmdCheck = new NpgsqlCommand(sqlCheck, conn, transaction);
                 cmdCheck.Parameters.AddWithValue("idLocal", idLocalOp);
                 var resultado = await cmdCheck.ExecuteScalarAsync();
-                
-                if (resultado == null || resultado == DBNull.Value)
+                if (resultado != null && resultado != DBNull.Value)
+                    correlativoTabla = Convert.ToInt32(resultado);
+
+                // Obtener maximo real de operaciones para este local
+                var sqlMaxReal = @"SELECT COALESCE(MAX(CAST(SUBSTRING(numero_operacion FROM 3) AS INTEGER)), 0)
+                                FROM operaciones 
+                                WHERE id_local = @idLocal AND numero_operacion LIKE 'DI%'";
+                await using var cmdMaxReal = new NpgsqlCommand(sqlMaxReal, conn, transaction);
+                cmdMaxReal.Parameters.AddWithValue("idLocal", idLocalOp);
+                var resultadoReal = await cmdMaxReal.ExecuteScalarAsync();
+                if (resultadoReal != null && resultadoReal != DBNull.Value)
+                    correlativoReal = Convert.ToInt32(resultadoReal);
+
+                // Usar el mayor + 1
+                int nuevoCorrelativo = Math.Max(correlativoTabla, correlativoReal) + 1;
+
+                // Actualizar o insertar en tabla correlativos
+                if (correlativoTabla == 0 && resultado == null)
                 {
-                    nuevoCorrelativo = 1;
                     var sqlIns = @"INSERT INTO correlativos_operaciones (id_local, prefijo, ultimo_correlativo, fecha_ultimo_uso)
-                                  VALUES (@idLocal, 'DI', @correlativo, @fecha)";
+                                VALUES (@idLocal, 'DI', @correlativo, @fecha)";
                     await using var cmdIns = new NpgsqlCommand(sqlIns, conn, transaction);
                     cmdIns.Parameters.AddWithValue("idLocal", idLocalOp);
                     cmdIns.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
@@ -1647,17 +1684,16 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 }
                 else
                 {
-                    nuevoCorrelativo = Convert.ToInt32(resultado) + 1;
                     var sqlUpd = @"UPDATE correlativos_operaciones 
-                                  SET ultimo_correlativo = @correlativo, fecha_ultimo_uso = @fecha
-                                  WHERE id_local = @idLocal AND prefijo = 'DI'";
+                                SET ultimo_correlativo = @correlativo, fecha_ultimo_uso = @fecha
+                                WHERE id_local = @idLocal AND prefijo = 'DI'";
                     await using var cmdUpd = new NpgsqlCommand(sqlUpd, conn, transaction);
                     cmdUpd.Parameters.AddWithValue("idLocal", idLocalOp);
                     cmdUpd.Parameters.AddWithValue("correlativo", nuevoCorrelativo);
                     cmdUpd.Parameters.AddWithValue("fecha", horaOp);
                     await cmdUpd.ExecuteNonQueryAsync();
                 }
-                
+
                 string numOpGenerado = $"DI{nuevoCorrelativo:D4}";
                 
                 // 4. INSERTAR OPERACIÓN

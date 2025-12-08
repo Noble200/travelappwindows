@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Allva.Desktop.Models;
 using Npgsql;
 
 namespace Allva.Desktop.ViewModels
@@ -11,13 +14,14 @@ namespace Allva.Desktop.ViewModels
     /// <summary>
     /// ViewModel para el modulo de Pack de Alimentos en el Front-Office
     /// Muestra los packs disponibles para el comercio/local del usuario
+    /// Incluye funcionalidad de busqueda de clientes
     /// </summary>
     public partial class FoodPacksViewModel : ObservableObject
     {
         private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
 
         // ============================================
-        // PROPIEDADES OBSERVABLES
+        // PROPIEDADES OBSERVABLES - PACKS
         // ============================================
 
         [ObservableProperty]
@@ -50,8 +54,95 @@ namespace Allva.Desktop.ViewModels
         [ObservableProperty]
         private string? _imagenAmpliadaNombre;
 
+        // ============================================
+        // PROPIEDADES OBSERVABLES - CLIENTE
+        // ============================================
+
+        [ObservableProperty]
+        private ClienteModel? _clienteSeleccionado;
+
+        [ObservableProperty]
+        private ObservableCollection<ClienteModel> _clientesEncontrados = new();
+
+        [ObservableProperty]
+        private string _busquedaCliente = string.Empty;
+
+        public ObservableCollection<string> TiposBusquedaCliente { get; } = new()
+        {
+            "Todos", "Nombre", "Documento", "Telefono"
+        };
+
+        [ObservableProperty]
+        private string _tipoBusquedaSeleccionado = "Todos";
+
+        [ObservableProperty]
+        private bool _mostrarSugerenciasCliente = false;
+
+        [ObservableProperty]
+        private ObservableCollection<ClienteModel> _clientesFiltrados = new();
+
+        // ============================================
+        // NAVEGACION ENTRE VISTAS
+        // ============================================
+
+        [ObservableProperty]
+        private bool _vistaPrincipal = true;
+
+        [ObservableProperty]
+        private bool _vistaBuscarCliente = false;
+
+        [ObservableProperty]
+        private bool _vistaNuevoCliente = false;
+
+        [ObservableProperty]
+        private bool _vistaConfirmacionCompra = false;
+
+        // ============================================
+        // CAMPOS NUEVO CLIENTE
+        // ============================================
+
+        [ObservableProperty]
+        private string _nuevoNombre = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevoSegundoNombre = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevoApellido = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevoSegundoApellido = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevoTelefono = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevaDireccion = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevaNacionalidad = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevoTipoDocumento = "DNI";
+
+        [ObservableProperty]
+        private string _nuevoNumeroDocumento = string.Empty;
+
+        public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte" };
+
+        // ============================================
+        // ESTADO DE OPERACION
+        // ============================================
+
+        [ObservableProperty]
+        private string _errorMessage = string.Empty;
+
+        [ObservableProperty]
+        private bool _puedeRealizarCompra = false;
+
         private int _idComercio = 0;
         private int _idLocal = 0;
+        private int _idUsuario = 0;
 
         // ============================================
         // PROPIEDADES CALCULADAS
@@ -64,6 +155,12 @@ namespace Allva.Desktop.ViewModels
         public bool HayPacks => PacksDisponibles.Count > 0;
 
         public bool NohayPacks => PacksDisponibles.Count == 0 && !EstaCargando;
+
+        public string ClienteSeleccionadoNombre => ClienteSeleccionado?.NombreCompleto ?? "Sin cliente seleccionado";
+
+        public string ClienteSeleccionadoDocumento => ClienteSeleccionado?.DocumentoCompleto ?? "";
+
+        public bool TieneClienteSeleccionado => ClienteSeleccionado != null;
 
         // ============================================
         // CONSTRUCTOR
@@ -85,15 +182,55 @@ namespace Allva.Desktop.ViewModels
         // METODOS PUBLICOS
         // ============================================
 
-        public async Task InicializarAsync(int idComercio, int idLocal)
+        public async Task InicializarAsync(int idComercio, int idLocal, int idUsuario = 0)
         {
             _idComercio = idComercio;
             _idLocal = idLocal;
+            _idUsuario = idUsuario;
             await CargarPacksDisponiblesAsync();
         }
 
         // ============================================
-        // COMANDOS
+        // COMANDOS - NAVEGACION
+        // ============================================
+
+        private void OcultarTodasLasVistas()
+        {
+            VistaPrincipal = false;
+            VistaBuscarCliente = false;
+            VistaNuevoCliente = false;
+            VistaConfirmacionCompra = false;
+        }
+
+        [RelayCommand]
+        private void VolverAPrincipal()
+        {
+            OcultarTodasLasVistas();
+            VistaPrincipal = true;
+            ErrorMessage = string.Empty;
+        }
+
+        [RelayCommand]
+        private void IrABuscarCliente()
+        {
+            OcultarTodasLasVistas();
+            VistaBuscarCliente = true;
+            BusquedaCliente = string.Empty;
+            ClientesEncontrados.Clear();
+            ErrorMessage = string.Empty;
+        }
+
+        [RelayCommand]
+        private void IrANuevoCliente()
+        {
+            LimpiarFormularioCliente();
+            OcultarTodasLasVistas();
+            VistaNuevoCliente = true;
+            ErrorMessage = string.Empty;
+        }
+
+        // ============================================
+        // COMANDOS - PACKS
         // ============================================
 
         [RelayCommand]
@@ -135,18 +272,383 @@ namespace Allva.Desktop.ViewModels
         }
 
         [RelayCommand]
-        private void ReservarPack(PackAlimentoFront? pack)
+        private void ComprarPack(PackAlimentoFront? pack)
         {
             if (pack == null) return;
 
-            // TODO: Implementar logica de reserva completa
-            MostrarMensaje($"Pack '{pack.NombrePack}' reservado correctamente", false);
+            if (ClienteSeleccionado == null)
+            {
+                MostrarMensaje("Debe seleccionar un cliente antes de comprar", true);
+                return;
+            }
+
+            PackSeleccionado = pack;
             CerrarDetallePack();
+            // El modal de confirmacion es un overlay, no oculta las vistas
+            VistaConfirmacionCompra = true;
+        }
+
+        [RelayCommand]
+        private async Task ConfirmarCompraAsync()
+        {
+            if (PackSeleccionado == null || ClienteSeleccionado == null)
+            {
+                MostrarMensaje("Debe seleccionar un pack y un cliente", true);
+                return;
+            }
+
+            EstaCargando = true;
+
+            try
+            {
+                // TODO: Implementar logica de compra completa (registro en operaciones)
+                await Task.Delay(500); // Simulacion
+
+                var nombrePack = PackSeleccionado.NombrePack;
+                var nombreCliente = ClienteSeleccionado.NombreCompleto;
+
+                VistaConfirmacionCompra = false;
+                PackSeleccionado = null;
+                
+                MostrarMensaje($"Pack '{nombrePack}' comprado correctamente para {nombreCliente}", false);
+            }
+            catch (Exception ex)
+            {
+                MostrarMensaje($"Error al procesar compra: {ex.Message}", true);
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
+        }
+
+        [RelayCommand]
+        private void CancelarCompra()
+        {
+            VistaConfirmacionCompra = false;
+            // PackSeleccionado se mantiene por si quiere seleccionar otro pack
+        }
+
+        // ============================================
+        // COMANDOS - BUSQUEDA DE CLIENTES
+        // ============================================
+
+        partial void OnBusquedaClienteChanged(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
+            {
+                MostrarSugerenciasCliente = false;
+                ClientesFiltrados.Clear();
+                return;
+            }
+
+            _ = BuscarClientesSugerenciasAsync(value);
+        }
+
+        private async Task BuscarClientesSugerenciasAsync(string termino)
+        {
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var whereClause = TipoBusquedaSeleccionado switch
+                {
+                    "Nombre" => "(nombre ILIKE @termino OR apellidos ILIKE @termino)",
+                    "Documento" => "documento_numero ILIKE @termino",
+                    "Telefono" => "telefono ILIKE @termino",
+                    _ => "(nombre ILIKE @termino OR apellidos ILIKE @termino OR documento_numero ILIKE @termino OR telefono ILIKE @termino)"
+                };
+
+                var comercioFilter = _idComercio > 0 ? " AND id_comercio_registro = @idComercio" : "";
+
+                var sql = $@"SELECT id_cliente, nombre, apellidos, telefono, 
+                            COALESCE(documento_tipo, 'DNI') as documento_tipo, 
+                            COALESCE(documento_numero, '') as documento_numero,
+                            segundo_nombre, segundo_apellido
+                        FROM clientes
+                        WHERE activo = true AND {whereClause}{comercioFilter}
+                        ORDER BY nombre, apellidos
+                        LIMIT 8";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("termino", $"%{termino}%");
+                if (_idComercio > 0)
+                    cmd.Parameters.AddWithValue("idComercio", _idComercio);
+
+                ClientesFiltrados.Clear();
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var cliente = new ClienteModel
+                    {
+                        IdCliente = reader.GetInt32(0),
+                        Nombre = reader.GetString(1),
+                        Apellido = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                        Telefono = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                        TipoDocumento = reader.GetString(4),
+                        NumeroDocumento = reader.GetString(5),
+                        SegundoNombre = reader.IsDBNull(6) ? "" : reader.GetString(6),
+                        SegundoApellido = reader.IsDBNull(7) ? "" : reader.GetString(7)
+                    };
+                    ClientesFiltrados.Add(cliente);
+                }
+
+                MostrarSugerenciasCliente = ClientesFiltrados.Count > 0;
+            }
+            catch
+            {
+                MostrarSugerenciasCliente = false;
+            }
+        }
+
+        [RelayCommand]
+        private async Task BuscarClientesManualAsync()
+        {
+            if (string.IsNullOrWhiteSpace(BusquedaCliente))
+            {
+                ErrorMessage = "Ingrese un termino de busqueda";
+                return;
+            }
+
+            ErrorMessage = string.Empty;
+            MostrarSugerenciasCliente = false;
+            EstaCargando = true;
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var termino = BusquedaCliente.Trim();
+                var usarTermino = !string.IsNullOrWhiteSpace(termino);
+
+                var whereClause = TipoBusquedaSeleccionado switch
+                {
+                    "Nombre" => usarTermino ? "(nombre ILIKE @termino OR apellidos ILIKE @termino)" : "1=1",
+                    "Documento" => usarTermino ? "documento_numero ILIKE @termino" : "1=1",
+                    "Telefono" => usarTermino ? "telefono ILIKE @termino" : "1=1",
+                    _ => usarTermino ? "(nombre ILIKE @termino OR apellidos ILIKE @termino OR documento_numero ILIKE @termino OR telefono ILIKE @termino)" : "1=1"
+                };
+
+                var comercioFilter = _idComercio > 0 ? " AND id_comercio_registro = @idComercio" : "";
+
+                var sql = $@"SELECT DISTINCT id_cliente, nombre, apellidos, telefono, direccion,
+                            COALESCE(nacionalidad, '') as nacionalidad, 
+                            COALESCE(documento_tipo, 'DNI') as documento_tipo, 
+                            COALESCE(documento_numero, '') as documento_numero,
+                            segundo_nombre, segundo_apellido
+                        FROM clientes
+                        WHERE activo = true AND {whereClause}{comercioFilter}
+                        ORDER BY nombre, apellidos
+                        LIMIT 50";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                if (usarTermino)
+                    cmd.Parameters.AddWithValue("termino", $"%{termino}%");
+                if (_idComercio > 0)
+                    cmd.Parameters.AddWithValue("idComercio", _idComercio);
+
+                ClientesEncontrados.Clear();
+                var idsAgregados = new HashSet<int>();
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var idCliente = reader.GetInt32(0);
+                    if (idsAgregados.Contains(idCliente)) continue;
+                    idsAgregados.Add(idCliente);
+
+                    var cliente = new ClienteModel
+                    {
+                        IdCliente = idCliente,
+                        Nombre = reader.GetString(1),
+                        Apellido = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                        Telefono = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                        Direccion = reader.IsDBNull(4) ? "" : reader.GetString(4),
+                        Nacionalidad = reader.GetString(5),
+                        TipoDocumento = reader.GetString(6),
+                        NumeroDocumento = reader.GetString(7),
+                        SegundoNombre = reader.IsDBNull(8) ? "" : reader.GetString(8),
+                        SegundoApellido = reader.IsDBNull(9) ? "" : reader.GetString(9)
+                    };
+
+                    ClientesEncontrados.Add(cliente);
+                }
+
+                if (!ClientesEncontrados.Any())
+                    ErrorMessage = usarTermino ? "No se encontraron clientes" : "No hay clientes registrados";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error en busqueda: {ex.Message}";
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
+        }
+
+        [RelayCommand]
+        private void SeleccionarClienteSugerido(ClienteModel? cliente)
+        {
+            if (cliente == null) return;
+
+            ClienteSeleccionado = cliente;
+            BusquedaCliente = cliente.NombreCompleto;
+            MostrarSugerenciasCliente = false;
+            ClientesFiltrados.Clear();
+            ValidarOperacion();
+
+            OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
+            OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
+            OnPropertyChanged(nameof(TieneClienteSeleccionado));
+        }
+
+        [RelayCommand]
+        private void SeleccionarClienteYContinuar(ClienteModel? cliente)
+        {
+            if (cliente == null) return;
+
+            ClienteSeleccionado = cliente;
+            ValidarOperacion();
+
+            OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
+            OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
+            OnPropertyChanged(nameof(TieneClienteSeleccionado));
+
+            OcultarTodasLasVistas();
+            VistaPrincipal = true;
+            MostrarMensaje($"Cliente seleccionado: {cliente.NombreCompleto}", false);
+        }
+
+        [RelayCommand]
+        private void LimpiarClienteSeleccionado()
+        {
+            ClienteSeleccionado = null;
+            BusquedaCliente = string.Empty;
+            ValidarOperacion();
+
+            OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
+            OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
+            OnPropertyChanged(nameof(TieneClienteSeleccionado));
+        }
+
+        // ============================================
+        // COMANDOS - NUEVO CLIENTE
+        // ============================================
+
+        private void LimpiarFormularioCliente()
+        {
+            NuevoNombre = string.Empty;
+            NuevoSegundoNombre = string.Empty;
+            NuevoApellido = string.Empty;
+            NuevoSegundoApellido = string.Empty;
+            NuevoTelefono = string.Empty;
+            NuevaDireccion = string.Empty;
+            NuevaNacionalidad = string.Empty;
+            NuevoTipoDocumento = "DNI";
+            NuevoNumeroDocumento = string.Empty;
+            ErrorMessage = string.Empty;
+        }
+
+        [RelayCommand]
+        private async Task GuardarNuevoClienteAsync()
+        {
+            EstaCargando = true;
+            ErrorMessage = string.Empty;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(NuevoNombre) || string.IsNullOrWhiteSpace(NuevoApellido))
+                {
+                    ErrorMessage = "Nombre y Apellido son obligatorios";
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(NuevoTelefono))
+                {
+                    ErrorMessage = "Telefono es obligatorio";
+                    return;
+                }
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"INSERT INTO clientes 
+                    (nombre, segundo_nombre, apellidos, segundo_apellido, telefono, 
+                     direccion, nacionalidad, documento_tipo, documento_numero,
+                     id_comercio_registro, id_local_registro, id_usuario_registro, activo)
+                    VALUES 
+                    (@nombre, @segundoNombre, @apellidos, @segundoApellido, @telefono,
+                     @direccion, @nacionalidad, @tipoDoc, @numDoc,
+                     @idComercio, @idLocal, @idUsuario, true)
+                    RETURNING id_cliente";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("nombre", NuevoNombre.Trim());
+                cmd.Parameters.AddWithValue("segundoNombre", NuevoSegundoNombre?.Trim() ?? "");
+                cmd.Parameters.AddWithValue("apellidos", NuevoApellido.Trim());
+                cmd.Parameters.AddWithValue("segundoApellido", NuevoSegundoApellido?.Trim() ?? "");
+                cmd.Parameters.AddWithValue("telefono", NuevoTelefono.Trim());
+                cmd.Parameters.AddWithValue("direccion", NuevaDireccion?.Trim() ?? "");
+                cmd.Parameters.AddWithValue("nacionalidad", NuevaNacionalidad?.Trim() ?? "");
+                cmd.Parameters.AddWithValue("tipoDoc", NuevoTipoDocumento);
+                cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento?.Trim() ?? "");
+                cmd.Parameters.AddWithValue("idComercio", _idComercio > 0 ? _idComercio : DBNull.Value);
+                cmd.Parameters.AddWithValue("idLocal", _idLocal > 0 ? _idLocal : DBNull.Value);
+                cmd.Parameters.AddWithValue("idUsuario", _idUsuario > 0 ? _idUsuario : DBNull.Value);
+
+                var idNuevoCliente = (int)(await cmd.ExecuteScalarAsync() ?? 0);
+
+                if (idNuevoCliente > 0)
+                {
+                    var nuevoCliente = new ClienteModel
+                    {
+                        IdCliente = idNuevoCliente,
+                        Nombre = NuevoNombre.Trim(),
+                        SegundoNombre = NuevoSegundoNombre?.Trim() ?? "",
+                        Apellido = NuevoApellido.Trim(),
+                        SegundoApellido = NuevoSegundoApellido?.Trim() ?? "",
+                        Telefono = NuevoTelefono.Trim(),
+                        Direccion = NuevaDireccion?.Trim() ?? "",
+                        Nacionalidad = NuevaNacionalidad?.Trim() ?? "",
+                        TipoDocumento = NuevoTipoDocumento,
+                        NumeroDocumento = NuevoNumeroDocumento?.Trim() ?? ""
+                    };
+
+                    ClienteSeleccionado = nuevoCliente;
+                    ValidarOperacion();
+
+                    OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
+                    OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
+                    OnPropertyChanged(nameof(TieneClienteSeleccionado));
+
+                    MostrarMensaje("Cliente registrado correctamente", false);
+                    LimpiarFormularioCliente();
+                    OcultarTodasLasVistas();
+                    VistaPrincipal = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error al guardar: {ex.Message}";
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
         }
 
         // ============================================
         // METODOS PRIVADOS
         // ============================================
+
+        private void ValidarOperacion()
+        {
+            PuedeRealizarCompra = ClienteSeleccionado != null;
+        }
 
         private async Task CargarPacksDisponiblesAsync()
         {
@@ -158,7 +660,6 @@ namespace Allva.Desktop.ViewModels
                 await using var conn = new NpgsqlConnection(ConnectionString);
                 await conn.OpenAsync();
 
-                // Obtener packs asignados globalmente o al comercio especifico
                 var query = @"
                     SELECT DISTINCT pa.id_pack, pa.nombre_pack, pa.descripcion, 
                            pa.imagen_poster, pa.imagen_poster_nombre,
@@ -181,7 +682,7 @@ namespace Allva.Desktop.ViewModels
                 cmd.Parameters.AddWithValue("@idComercio", _idComercio > 0 ? _idComercio : 1);
                 await using var reader = await cmd.ExecuteReaderAsync();
 
-                var packs = new System.Collections.Generic.List<PackAlimentoFront>();
+                var packs = new List<PackAlimentoFront>();
 
                 while (await reader.ReadAsync())
                 {
@@ -200,7 +701,6 @@ namespace Allva.Desktop.ViewModels
 
                 await reader.CloseAsync();
 
-                // Cargar productos de cada pack
                 foreach (var pack in packs)
                 {
                     var prodQuery = @"
@@ -231,7 +731,6 @@ namespace Allva.Desktop.ViewModels
 
                     await prodReader.CloseAsync();
 
-                    // Cargar imagenes adicionales
                     var imgQuery = @"
                         SELECT id_imagen, imagen_contenido, imagen_nombre
                         FROM pack_alimentos_imagenes
@@ -296,11 +795,10 @@ namespace Allva.Desktop.ViewModels
         public string? ImagenPosterNombre { get; set; }
         public decimal Precio { get; set; }
         public string Divisa { get; set; } = "EUR";
-        
+
         public ObservableCollection<PackAlimentoProductoFront> Productos { get; set; } = new();
         public ObservableCollection<PackAlimentoImagenFront> ImagenesAdicionales { get; set; } = new();
 
-        // Propiedades calculadas
         public string PrecioFormateado => $"{Precio:N2} {Divisa}";
         public int CantidadProductos => Productos.Count;
         public bool TieneImagen => ImagenPoster != null && ImagenPoster.Length > 0;

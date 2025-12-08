@@ -44,6 +44,17 @@ public partial class OperacionesViewModel : ObservableObject
     
     [ObservableProperty]
     private string operacionHasta = "";
+
+    [ObservableProperty]
+    private string tipoOperacionFiltro = "Todas";
+
+    public ObservableCollection<string> TiposOperacion { get; } = new() 
+    { 
+        "Todas", 
+        "Cambio divisa", 
+        "Traspaso a caja", 
+        "Deposito en banco" 
+    };
     
     [ObservableProperty]
     private string fechaActualTexto = "";
@@ -65,6 +76,9 @@ public partial class OperacionesViewModel : ObservableObject
     
     [ObservableProperty]
     private string successMessage = "";
+
+    [ObservableProperty]
+    private bool mostrarFiltros = true;
     
     public ObservableCollection<OperacionDetalleItem> Operaciones { get; } = new();
     
@@ -178,6 +192,7 @@ public partial class OperacionesViewModel : ObservableObject
         FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
         OperacionDesde = "";
         OperacionHasta = "";
+        TipoOperacionFiltro = "Todas";
     }
     
     [RelayCommand]
@@ -359,6 +374,12 @@ public partial class OperacionesViewModel : ObservableObject
     {
     }
     
+    [RelayCommand]
+    private void ToggleFiltros()
+    {
+        MostrarFiltros = !MostrarFiltros;
+    }
+
     private void ActualizarResumen()
     {
         TotalOperaciones = Operaciones.Count.ToString();
@@ -381,9 +402,12 @@ public partial class OperacionesViewModel : ObservableObject
             
             if (PanelActual == "divisa")
             {
-                await CargarOperacionesDivisasAsync(conn, fechaDesde, fechaHasta);
-                await CargarDepositosBancoAsync(conn, fechaDesde, fechaHasta);
-                await CargarTraspasosCajaAsync(conn, fechaDesde, fechaHasta);
+                if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Cambio divisa")
+                    await CargarOperacionesDivisasAsync(conn, fechaDesde, fechaHasta);
+                if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Deposito en banco")
+                    await CargarDepositosBancoAsync(conn, fechaDesde, fechaHasta);
+                if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Traspaso a caja")
+                    await CargarTraspasosCajaAsync(conn, fechaDesde, fechaHasta);
             }
             
             var operacionesOrdenadas = Operaciones.OrderByDescending(o => o.FechaHoraOrden).ToList();
@@ -414,13 +438,16 @@ public partial class OperacionesViewModel : ObservableObject
                         o.hora_operacion,
                         o.numero_operacion,
                         u.nombre,
+                        u.apellidos,
                         od.divisa_origen,
                         od.cantidad_origen,
                         od.cantidad_destino,
                         c.nombre,
                         c.apellidos,
                         c.documento_tipo,
-                        c.documento_numero
+                        c.documento_numero,
+                        c.segundo_nombre,
+                        c.segundo_apellido
                     FROM operaciones o
                     INNER JOIN operaciones_divisas od ON o.id_operacion = od.id_operacion
                     LEFT JOIN usuarios u ON o.id_usuario = u.id_usuario
@@ -458,16 +485,23 @@ public partial class OperacionesViewModel : ObservableObject
             var fechaDb = reader.GetDateTime(0);
             var hora = reader.IsDBNull(1) ? TimeSpan.Zero : reader.GetTimeSpan(1);
             var numeroOp = reader.IsDBNull(2) ? "" : reader.GetString(2);
-            var usuario = reader.IsDBNull(3) ? "" : reader.GetString(3);
-            var divisaOrigen = reader.GetString(4);
-            var cantidadOrigen = reader.GetDecimal(5);
-            var cantidadDestino = reader.GetDecimal(6);
-            var nombreCliente = reader.IsDBNull(7) ? "" : reader.GetString(7);
-            var apellidosCliente = reader.IsDBNull(8) ? "" : reader.GetString(8);
-            var tipoDoc = reader.IsDBNull(9) ? "" : reader.GetString(9);
-            var numDoc = reader.IsDBNull(10) ? "" : reader.GetString(10);
-            
-            var clienteNombre = $"{nombreCliente} {apellidosCliente}".Trim();
+            var usuarioNombre = reader.IsDBNull(3) ? "" : reader.GetString(3);
+            var usuarioApellidos = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            var divisaOrigen = reader.GetString(5);
+            var cantidadOrigen = reader.GetDecimal(6);
+            var cantidadDestino = reader.GetDecimal(7);
+            var nombreCliente = reader.IsDBNull(8) ? "" : reader.GetString(8);
+            var apellidosCliente = reader.IsDBNull(9) ? "" : reader.GetString(9);
+            var tipoDoc = reader.IsDBNull(10) ? "" : reader.GetString(10);
+            var numDoc = reader.IsDBNull(11) ? "" : reader.GetString(11);
+            var segundoNombre = reader.IsDBNull(12) ? "" : reader.GetString(12);
+            var segundoApellido = reader.IsDBNull(13) ? "" : reader.GetString(13);
+
+            var usuarioCompleto = $"{usuarioNombre} {usuarioApellidos}".Trim();
+            if (string.IsNullOrWhiteSpace(usuarioCompleto)) usuarioCompleto = "-";
+
+            var partesNombreCliente = new[] { nombreCliente, segundoNombre, apellidosCliente, segundoApellido };
+            var clienteNombre = string.Join(" ", partesNombreCliente.Where(p => !string.IsNullOrWhiteSpace(p)));
             if (string.IsNullOrWhiteSpace(clienteNombre)) clienteNombre = "-";
             
             Operaciones.Add(new OperacionDetalleItem
@@ -475,7 +509,7 @@ public partial class OperacionesViewModel : ObservableObject
                 Hora = hora.ToString(@"hh\:mm"),
                 Fecha = fechaDb.ToString("dd/MM/yy"),
                 NumeroOperacion = numeroOp,
-                Usuario = usuario,
+                Usuario = usuarioCompleto,
                 Descripcion = $"Compra {divisaOrigen}",
                 CantidadDivisa = $"{cantidadOrigen:N2}",
                 CantidadDivisaNum = cantidadOrigen,
