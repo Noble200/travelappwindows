@@ -41,6 +41,11 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private bool _vistaTransaccion = false;
     [ObservableProperty] private bool _vistaResumen = false;
     [ObservableProperty] private bool _vistaEditarCliente = false;
+    [ObservableProperty]
+    private bool _mostrarSugerenciasDivisa = false;
+
+    [ObservableProperty]
+    private ObservableCollection<CurrencyModel> _divisasFiltradas = new();
 
     // ═══════════════════════════════════════════════════════════
     // CLIENTE
@@ -118,6 +123,10 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
 
     public bool TieneImagenesDocumento => TieneImagenDocumentoFrontal || TieneImagenDocumentoTrasera;
     public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte" };
+    public ObservableCollection<string> TiposResidencia { get; } = new() { "Espanol", "Extranjero" };
+
+    [ObservableProperty] 
+    private string _nuevoTipoResidencia = string.Empty;
 
     // ═══════════════════════════════════════════════════════════
     // DIVISAS
@@ -162,6 +171,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private string _errorMessage = string.Empty;
     [ObservableProperty] private string _lastUpdateText = string.Empty;
     [ObservableProperty] private bool _puedeRealizarOperacion = false;
+    public bool MostrarAvisoHacienda => TotalInEuros >= 1000;
 
     private List<string> _favoriteCodes = new() { "USD", "CAD", "AUD", "CHF", "GBP", "HKD" };
 
@@ -288,6 +298,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         NuevaNacionalidad = ClienteSeleccionado.Nacionalidad ?? "";
         NuevoTipoDocumento = ClienteSeleccionado.TipoDocumento ?? "DNI";
         NuevoNumeroDocumento = ClienteSeleccionado.NumeroDocumento ?? "";
+        NuevoTipoResidencia = ClienteSeleccionado.TipoResidencia ?? "";
         NuevaFechaNacimientoTexto = ClienteSeleccionado.FechaNacimiento?.ToString("dd/MM/yyyy") ?? "";
         NuevaCaducidadDocumentoTexto = ClienteSeleccionado.CaducidadDocumento?.ToString("dd/MM/yyyy") ?? "";
         
@@ -391,6 +402,11 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(NuevoNumeroDocumento))
         {
             ErrorMessage = "El numero de documento es obligatorio";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(NuevoTipoResidencia))
+        {
+            ErrorMessage = "Debe seleccionar si es Espanol o Extranjero";
             return;
         }
         if (string.IsNullOrWhiteSpace(NuevaNacionalidad))
@@ -843,14 +859,33 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     
     partial void OnBusquedaDivisaCalculadoraChanged(string value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return;
-        var filtro = value.ToLower().Trim();
-        var divisaEncontrada = AvailableCurrencies.FirstOrDefault(d =>
-            d.Code.ToLower() == filtro ||
-            d.Code.ToLower().StartsWith(filtro) ||
-            d.Name.ToLower().Contains(filtro));
-        if (divisaEncontrada != null)
-            SelectedCurrency = divisaEncontrada;
+        if (string.IsNullOrWhiteSpace(value) || value.Contains("|"))
+        {
+            MostrarSugerenciasDivisa = false;
+            DivisasFiltradas.Clear();
+            return;
+        }
+        
+        var filtro = value.ToUpperInvariant();
+        var resultados = AvailableCurrencies
+            .Where(c => c.Code.ToUpperInvariant().Contains(filtro) || 
+                        c.Name.ToUpperInvariant().Contains(filtro))
+            .Take(8)
+            .ToList();
+        
+        DivisasFiltradas = new ObservableCollection<CurrencyModel>(resultados);
+        MostrarSugerenciasDivisa = resultados.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SeleccionarDivisaSugerida(CurrencyModel divisa)
+    {
+        if (divisa == null) return;
+        
+        SelectedCurrency = divisa;
+        BusquedaDivisaCalculadora = $"{divisa.Code} | {divisa.Name}";
+        MostrarSugerenciasDivisa = false;
+        DivisasFiltradas.Clear();
     }
 
     [RelayCommand]
@@ -975,6 +1010,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             NumberStyles.Any, CultureInfo.InvariantCulture, out decimal cantidad) && cantidad > 0;
         
         PuedeRealizarOperacion = ClienteSeleccionado != null && SelectedCurrency != null && cantidadValida;
+        OnPropertyChanged(nameof(MostrarAvisoHacienda));
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1026,12 +1062,13 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             var comercioFilter = _idComercioActual > 0 ? " AND id_comercio_registro = @idComercio" : "";
 
             var sql = $@"SELECT DISTINCT id_cliente, nombre, apellidos, telefono, direccion,
-                               COALESCE(nacionalidad, '') as nacionalidad, 
-                               COALESCE(documento_tipo, 'DNI') as documento_tipo, 
-                               COALESCE(documento_numero, '') as documento_numero,
-                               caducidad_documento, fecha_nacimiento,
-                               segundo_nombre, segundo_apellido,
-                               imagen_documento_frontal, imagen_documento_trasera
+                            COALESCE(nacionalidad, '') as nacionalidad, 
+                            COALESCE(documento_tipo, 'DNI') as documento_tipo, 
+                            COALESCE(documento_numero, '') as documento_numero,
+                            caducidad_documento, fecha_nacimiento,
+                            segundo_nombre, segundo_apellido,
+                            imagen_documento_frontal, imagen_documento_trasera,
+                            COALESCE(tipo_residencia, '') as tipo_residencia
                         FROM clientes
                         WHERE activo = true AND {whereClause}{comercioFilter}
                         ORDER BY nombre, apellidos
@@ -1068,7 +1105,8 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                     SegundoNombre = reader.IsDBNull(10) ? "" : reader.GetString(10),
                     SegundoApellido = reader.IsDBNull(11) ? "" : reader.GetString(11),
                     ImagenDocumentoFrontal = reader.IsDBNull(12) ? null : (byte[])reader[12],
-                    ImagenDocumentoTrasera = reader.IsDBNull(13) ? null : (byte[])reader[13]
+                    ImagenDocumentoTrasera = reader.IsDBNull(13) ? null : (byte[])reader[13],
+                    TipoResidencia = reader.GetString(14)
                 };
                 
                 ClientesEncontrados.Add(cliente);
@@ -1114,6 +1152,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         NuevaNacionalidad = string.Empty;
         NuevoTipoDocumento = "DNI";
         NuevoNumeroDocumento = string.Empty;
+        NuevoTipoResidencia = string.Empty;
         NuevaCaducidadDocumentoTexto = string.Empty;
         NuevaFechaNacimientoTexto = string.Empty;
         NuevaImagenDocumentoFrontal = null;
@@ -1181,16 +1220,16 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
 
             var sql = @"INSERT INTO clientes 
                         (nombre, segundo_nombre, apellidos, segundo_apellido, 
-                         telefono, direccion, nacionalidad,
-                         documento_tipo, documento_numero, caducidad_documento,
-                         fecha_nacimiento, imagen_documento_frontal, imagen_documento_trasera,
-                         id_comercio_registro, id_local_registro, id_usuario_registro, activo)
+                        telefono, direccion, nacionalidad, tipo_residencia,
+                        documento_tipo, documento_numero, caducidad_documento,
+                        fecha_nacimiento, imagen_documento_frontal, imagen_documento_trasera,
+                        id_comercio_registro, id_local_registro, id_usuario_registro, activo)
                         VALUES 
                         (@nombre, @segundoNombre, @apellido, @segundoApellido,
-                         @telefono, @direccion, @nacionalidad,
-                         @tipoDoc, @numDoc, @caducidad, @fechaNac, 
-                         @imagenFrontal, @imagenTrasera,
-                         @idComercio, @idLocal, @idUsuario, true)
+                            @telefono, @direccion, @nacionalidad, @tipoResidencia,
+                            @tipoDoc, @numDoc, @caducidad, @fechaNac,
+                            @imagenFrontal, @imagenTrasera,
+                            @idComercio, @idLocal, @idUsuario, true)
                         RETURNING id_cliente";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
@@ -1201,6 +1240,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmd.Parameters.AddWithValue("telefono", NuevoTelefono ?? "");
             cmd.Parameters.AddWithValue("direccion", NuevaDireccion ?? "");
             cmd.Parameters.AddWithValue("nacionalidad", NuevaNacionalidad ?? "");
+            cmd.Parameters.AddWithValue("tipoResidencia", NuevoTipoResidencia ?? "");
             cmd.Parameters.AddWithValue("tipoDoc", NuevoTipoDocumento);
             cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento.Trim().ToUpper());
             cmd.Parameters.AddWithValue("caducidad", (object?)fechaCaducidad ?? DBNull.Value);
@@ -1290,7 +1330,8 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                         nombre = @nombre, segundo_nombre = @segundoNombre,
                         apellidos = @apellido, segundo_apellido = @segundoApellido,
                         telefono = @telefono, direccion = @direccion,
-                        nacionalidad = @nacionalidad, documento_tipo = @tipoDoc,
+                        nacionalidad = @nacionalidad, tipo_residencia = @tipoResidencia,
+                        documento_tipo = @tipoDoc,
                         documento_numero = @numDoc, caducidad_documento = @caducidad,
                         fecha_nacimiento = @fechaNac,
                         imagen_documento_frontal = @imagenFrontal,
@@ -1306,6 +1347,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             cmd.Parameters.AddWithValue("telefono", NuevoTelefono ?? "");
             cmd.Parameters.AddWithValue("direccion", NuevaDireccion ?? "");
             cmd.Parameters.AddWithValue("nacionalidad", NuevaNacionalidad ?? "");
+            cmd.Parameters.AddWithValue("tipoResidencia", NuevoTipoResidencia ?? "");
             cmd.Parameters.AddWithValue("tipoDoc", NuevoTipoDocumento);
             cmd.Parameters.AddWithValue("numDoc", NuevoNumeroDocumento.Trim().ToUpper());
             cmd.Parameters.AddWithValue("caducidad", (object?)fechaCaducidad ?? DBNull.Value);

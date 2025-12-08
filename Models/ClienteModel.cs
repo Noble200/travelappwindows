@@ -21,6 +21,8 @@ public class ClienteModel
     public string Direccion { get; set; } = string.Empty;
     public string Nacionalidad { get; set; } = string.Empty;
     public string TipoDocumento { get; set; } = "DNI"; // DNI, NIE, Pasaporte
+
+    public string? TipoResidencia { get; set; }
     public string NumeroDocumento { get; set; } = string.Empty;
     public DateTime? CaducidadDocumento { get; set; }
     public DateTime? FechaNacimiento { get; set; }
