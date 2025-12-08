@@ -1,0 +1,230 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Allva.Desktop.ViewModels"
+             x:Class="Allva.Desktop.Views.PanelPackAlimentos.NuevoClientePackView"
+             x:DataType="vm:FoodPacksViewModel">
+    
+    <UserControl.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BoxShadow" Value="0 2 8 0 #20000000"/>
+            <Setter Property="Padding" Value="28"/>
+        </Style>
+        
+        <Style Selector="TextBox.input">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="BorderBrush" Value="#0b5394"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        
+        <Style Selector="TextBlock.label-required">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#0b5394"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        
+        <Style Selector="TextBlock.label-optional">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#666666"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Background="#f5f5f5">
+        <ScrollViewer>
+            <StackPanel Spacing="24" Margin="30">
+                
+                <!-- Encabezado -->
+                <Grid ColumnDefinitions="Auto,*">
+                    <Button Grid.Column="0"
+                            Content="Atras"
+                            Background="#0b5394"
+                            Foreground="White"
+                            FontWeight="SemiBold"
+                            Padding="24,12"
+                            CornerRadius="6"
+                            MinHeight="44"
+                            Command="{Binding VolverAPrincipalCommand}"/>
+                    
+                    <TextBlock Grid.Column="1"
+                               Text="Registrar Nuevo Cliente"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="#0b5394"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Grid>
+                
+                <!-- Formulario -->
+                <Border Classes="card" MaxWidth="800" HorizontalAlignment="Center">
+                    <StackPanel Spacing="20">
+                        
+                        <!-- Seccion: Datos Personales -->
+                        <StackPanel Spacing="4">
+                            <Border Background="#ffd966" CornerRadius="4" Padding="12,8" HorizontalAlignment="Left">
+                                <TextBlock Text="DATOS PERSONALES" FontWeight="Bold" FontSize="13" Foreground="#333333"/>
+                            </Border>
+                        </StackPanel>
+                        
+                        <!-- Nombre -->
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto">
+                            <StackPanel Grid.Column="0" Spacing="0" Margin="0,0,12,0">
+                                <TextBlock Text="Nombre *" Classes="label-required"/>
+                                <TextBox Text="{Binding NuevoNombre}" 
+                                         Classes="input"
+                                         Watermark="Primer nombre"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="0" Margin="12,0,0,0">
+                                <TextBlock Text="Segundo Nombre" Classes="label-optional"/>
+                                <TextBox Text="{Binding NuevoSegundoNombre}" 
+                                         Classes="input"
+                                         Watermark="Segundo nombre (opcional)"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- Apellidos -->
+                        <Grid ColumnDefinitions="*,*">
+                            <StackPanel Grid.Column="0" Spacing="0" Margin="0,0,12,0">
+                                <TextBlock Text="Primer Apellido *" Classes="label-required"/>
+                                <TextBox Text="{Binding NuevoApellido}" 
+                                         Classes="input"
+                                         Watermark="Primer apellido"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="0" Margin="12,0,0,0">
+                                <TextBlock Text="Segundo Apellido" Classes="label-optional"/>
+                                <TextBox Text="{Binding NuevoSegundoApellido}" 
+                                         Classes="input"
+                                         Watermark="Segundo apellido (opcional)"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- Seccion: Contacto -->
+                        <StackPanel Spacing="4" Margin="0,12,0,0">
+                            <Border Background="#ffd966" CornerRadius="4" Padding="12,8" HorizontalAlignment="Left">
+                                <TextBlock Text="DATOS DE CONTACTO" FontWeight="Bold" FontSize="13" Foreground="#333333"/>
+                            </Border>
+                        </StackPanel>
+                        
+                        <!-- Telefono y Nacionalidad -->
+                        <Grid ColumnDefinitions="*,*">
+                            <StackPanel Grid.Column="0" Spacing="0" Margin="0,0,12,0">
+                                <TextBlock Text="Telefono *" Classes="label-required"/>
+                                <TextBox Text="{Binding NuevoTelefono}" 
+                                         Classes="input"
+                                         Watermark="+34 600 000 000"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="0" Margin="12,0,0,0">
+                                <TextBlock Text="Nacionalidad" Classes="label-optional"/>
+                                <TextBox Text="{Binding NuevaNacionalidad}" 
+                                         Classes="input"
+                                         Watermark="Pais de origen"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- Direccion -->
+                        <StackPanel Spacing="0">
+                            <TextBlock Text="Direccion" Classes="label-optional"/>
+                            <TextBox Text="{Binding NuevaDireccion}" 
+                                     Classes="input"
+                                     Watermark="Calle, numero, ciudad..."/>
+                        </StackPanel>
+                        
+                        <!-- Seccion: Documento -->
+                        <StackPanel Spacing="4" Margin="0,12,0,0">
+                            <Border Background="#ffd966" CornerRadius="4" Padding="12,8" HorizontalAlignment="Left">
+                                <TextBlock Text="DOCUMENTO DE IDENTIDAD" FontWeight="Bold" FontSize="13" Foreground="#333333"/>
+                            </Border>
+                        </StackPanel>
+                        
+                        <!-- Documento -->
+                        <Grid ColumnDefinitions="Auto,*">
+                            <StackPanel Grid.Column="0" Spacing="0" Margin="0,0,12,0">
+                                <TextBlock Text="Tipo Documento" Classes="label-optional"/>
+                                <ComboBox ItemsSource="{Binding TiposDocumento}"
+                                          SelectedItem="{Binding NuevoTipoDocumento}"
+                                          Width="140"
+                                          MinHeight="44"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="0" Margin="12,0,0,0">
+                                <TextBlock Text="Numero Documento" Classes="label-optional"/>
+                                <TextBox Text="{Binding NuevoNumeroDocumento}" 
+                                         Classes="input"
+                                         Watermark="12345678A"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- Mensaje de error -->
+                        <Border Background="#FFEBEE"
+                                CornerRadius="6"
+                                Padding="16"
+                                IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       Foreground="#C62828"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+                        
+                        <!-- Botones -->
+                        <Grid ColumnDefinitions="*,*" Margin="0,16,0,0">
+                            <Button Grid.Column="0"
+                                    Content="Cancelar"
+                                    Background="#E0E0E0"
+                                    Foreground="#333333"
+                                    Padding="20,14"
+                                    CornerRadius="6"
+                                    Margin="0,0,12,0"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    FontSize="15"
+                                    Cursor="Hand"
+                                    Command="{Binding VolverAPrincipalCommand}"/>
+                            <Button Grid.Column="1"
+                                    Content="Guardar Cliente"
+                                    Background="#28a745"
+                                    Foreground="White"
+                                    Padding="20,14"
+                                    CornerRadius="6"
+                                    Margin="12,0,0,0"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    FontWeight="Bold"
+                                    FontSize="15"
+                                    Cursor="Hand"
+                                    Command="{Binding GuardarNuevoClienteCommand}"/>
+                        </Grid>
+                        
+                        <!-- Nota -->
+                        <TextBlock Text="* Campos obligatorios"
+                                   FontSize="12"
+                                   Foreground="#888888"
+                                   HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Loading -->
+                <Border Background="#E3F2FD"
+                        CornerRadius="8"
+                        Padding="16"
+                        IsVisible="{Binding EstaCargando}">
+                    <TextBlock Text="Guardando cliente..."
+                               HorizontalAlignment="Center"
+                               Foreground="#1565C0"
+                               FontWeight="SemiBold"/>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+
+</UserControl>

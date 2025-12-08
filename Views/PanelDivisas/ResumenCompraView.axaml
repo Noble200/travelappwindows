@@ -17,12 +17,12 @@
         <ScrollViewer>
             <StackPanel Spacing="25" Margin="40" MaxWidth="1000" HorizontalAlignment="Center">
                 
-                <!-- Encabezado éxito -->
+                <!-- Encabezado exito -->
                 <Border Background="#E8F5E9" 
                         CornerRadius="8" 
                         Padding="20">
                     <StackPanel HorizontalAlignment="Center" Spacing="5">
-                        <TextBlock Text="Transacción Completada"
+                        <TextBlock Text="Transaccion Completada"
                                    FontSize="24"
                                    FontWeight="Bold"
                                    Foreground="#2E7D32"
@@ -51,19 +51,19 @@
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Nombre:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ClienteSeleccionado.NombreCompleto}"/>
                                 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Teléfono:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Telefono:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ClienteSeleccionado.Telefono}"/>
                                 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Dirección:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Direccion:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ClienteSeleccionado.Direccion, TargetNullValue='-'}"/>
                                 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Nº documento:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="N documento:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ClienteSeleccionado.DocumentoCompleto}"/>
                             </Grid>
                             
                             <Border Height="1" Background="#E0E0E0"/>
                             
-                            <!-- Datos transacción -->
+                            <!-- Datos transaccion -->
                             <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Dinero recibido:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" FontWeight="Bold" Foreground="#0b5394" FontSize="15">
@@ -85,7 +85,7 @@
                             
                             <Border Height="1" Background="#E0E0E0"/>
                             
-                            <!-- Botón imprimir -->
+                            <!-- Boton imprimir -->
                             <Button Content="Imprimir recibo"
                                     Background="#ffd966"
                                     Foreground="#0b5394"
@@ -95,12 +95,13 @@
                                     CornerRadius="6"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Center"
-                                    Command="{Binding ImprimirReciboCommand}"/>
+                                    Command="{Binding ImprimirReciboCommand}"
+                                    IsEnabled="{Binding !IsLoading}"/>
                             
                         </StackPanel>
                     </Border>
                     
-                    <!-- Imágenes documento -->
+                    <!-- Imagenes documento -->
                     <StackPanel Grid.Column="1" Spacing="15">
                         
                         <Border Background="White"
@@ -129,7 +130,7 @@
                                 Padding="20"
                                 MinHeight="200"
                                 IsVisible="{Binding !ClienteSeleccionado.TieneImagenes}">
-                            <TextBlock Text="Sin imágenes de documento"
+                            <TextBlock Text="Sin imagenes de documento"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
                                        Foreground="#888"/>
@@ -139,10 +140,32 @@
                     
                 </Grid>
                 
+                <!-- AREA DE ERROR - FALTABA -->
+                <Border Background="#FFEBEE"
+                        CornerRadius="6"
+                        Padding="16"
+                        IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ErrorMessage}" 
+                               Foreground="#C62828"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                </Border>
+                
+                <!-- INDICADOR DE CARGA -->
+                <Border Background="#E3F2FD"
+                        CornerRadius="6"
+                        Padding="16"
+                        IsVisible="{Binding IsLoading}">
+                    <TextBlock Text="Guardando operacion..." 
+                               Foreground="#0b5394"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"/>
+                </Border>
+                
                 <!-- Botones -->
                 <Grid ColumnDefinitions="*,*">
                     <Button Grid.Column="0"
-                            Content="Atrás"
+                            Content="Atras"
                             Background="#0b5394"
                             Foreground="White"
                             FontWeight="SemiBold"
@@ -152,10 +175,11 @@
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
                             Margin="0,0,10,0"
+                            IsEnabled="{Binding !IsLoading}"
                             Command="{Binding VolverATransaccionCommand}"/>
                     <Button Grid.Column="1"
                             Content="Finalizar"
-                            Background="#0b5394"
+                            Background="#2E7D32"
                             Foreground="White"
                             FontWeight="SemiBold"
                             FontSize="16"
@@ -164,6 +188,7 @@
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
                             Margin="10,0,0,0"
+                            IsEnabled="{Binding !IsLoading}"
                             Command="{Binding FinalizarYVolverAPrincipalCommand}"/>
                 </Grid>
                 
