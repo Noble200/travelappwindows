@@ -130,11 +130,17 @@ public partial class MainDashboardViewModel : ObservableObject
     private UserControl CreateFoodPacksView()
     {
         var view = new FoodPacksView();
-        var viewModel = new FoodPacksViewModel(_idComercio, _idLocal);
+        var viewModel = new FoodPacksViewModel(
+            _idComercio, 
+            _idLocal, 
+            _idUsuario, 
+            UserName, 
+            _numeroUsuario, 
+            LocalCode
+        );
         view.DataContext = viewModel;
         return view;
     }
-
     private UserControl CreateFlightTicketsView()
     {
         var view = new FlightTicketsView();
