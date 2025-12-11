@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Allva.Desktop.ViewModels"
-             x:Class="Allva.Desktop.Views.PanelPackAlimentos.NuevoClientePackView"
+             x:Class="Allva.Desktop.Views.PanelPackAlimentos.EditarClientePackView"
              x:DataType="vm:FoodPacksViewModel">
 
     <Border Background="#f8f9fa"
@@ -14,7 +14,7 @@
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Button Grid.Column="0"
                         Content="Volver"
-                        Command="{Binding VolverABuscarClienteCommand}"
+                        Command="{Binding VolverASeleccionBeneficiarioCommand}"
                         Background="#6c757d"
                         Foreground="White"
                         Padding="16,10"
@@ -22,7 +22,7 @@
                         CornerRadius="6"/>
                 
                 <TextBlock Grid.Column="1"
-                           Text="{Binding TituloFormularioCliente}"
+                           Text="Editar Cliente"
                            FontSize="24"
                            FontWeight="Bold"
                            Foreground="#0b5394"
@@ -141,22 +141,11 @@
                                IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                TextAlignment="Center"/>
 
-                    <!-- Nota -->
-                    <Border Background="#fff3cd"
-                            CornerRadius="6"
-                            Padding="16">
-                        <TextBlock Text="Al guardar el cliente, debera agregar al menos un beneficiario para poder realizar operaciones."
-                                   FontSize="13"
-                                   Foreground="#856404"
-                                   TextWrapping="Wrap"
-                                   TextAlignment="Center"/>
-                    </Border>
-
                     <!-- Botones -->
                     <Grid ColumnDefinitions="*,16,*" Margin="0,8,0,0">
                         <Button Grid.Column="0"
                                 Content="Cancelar"
-                                Command="{Binding VolverABuscarClienteCommand}"
+                                Command="{Binding VolverASeleccionBeneficiarioCommand}"
                                 Background="#6c757d"
                                 Foreground="White"
                                 HorizontalAlignment="Stretch"
@@ -167,7 +156,7 @@
                                 CornerRadius="6"/>
                         
                         <Button Grid.Column="2"
-                                Content="Guardar Cliente"
+                                Content="Guardar Cambios"
                                 Command="{Binding GuardarClienteCommand}"
                                 Background="#28a745"
                                 Foreground="White"
