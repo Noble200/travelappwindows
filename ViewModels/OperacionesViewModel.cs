@@ -26,6 +26,9 @@ public partial class OperacionesViewModel : ObservableObject
     
     private static readonly TimeZoneInfo _zonaHorariaEspana = TimeZoneInfo.FindSystemTimeZoneById(
         OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
+
+    // Evento para volver al inicio
+    public event Action? OnVolverAInicio;
     
     [ObservableProperty]
     private string localInfo = "";
@@ -55,6 +58,41 @@ public partial class OperacionesViewModel : ObservableObject
         "Traspaso a caja", 
         "Deposito en banco" 
     };
+
+    // ============================================
+    // FILTROS PACK ALIMENTOS
+    // ============================================
+
+    [ObservableProperty]
+    private string filtroPaisDestino = "Todos";
+
+    [ObservableProperty]
+    private string filtroNumeroOperacionAlimentos = "";
+
+    public ObservableCollection<string> PaisesDestinoDisponibles { get; } = new() { "Todos" };
+
+    // ============================================
+    // PROPIEDADES DE VISIBILIDAD
+    // ============================================
+
+    public bool EsPanelDivisa => PanelActual == "divisa";
+    public bool EsPanelAlimentos => PanelActual == "alimentos";
+    public bool EsPanelBilletes => PanelActual == "billetes";
+    public bool EsPanelViaje => PanelActual == "viaje";
+
+    // Colores de tabs
+    public string TabDivisaBackground => EsPanelDivisa ? "#ffd966" : "White";
+    public string TabDivisaForeground => EsPanelDivisa ? "#0b5394" : "#595959";
+    public string TabAlimentosBackground => EsPanelAlimentos ? "#ffd966" : "White";
+    public string TabAlimentosForeground => EsPanelAlimentos ? "#0b5394" : "#595959";
+    public string TabBilletesBackground => EsPanelBilletes ? "#ffd966" : "White";
+    public string TabBilletesForeground => EsPanelBilletes ? "#0b5394" : "#595959";
+    public string TabViajeBackground => EsPanelViaje ? "#ffd966" : "White";
+    public string TabViajeForeground => EsPanelViaje ? "#0b5394" : "#595959";
+
+    // ============================================
+    // COLECCIONES
+    // ============================================
     
     [ObservableProperty]
     private string fechaActualTexto = "";
@@ -67,6 +105,19 @@ public partial class OperacionesViewModel : ObservableObject
     
     [ObservableProperty]
     private string totalDivisasMovidas = "0.00";
+
+    // Resumen Pack Alimentos
+    [ObservableProperty]
+    private string totalPendientes = "0";
+
+    [ObservableProperty]
+    private string totalEnviados = "0";
+
+    [ObservableProperty]
+    private string totalAnulados = "0";
+
+    [ObservableProperty]
+    private string totalImporteAlimentos = "0.00";
     
     [ObservableProperty]
     private bool isLoading = false;
@@ -81,6 +132,7 @@ public partial class OperacionesViewModel : ObservableObject
     private bool mostrarFiltros = true;
     
     public ObservableCollection<OperacionDetalleItem> Operaciones { get; } = new();
+    public ObservableCollection<OperacionPackAlimentoItem> OperacionesAlimentos { get; } = new();
     
     private readonly string[] _mesesEspanol = { 
         "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -174,6 +226,26 @@ public partial class OperacionesViewModel : ObservableObject
     private void CambiarPanel(string panel)
     {
         PanelActual = panel;
+        OnPropertyChanged(nameof(EsPanelDivisa));
+        OnPropertyChanged(nameof(EsPanelAlimentos));
+        OnPropertyChanged(nameof(EsPanelBilletes));
+        OnPropertyChanged(nameof(EsPanelViaje));
+        
+        // Actualizar colores de tabs
+        OnPropertyChanged(nameof(TabDivisaBackground));
+        OnPropertyChanged(nameof(TabDivisaForeground));
+        OnPropertyChanged(nameof(TabAlimentosBackground));
+        OnPropertyChanged(nameof(TabAlimentosForeground));
+        OnPropertyChanged(nameof(TabBilletesBackground));
+        OnPropertyChanged(nameof(TabBilletesForeground));
+        OnPropertyChanged(nameof(TabViajeBackground));
+        OnPropertyChanged(nameof(TabViajeForeground));
+
+        if (panel == "alimentos")
+        {
+            _ = CargarPaisesDestinoAsync();
+        }
+
         _ = CargarOperacionesAsync();
     }
     
@@ -193,6 +265,8 @@ public partial class OperacionesViewModel : ObservableObject
         OperacionDesde = "";
         OperacionHasta = "";
         TipoOperacionFiltro = "Todas";
+        FiltroPaisDestino = "Todos";
+        FiltroNumeroOperacionAlimentos = "";
     }
     
     [RelayCommand]
@@ -372,6 +446,7 @@ public partial class OperacionesViewModel : ObservableObject
     [RelayCommand]
     private void Volver()
     {
+        OnVolverAInicio?.Invoke();
     }
     
     [RelayCommand]
@@ -382,9 +457,20 @@ public partial class OperacionesViewModel : ObservableObject
 
     private void ActualizarResumen()
     {
-        TotalOperaciones = Operaciones.Count.ToString();
-        TotalEurosMovidos = Operaciones.Sum(o => o.CantidadPagadaNum).ToString("N2");
-        TotalDivisasMovidas = Operaciones.Sum(o => o.CantidadDivisaNum).ToString("N2");
+        if (PanelActual == "alimentos")
+        {
+            TotalOperaciones = OperacionesAlimentos.Count.ToString();
+            TotalPendientes = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "PENDIENTE").ToString();
+            TotalEnviados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "ENVIADO").ToString();
+            TotalAnulados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "ANULADO").ToString();
+            TotalImporteAlimentos = OperacionesAlimentos.Sum(o => o.Importe).ToString("N2");
+        }
+        else
+        {
+            TotalOperaciones = Operaciones.Count.ToString();
+            TotalEurosMovidos = Operaciones.Sum(o => o.CantidadPagadaNum).ToString("N2");
+            TotalDivisasMovidas = Operaciones.Sum(o => o.CantidadDivisaNum).ToString("N2");
+        }
     }
     
     private async Task CargarOperacionesAsync()
@@ -393,6 +479,7 @@ public partial class OperacionesViewModel : ObservableObject
         {
             IsLoading = true;
             Operaciones.Clear();
+            OperacionesAlimentos.Clear();
             
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
@@ -408,15 +495,19 @@ public partial class OperacionesViewModel : ObservableObject
                     await CargarDepositosBancoAsync(conn, fechaDesde, fechaHasta);
                 if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Traspaso a caja")
                     await CargarTraspasosCajaAsync(conn, fechaDesde, fechaHasta);
+                
+                var operacionesOrdenadas = Operaciones.OrderByDescending(o => o.FechaHoraOrden).ToList();
+                Operaciones.Clear();
+                
+                for (int i = 0; i < operacionesOrdenadas.Count; i++)
+                {
+                    operacionesOrdenadas[i].BackgroundColor = i % 2 == 0 ? "White" : "#F5F5F5";
+                    Operaciones.Add(operacionesOrdenadas[i]);
+                }
             }
-            
-            var operacionesOrdenadas = Operaciones.OrderByDescending(o => o.FechaHoraOrden).ToList();
-            Operaciones.Clear();
-            
-            for (int i = 0; i < operacionesOrdenadas.Count; i++)
+            else if (PanelActual == "alimentos")
             {
-                operacionesOrdenadas[i].BackgroundColor = i % 2 == 0 ? "White" : "#F5F5F5";
-                Operaciones.Add(operacionesOrdenadas[i]);
+                await CargarOperacionesPackAlimentosAsync(conn, fechaDesde, fechaHasta);
             }
             
             ActualizarResumen();
@@ -429,6 +520,182 @@ public partial class OperacionesViewModel : ObservableObject
         {
             IsLoading = false;
         }
+    }
+
+    // ============================================
+    // CARGAR PAISES DESTINO PARA FILTRO
+    // ============================================
+
+    private async Task CargarPaisesDestinoAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var query = @"
+                SELECT DISTINCT opa.pais_destino
+                FROM operaciones_pack_alimentos opa
+                INNER JOIN operaciones o ON o.id_operacion = opa.id_operacion
+                WHERE o.id_local = @idLocal
+                  AND opa.pais_destino IS NOT NULL
+                  AND opa.pais_destino != ''
+                ORDER BY opa.pais_destino";
+
+            await using var cmd = new NpgsqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@idLocal", _idLocal);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            PaisesDestinoDisponibles.Clear();
+            PaisesDestinoDisponibles.Add("Todos");
+
+            while (await reader.ReadAsync())
+            {
+                var pais = reader.GetString(0);
+                if (!string.IsNullOrWhiteSpace(pais))
+                    PaisesDestinoDisponibles.Add(pais);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar paises destino: {ex.Message}");
+        }
+    }
+
+    // ============================================
+    // CARGAR OPERACIONES PACK ALIMENTOS
+    // ============================================
+
+    private async Task CargarOperacionesPackAlimentosAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta)
+    {
+        var whereConditions = new System.Collections.Generic.List<string>
+        {
+            "o.id_local = @idLocal",
+            "o.modulo = 'PACK_ALIMENTOS'"
+        };
+
+        if (fechaDesde.HasValue)
+            whereConditions.Add("o.fecha_operacion >= @fechaDesde");
+
+        if (fechaHasta.HasValue)
+            whereConditions.Add("o.fecha_operacion <= @fechaHasta");
+
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionAlimentos))
+            whereConditions.Add("o.numero_operacion ILIKE @numeroOp");
+
+        if (FiltroPaisDestino != "Todos" && !string.IsNullOrWhiteSpace(FiltroPaisDestino))
+            whereConditions.Add("opa.pais_destino = @paisDestino");
+
+        var whereClause = string.Join(" AND ", whereConditions);
+
+        var query = $@"
+            SELECT 
+                o.id_operacion,
+                o.numero_operacion,
+                o.fecha_operacion,
+                o.hora_operacion,
+                c.nombre as cliente_nombre,
+                c.apellidos as cliente_apellido,
+                o.importe_total,
+                o.moneda,
+                opa.nombre_pack,
+                opa.pais_destino,
+                opa.ciudad_destino,
+                opa.estado_envio,
+                cb.nombre as beneficiario_nombre,
+                cb.apellido as beneficiario_apellido
+            FROM operaciones o
+            LEFT JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+            LEFT JOIN clientes_beneficiarios cb ON opa.id_beneficiario = cb.id_beneficiario
+            LEFT JOIN clientes c ON o.id_cliente = c.id_cliente
+            WHERE {whereClause}
+            ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC
+            LIMIT 500";
+
+        await using var cmd = new NpgsqlCommand(query, conn);
+        cmd.Parameters.AddWithValue("@idLocal", _idLocal);
+
+        if (fechaDesde.HasValue)
+            cmd.Parameters.AddWithValue("@fechaDesde", fechaDesde.Value.Date);
+
+        if (fechaHasta.HasValue)
+            cmd.Parameters.AddWithValue("@fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
+
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionAlimentos))
+            cmd.Parameters.AddWithValue("@numeroOp", $"%{FiltroNumeroOperacionAlimentos}%");
+
+        if (FiltroPaisDestino != "Todos" && !string.IsNullOrWhiteSpace(FiltroPaisDestino))
+            cmd.Parameters.AddWithValue("@paisDestino", FiltroPaisDestino);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        int index = 0;
+        while (await reader.ReadAsync())
+        {
+            var fechaOp = reader.IsDBNull(2) ? DateTime.Today : reader.GetDateTime(2);
+            var horaOp = reader.IsDBNull(3) ? TimeSpan.Zero : reader.GetTimeSpan(3);
+            var estadoEnvio = reader.IsDBNull(11) ? "PENDIENTE" : reader.GetString(11);
+
+            // Cliente: primer nombre y primer apellido
+            var clienteNombre = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            var clienteApellido = reader.IsDBNull(5) ? "" : reader.GetString(5);
+            var primerNombreCliente = clienteNombre.Split(' ').FirstOrDefault() ?? "";
+            var primerApellidoCliente = clienteApellido.Split(' ').FirstOrDefault() ?? "";
+            var nombreClienteCompleto = $"{primerNombreCliente} {primerApellidoCliente}".Trim();
+
+            // Beneficiario: primer nombre y primer apellido
+            var benefNombre = reader.IsDBNull(12) ? "" : reader.GetString(12);
+            var benefApellido = reader.IsDBNull(13) ? "" : reader.GetString(13);
+            var primerNombreBenef = benefNombre.Split(' ').FirstOrDefault() ?? "";
+            var primerApellidoBenef = benefApellido.Split(' ').FirstOrDefault() ?? "";
+            var nombreBenefCompleto = $"{primerNombreBenef} {primerApellidoBenef}".Trim();
+
+            var item = new OperacionPackAlimentoItem
+            {
+                IdOperacion = reader.GetInt64(0),
+                NumeroOperacion = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                Fecha = fechaOp.ToString("dd/MM/yy"),
+                Hora = horaOp.ToString(@"hh\:mm"),
+                NombreCliente = nombreClienteCompleto,
+                Importe = reader.IsDBNull(6) ? 0 : reader.GetDecimal(6),
+                Moneda = reader.IsDBNull(7) ? "EUR" : reader.GetString(7),
+                Descripcion = reader.IsDBNull(8) ? "Pack Alimentos" : reader.GetString(8),
+                PaisDestino = reader.IsDBNull(9) ? "" : reader.GetString(9),
+                CiudadDestino = reader.IsDBNull(10) ? "" : reader.GetString(10),
+                NombreBeneficiario = nombreBenefCompleto,
+                EstadoEnvio = estadoEnvio,
+                EstadoTexto = ObtenerTextoEstado(estadoEnvio),
+                EstadoColor = ObtenerColorEstado(estadoEnvio),
+                BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5",
+                FechaHoraOrden = fechaOp.Add(horaOp)
+            };
+
+            OperacionesAlimentos.Add(item);
+            index++;
+        }
+    }
+
+    private string ObtenerTextoEstado(string estado)
+    {
+        return estado.ToUpper() switch
+        {
+            "PENDIENTE" => "Pendiente pago",
+            "ENVIADO" => "Enviado",
+            "ANULADO" => "Anulado",
+            _ => estado
+        };
+    }
+
+    private string ObtenerColorEstado(string estado)
+    {
+        return estado.ToUpper() switch
+        {
+            "PENDIENTE" => "#ffc107",
+            "ENVIADO" => "#28a745",
+            "ANULADO" => "#dc3545",
+            _ => "#6c757d"
+        };
     }
     
     private async Task CargarOperacionesDivisasAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta)
@@ -661,4 +928,26 @@ public class OperacionDetalleItem
     public string NumeroDocumento { get; set; } = "";
     public string BackgroundColor { get; set; } = "White";
     public DateTime FechaHoraOrden { get; set; } = DateTime.MinValue;
+}
+
+public class OperacionPackAlimentoItem
+{
+    public long IdOperacion { get; set; }
+    public string NumeroOperacion { get; set; } = "";
+    public string Fecha { get; set; } = "";
+    public string Hora { get; set; } = "";
+    public string NombreCliente { get; set; } = "";
+    public string NombreBeneficiario { get; set; } = "";
+    public string Descripcion { get; set; } = "";
+    public string PaisDestino { get; set; } = "";
+    public string CiudadDestino { get; set; } = "";
+    public decimal Importe { get; set; }
+    public string Moneda { get; set; } = "EUR";
+    public string EstadoEnvio { get; set; } = "";
+    public string EstadoTexto { get; set; } = "";
+    public string EstadoColor { get; set; } = "#6c757d";
+    public string BackgroundColor { get; set; } = "White";
+    public DateTime FechaHoraOrden { get; set; }
+
+    public string ImporteFormateado => $"{Importe:N2} {Moneda}";
 }

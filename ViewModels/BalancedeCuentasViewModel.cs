@@ -27,6 +27,9 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     
     private static readonly TimeZoneInfo _zonaHorariaEspana = TimeZoneInfo.FindSystemTimeZoneById(
         OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
+
+    // Evento para volver a inicio
+    public event Action? OnVolverAInicio;
     
     [ObservableProperty]
     private string localInfo = "";
@@ -91,10 +94,52 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     
     [ObservableProperty]
     private bool tieneDivisas = false;
+
+    // ============================================
+    // PROPIEDADES PARA TABS
+    // ============================================
+    
+    public bool EsTabDivisa => TabActual == "divisa";
+    public bool EsTabAlimentos => TabActual == "alimentos";
+    public bool EsTabBilletes => TabActual == "billetes";
+    public bool EsTabViaje => TabActual == "viaje";
+    
+    public string TabDivisaBackground => EsTabDivisa ? "#ffd966" : "White";
+    public string TabDivisaForeground => EsTabDivisa ? "#0b5394" : "#595959";
+    public string TabAlimentosBackground => EsTabAlimentos ? "#ffd966" : "White";
+    public string TabAlimentosForeground => EsTabAlimentos ? "#0b5394" : "#595959";
+    public string TabBilletesBackground => EsTabBilletes ? "#ffd966" : "White";
+    public string TabBilletesForeground => EsTabBilletes ? "#0b5394" : "#595959";
+    public string TabViajeBackground => EsTabViaje ? "#ffd966" : "White";
+    public string TabViajeForeground => EsTabViaje ? "#0b5394" : "#595959";
+
+    // ============================================
+    // PROPIEDADES PACK ALIMENTOS
+    // ============================================
+    
+    [ObservableProperty]
+    private string filtroPaisDestino = "Todos";
+    
+    [ObservableProperty]
+    private string filtroNumeroOperacionAlimentos = "";
+    
+    [ObservableProperty]
+    private int totalPendientes = 0;
+    
+    [ObservableProperty]
+    private int totalEnviados = 0;
+    
+    [ObservableProperty]
+    private int totalAnulados = 0;
+    
+    [ObservableProperty]
+    private string totalImporteAlimentos = "0.00";
     
     public ObservableCollection<OperacionItem> Operaciones { get; } = new();
+    public ObservableCollection<OperacionPackAlimentoBalanceItem> OperacionesAlimentos { get; } = new();
     public ObservableCollection<DivisaLocal> DivisasDelLocal { get; } = new();
     public ObservableCollection<string> DivisasParaDeposito { get; } = new();
+    public ObservableCollection<string> PaisesDestinoDisponibles { get; } = new();
     
     private readonly string[] _mesesEspanol = { 
         "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -195,22 +240,56 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     
     private async Task CargarDatosAsync()
     {
-        await CargarOperacionesAsync();
-        await CargarDivisasDelLocalAsync();
-        await CargarBalancesAsync();
+        if (EsTabDivisa)
+        {
+            await CargarOperacionesAsync();
+            await CargarDivisasDelLocalAsync();
+            await CargarBalancesAsync();
+        }
+        else if (EsTabAlimentos)
+        {
+            await CargarPaisesDestinoAsync();
+            await CargarOperacionesPackAlimentosAsync();
+        }
     }
     
     [RelayCommand]
-    private void CambiarTab(string tab)
+    private async Task CambiarTab(string tab)
     {
         TabActual = tab;
+        
+        // Notificar cambios de visibilidad
+        OnPropertyChanged(nameof(EsTabDivisa));
+        OnPropertyChanged(nameof(EsTabAlimentos));
+        OnPropertyChanged(nameof(EsTabBilletes));
+        OnPropertyChanged(nameof(EsTabViaje));
+        
+        // Notificar cambios de colores de tabs
+        OnPropertyChanged(nameof(TabDivisaBackground));
+        OnPropertyChanged(nameof(TabDivisaForeground));
+        OnPropertyChanged(nameof(TabAlimentosBackground));
+        OnPropertyChanged(nameof(TabAlimentosForeground));
+        OnPropertyChanged(nameof(TabBilletesBackground));
+        OnPropertyChanged(nameof(TabBilletesForeground));
+        OnPropertyChanged(nameof(TabViajeBackground));
+        OnPropertyChanged(nameof(TabViajeForeground));
+        
+        // Cargar datos del tab seleccionado
+        await CargarDatosAsync();
     }
     
     [RelayCommand]
     private async Task BuscarAsync()
     {
-        await CargarOperacionesAsync();
-        await CargarBalancesAsync();
+        if (EsTabDivisa)
+        {
+            await CargarOperacionesAsync();
+            await CargarBalancesAsync();
+        }
+        else if (EsTabAlimentos)
+        {
+            await CargarOperacionesPackAlimentosAsync();
+        }
     }
     
     [RelayCommand]
@@ -221,6 +300,215 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
         OperacionDesde = "";
         OperacionHasta = "";
+        FiltroPaisDestino = "Todos";
+        FiltroNumeroOperacionAlimentos = "";
+    }
+    
+    // ============================================
+    // PACK ALIMENTOS - CARGA DE DATOS
+    // ============================================
+    
+    private async Task CargarPaisesDestinoAsync()
+    {
+        try
+        {
+            PaisesDestinoDisponibles.Clear();
+            PaisesDestinoDisponibles.Add("Todos");
+            
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+            
+            var sql = @"SELECT DISTINCT opa.pais_destino
+                        FROM operaciones o
+                        INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                        WHERE o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS'
+                        AND opa.pais_destino IS NOT NULL AND opa.pais_destino != ''
+                        ORDER BY opa.pais_destino";
+            
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("idLocal", _idLocal);
+            
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                PaisesDestinoDisponibles.Add(reader.GetString(0));
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error cargando paises: {ex.Message}");
+        }
+    }
+    
+    private async Task CargarOperacionesPackAlimentosAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            OperacionesAlimentos.Clear();
+            
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+            
+            var fechaDesde = ParsearFecha(FechaDesdeTexto);
+            var fechaHasta = ParsearFecha(FechaHastaTexto);
+            
+            var whereClause = "o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS'";
+            
+            if (fechaDesde.HasValue)
+                whereClause += " AND o.fecha_operacion >= @fechaDesde";
+            if (fechaHasta.HasValue)
+                whereClause += " AND o.fecha_operacion <= @fechaHasta";
+            if (!string.IsNullOrWhiteSpace(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
+                whereClause += " AND opa.pais_destino = @paisDestino";
+            if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionAlimentos))
+                whereClause += " AND o.numero_operacion ILIKE @numOp";
+            
+            var query = $@"
+                SELECT 
+                    o.id_operacion,
+                    o.numero_operacion,
+                    o.fecha_operacion,
+                    o.hora_operacion,
+                    u.nombre as usuario_nombre,
+                    u.apellidos as usuario_apellido,
+                    c.nombre as cliente_nombre,
+                    c.apellidos as cliente_apellido,
+                    o.importe_total,
+                    o.moneda,
+                    opa.nombre_pack,
+                    opa.pais_destino,
+                    opa.ciudad_destino,
+                    opa.estado_envio,
+                    cb.nombre as beneficiario_nombre,
+                    cb.apellido as beneficiario_apellido
+                FROM operaciones o
+                LEFT JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                LEFT JOIN clientes_beneficiarios cb ON opa.id_beneficiario = cb.id_beneficiario
+                LEFT JOIN clientes c ON o.id_cliente = c.id_cliente
+                LEFT JOIN usuarios u ON o.id_usuario = u.id_usuario
+                WHERE {whereClause}
+                ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC
+                LIMIT 500";
+            
+            await using var cmd = new NpgsqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("idLocal", _idLocal);
+            
+            if (fechaDesde.HasValue)
+                cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
+            if (fechaHasta.HasValue)
+                cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date);
+            if (!string.IsNullOrWhiteSpace(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
+                cmd.Parameters.AddWithValue("paisDestino", FiltroPaisDestino);
+            if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionAlimentos))
+                cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacionAlimentos}%");
+            
+            await using var reader = await cmd.ExecuteReaderAsync();
+            
+            int index = 0;
+            decimal totalImporte = 0;
+            int pendientes = 0, enviados = 0, anulados = 0;
+            
+            while (await reader.ReadAsync())
+            {
+                var fechaOp = reader.IsDBNull(2) ? DateTime.Today : reader.GetDateTime(2);
+                var horaOp = reader.IsDBNull(3) ? TimeSpan.Zero : reader.GetTimeSpan(3);
+                var estadoEnvio = reader.IsDBNull(13) ? "PENDIENTE" : reader.GetString(13);
+                
+                // Usuario: nombre completo
+                var usuarioNombre = reader.IsDBNull(4) ? "" : reader.GetString(4);
+                var usuarioApellido = reader.IsDBNull(5) ? "" : reader.GetString(5);
+                var nombreUsuarioCompleto = $"{usuarioNombre} {usuarioApellido}".Trim();
+                
+                // Cliente: primer nombre y primer apellido
+                var clienteNombre = reader.IsDBNull(6) ? "" : reader.GetString(6);
+                var clienteApellido = reader.IsDBNull(7) ? "" : reader.GetString(7);
+                var primerNombreCliente = clienteNombre.Split(' ').FirstOrDefault() ?? "";
+                var primerApellidoCliente = clienteApellido.Split(' ').FirstOrDefault() ?? "";
+                var nombreClienteCompleto = $"{primerNombreCliente} {primerApellidoCliente}".Trim();
+                
+                // Beneficiario: primer nombre y primer apellido
+                var benefNombre = reader.IsDBNull(14) ? "" : reader.GetString(14);
+                var benefApellido = reader.IsDBNull(15) ? "" : reader.GetString(15);
+                var primerNombreBenef = benefNombre.Split(' ').FirstOrDefault() ?? "";
+                var primerApellidoBenef = benefApellido.Split(' ').FirstOrDefault() ?? "";
+                var nombreBenefCompleto = $"{primerNombreBenef} {primerApellidoBenef}".Trim();
+                
+                var importe = reader.IsDBNull(8) ? 0 : reader.GetDecimal(8);
+                totalImporte += importe;
+                
+                // Contar por estado
+                switch (estadoEnvio.ToUpper())
+                {
+                    case "PENDIENTE": pendientes++; break;
+                    case "ENVIADO": enviados++; break;
+                    case "ANULADO": anulados++; break;
+                    default: pendientes++; break;
+                }
+                
+                var item = new OperacionPackAlimentoBalanceItem
+                {
+                    IdOperacion = reader.GetInt64(0),
+                    NumeroOperacion = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                    Fecha = fechaOp.ToString("dd/MM/yy"),
+                    Hora = horaOp.ToString(@"hh\:mm"),
+                    NombreUsuario = nombreUsuarioCompleto,
+                    NombreCliente = nombreClienteCompleto,
+                    Importe = importe,
+                    Moneda = reader.IsDBNull(9) ? "EUR" : reader.GetString(9),
+                    Descripcion = reader.IsDBNull(10) ? "Pack Alimentos" : reader.GetString(10),
+                    PaisDestino = reader.IsDBNull(11) ? "" : reader.GetString(11),
+                    CiudadDestino = reader.IsDBNull(12) ? "" : reader.GetString(12),
+                    NombreBeneficiario = nombreBenefCompleto,
+                    EstadoEnvio = estadoEnvio,
+                    EstadoTexto = ObtenerTextoEstado(estadoEnvio),
+                    EstadoColor = ObtenerColorEstado(estadoEnvio),
+                    BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5",
+                    FechaHoraOrden = fechaOp.Add(horaOp)
+                };
+                
+                OperacionesAlimentos.Add(item);
+                index++;
+            }
+            
+            // Actualizar resumen
+            TotalPendientes = pendientes;
+            TotalEnviados = enviados;
+            TotalAnulados = anulados;
+            TotalImporteAlimentos = $"{totalImporte:N2}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al cargar operaciones: {ex.Message}";
+            await Task.Delay(3000);
+            ErrorMessage = "";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+    
+    private string ObtenerTextoEstado(string estado)
+    {
+        return estado.ToUpper() switch
+        {
+            "PENDIENTE" => "Pendiente pago",
+            "ENVIADO" => "Enviado",
+            "ANULADO" => "Anulado",
+            _ => estado
+        };
+    }
+    
+    private string ObtenerColorEstado(string estado)
+    {
+        return estado.ToUpper() switch
+        {
+            "PENDIENTE" => "#ffc107",
+            "ENVIADO" => "#28a745",
+            "ANULADO" => "#dc3545",
+            _ => "#6c757d"
+        };
     }
     
     [RelayCommand]
@@ -698,6 +986,7 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     [RelayCommand]
     private void Volver()
     {
+        OnVolverAInicio?.Invoke();
     }
     
     [RelayCommand]
@@ -1106,6 +1395,7 @@ public partial class BalancedeCuentasViewModel : ObservableObject
 
 public class OperacionItem
 {
+    public long IdOperacion { get; set; }
     public string Fecha { get; set; } = "";
     public string Hora { get; set; } = "";
     public string NumeroOperacion { get; set; } = "";
@@ -1125,4 +1415,27 @@ public class DivisaLocal
     public string Codigo { get; set; } = "";
     public decimal Cantidad { get; set; } = 0;
     public string CantidadFormateada { get; set; } = "0.00";
+}
+
+public class OperacionPackAlimentoBalanceItem
+{
+    public long IdOperacion { get; set; }
+    public string NumeroOperacion { get; set; } = "";
+    public string Fecha { get; set; } = "";
+    public string Hora { get; set; } = "";
+    public string NombreUsuario { get; set; } = "";
+    public string NombreCliente { get; set; } = "";
+    public string NombreBeneficiario { get; set; } = "";
+    public string Descripcion { get; set; } = "";
+    public string PaisDestino { get; set; } = "";
+    public string CiudadDestino { get; set; } = "";
+    public decimal Importe { get; set; }
+    public string Moneda { get; set; } = "EUR";
+    public string EstadoEnvio { get; set; } = "PENDIENTE";
+    public string EstadoTexto { get; set; } = "";
+    public string EstadoColor { get; set; } = "#ffc107";
+    public string BackgroundColor { get; set; } = "White";
+    public DateTime FechaHoraOrden { get; set; } = DateTime.MinValue;
+    public bool EsClickeable { get; set; } = true;
+    public TextDecorationCollection? TextoSubrayado { get; set; } = TextDecorationCollection.Parse("Underline");
 }

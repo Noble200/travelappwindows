@@ -21,6 +21,15 @@ namespace Allva.Desktop.Models
         public int? CreadoPor { get; set; }
         public int? ModificadoPor { get; set; }
 
+        // Propiedades de Pais Designado
+        public int? IdPais { get; set; }
+        public string? NombrePais { get; set; }
+        public byte[]? BanderaPais { get; set; }
+
+        // Propiedades de Precio
+        public decimal PrecioPack { get; set; }
+        public string DivisaPack { get; set; } = "EUR";
+
         // Colecciones relacionadas
         public ObservableCollection<PackAlimentoProducto> Productos { get; set; } = new();
         public ObservableCollection<PackAlimentoImagen> Imagenes { get; set; } = new();
@@ -30,6 +39,19 @@ namespace Allva.Desktop.Models
         public string EstadoTexto => Activo ? "Activo" : "Inactivo";
         public int CantidadProductos => Productos?.Count ?? 0;
         public string ResumenProductos => $"{CantidadProductos} producto(s)";
+        
+        // Propiedades de visualizacion de Pais
+        public bool TienePais => IdPais.HasValue && !string.IsNullOrEmpty(NombrePais);
+        public bool TieneBandera => BanderaPais != null && BanderaPais.Length > 0;
+        public string PaisTexto => NombrePais ?? "Sin pais designado";
+        
+        // Propiedades de visualizacion de Precio
+        public string PrecioFormateado => PrecioPack > 0 
+            ? $"{PrecioPack:N2} {DivisaPack}" 
+            : "Sin precio";
+        
+        // Fecha formateada
+        public string FechaCreacionTexto => FechaCreacion.ToString("dd/MM/yyyy");
     }
 
     /// <summary>
@@ -89,7 +111,6 @@ namespace Allva.Desktop.Models
         public DateTime FechaCreacion { get; set; }
         public DateTime? FechaModificacion { get; set; }
 
-        // Propiedad de visualizacion
         public string PrecioFormateado => Divisa switch
         {
             "EUR" => $"{Precio:N2} EUR",
@@ -105,19 +126,13 @@ namespace Allva.Desktop.Models
         };
     }
 
-    /// <summary>
-    /// Tipo de asignacion del pack
-    /// </summary>
     public enum TipoAsignacionPack
     {
-        Global,      // Todos los comercios
-        Comercio,    // Un comercio especifico
-        Local        // Un local especifico
+        Global,
+        Comercio,
+        Local
     }
 
-    /// <summary>
-    /// Asignacion de pack a un destino
-    /// </summary>
     public class PackAlimentoAsignacion
     {
         public int IdAsignacion { get; set; }
@@ -130,7 +145,6 @@ namespace Allva.Desktop.Models
         public DateTime FechaAsignacion { get; set; }
         public int? AsignadoPor { get; set; }
 
-        // Info adicional para visualizacion
         public string? NombreComercio { get; set; }
         public string? NombreLocal { get; set; }
         public string? CodigoLocal { get; set; }
@@ -143,40 +157,5 @@ namespace Allva.Desktop.Models
             TipoAsignacionPack.Local => $"{NombreLocal} ({CodigoLocal})" ?? "Local",
             _ => "Desconocido"
         };
-    }
-
-    /// <summary>
-    /// Comercio para seleccion
-    /// </summary>
-    public class ComercioSeleccion
-    {
-        public int IdComercio { get; set; }
-        public string NombreComercio { get; set; } = string.Empty;
-        public bool Seleccionado { get; set; }
-    }
-
-    /// <summary>
-    /// Local para seleccion
-    /// </summary>
-    public class LocalSeleccion
-    {
-        public int IdLocal { get; set; }
-        public int IdComercio { get; set; }
-        public string NombreLocal { get; set; } = string.Empty;
-        public string CodigoLocal { get; set; } = string.Empty;
-        public string NombreComercio { get; set; } = string.Empty;
-        public bool Seleccionado { get; set; }
-
-        public string NombreCompleto => $"{NombreLocal} ({CodigoLocal}) - {NombreComercio}";
-    }
-
-    /// <summary>
-    /// Divisa disponible para precios
-    /// </summary>
-    public class DivisaDisponible
-    {
-        public string Codigo { get; set; } = string.Empty;
-        public string Nombre { get; set; } = string.Empty;
-        public string Simbolo { get; set; } = string.Empty;
     }
 }

@@ -16,12 +16,29 @@ namespace Allva.Desktop.ViewModels
 {
     /// <summary>
     /// ViewModel para el modulo de Pack de Alimentos en el Front-Office
-    /// Flujo: Buscar/Crear Cliente -> Seleccionar/Crear Beneficiario -> Seleccionar Pack -> Confirmacion -> Guardar
+    /// Flujo: Seleccionar Pais -> Buscar/Crear Cliente -> Seleccionar/Crear Beneficiario -> Seleccionar Pack -> Confirmacion -> Guardar
     /// IMPORTANTE: Los datos se guardan con hora Espana (Europe/Madrid) y NO se comparten entre comercios
     /// </summary>
     public partial class FoodPacksViewModel : ObservableObject
     {
         private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
+
+        // ============================================
+        // PROPIEDADES OBSERVABLES - PAISES
+        // ============================================
+
+        [ObservableProperty]
+        private ObservableCollection<PaisDesignadoFront> _paisesDisponibles = new();
+
+        [ObservableProperty]
+        private PaisDesignadoFront? _paisSeleccionado;
+
+        [ObservableProperty]
+        private bool _vistaSeleccionPais = true;
+
+        public bool HayPaises => PaisesDisponibles.Count > 0;
+        public bool NoHayPaises => PaisesDisponibles.Count == 0 && !EstaCargando;
+        public string PaisSeleccionadoNombre => PaisSeleccionado?.NombrePais ?? "";
 
         // ============================================
         // PROPIEDADES OBSERVABLES - PACKS
@@ -163,7 +180,7 @@ namespace Allva.Desktop.ViewModels
         // ============================================
 
         [ObservableProperty]
-        private bool _vistaPrincipal = true;
+        private bool _vistaPrincipal = false;
 
         [ObservableProperty]
         private bool _vistaBuscarCliente = false;
@@ -298,7 +315,7 @@ namespace Allva.Desktop.ViewModels
             _idComercio = 1;
             _idLocal = 1;
             _idUsuario = 1;
-            _ = CargarPacksDisponiblesAsync();
+            _ = CargarPaisesDisponiblesAsync();
         }
 
         public FoodPacksViewModel(int idComercio, int idLocal)
@@ -306,7 +323,7 @@ namespace Allva.Desktop.ViewModels
             _idComercio = idComercio;
             _idLocal = idLocal;
             _idUsuario = 0;
-            _ = CargarPacksDisponiblesAsync();
+            _ = CargarPaisesDisponiblesAsync();
         }
 
         public FoodPacksViewModel(int idComercio, int idLocal, int idUsuario, 
@@ -318,7 +335,7 @@ namespace Allva.Desktop.ViewModels
             _nombreUsuario = nombreUsuario;
             _numeroUsuario = numeroUsuario;
             _codigoLocal = codigoLocal;
-            _ = CargarPacksDisponiblesAsync();
+            _ = CargarPaisesDisponiblesAsync();
         }
 
         public void SetSesionData(int idLocal, int idComercio, int idUsuario, 
@@ -333,8 +350,161 @@ namespace Allva.Desktop.ViewModels
         }
 
         // ============================================
+        // METODOS - CARGA DE PAISES
+        // ============================================
+
+        private async Task CargarPaisesDisponiblesAsync()
+        {
+            EstaCargando = true;
+            PaisesDisponibles.Clear();
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                // Cargar solo paises que tienen packs asignados
+                var query = @"
+                    SELECT DISTINCT pd.id_pais, pd.nombre_pais, pd.codigo_iso, pd.bandera_imagen
+                    FROM paises_designados pd
+                    INNER JOIN packs_alimentos pa ON pa.id_pais = pd.id_pais AND pa.activo = true
+                    LEFT JOIN pack_alimentos_asignacion_comercios paac 
+                        ON pa.id_pack = paac.id_pack AND paac.id_comercio = @idComercio AND paac.activo = true
+                    LEFT JOIN pack_alimentos_asignacion_global paag 
+                        ON pa.id_pack = paag.id_pack AND paag.activo = true
+                    WHERE pd.activo = true
+                      AND (paac.id_asignacion IS NOT NULL OR paag.id_asignacion IS NOT NULL)
+                    ORDER BY pd.nombre_pais";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@idComercio", _idComercio > 0 ? _idComercio : 1);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    var pais = new PaisDesignadoFront
+                    {
+                        IdPais = reader.GetInt32(0),
+                        NombrePais = reader.GetString(1),
+                        CodigoIso = reader.IsDBNull(2) ? null : reader.GetString(2),
+                        BanderaImagen = reader.IsDBNull(3) ? null : (byte[])reader[3]
+                    };
+
+                    PaisesDisponibles.Add(pais);
+                }
+
+                OnPropertyChanged(nameof(HayPaises));
+                OnPropertyChanged(nameof(NoHayPaises));
+
+                if (!PaisesDisponibles.Any())
+                    MostrarMensaje("No hay paises con packs disponibles", true);
+            }
+            catch (Exception ex)
+            {
+                MostrarMensaje($"Error al cargar paises: {ex.Message}", true);
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
+        }
+
+        [RelayCommand]
+        private async Task SeleccionarPaisAsync(PaisDesignadoFront? pais)
+        {
+            if (pais == null) return;
+
+            PaisSeleccionado = pais;
+            OnPropertyChanged(nameof(PaisSeleccionadoNombre));
+
+            await CargarPacksPorPaisAsync(pais.IdPais);
+
+            OcultarTodasLasVistas();
+            VistaPrincipal = true;
+        }
+
+        [RelayCommand]
+        private void VolverASeleccionPais()
+        {
+            PaisSeleccionado = null;
+            PacksDisponibles.Clear();
+            OnPropertyChanged(nameof(PaisSeleccionadoNombre));
+
+            OcultarTodasLasVistas();
+            VistaSeleccionPais = true;
+        }
+
+        // ============================================
         // METODOS - CARGA DE PACKS
         // ============================================
+
+        private async Task CargarPacksPorPaisAsync(int idPais)
+        {
+            EstaCargando = true;
+            PacksDisponibles.Clear();
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var query = @"
+                    SELECT DISTINCT pa.id_pack, pa.nombre_pack, pa.descripcion, 
+                           pa.imagen_poster, pa.imagen_poster_nombre,
+                           COALESCE(pap.precio, pap_global.precio, 0) as precio,
+                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa
+                    FROM packs_alimentos pa
+                    LEFT JOIN pack_alimentos_asignacion_comercios paac 
+                        ON pa.id_pack = paac.id_pack AND paac.id_comercio = @idComercio AND paac.activo = true
+                    LEFT JOIN pack_alimentos_precios pap 
+                        ON paac.id_precio = pap.id_precio
+                    LEFT JOIN pack_alimentos_asignacion_global paag 
+                        ON pa.id_pack = paag.id_pack AND paag.activo = true
+                    LEFT JOIN pack_alimentos_precios pap_global 
+                        ON paag.id_precio = pap_global.id_precio
+                    WHERE pa.activo = true
+                      AND pa.id_pais = @idPais
+                      AND (paac.id_asignacion IS NOT NULL OR paag.id_asignacion IS NOT NULL)
+                    ORDER BY pa.nombre_pack";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@idComercio", _idComercio > 0 ? _idComercio : 1);
+                cmd.Parameters.AddWithValue("@idPais", idPais);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    var pack = new PackAlimentoFront
+                    {
+                        IdPack = reader.GetInt32(0),
+                        NombrePack = reader.GetString(1),
+                        Descripcion = reader.IsDBNull(2) ? null : reader.GetString(2),
+                        ImagenPoster = reader.IsDBNull(3) ? null : (byte[])reader[3],
+                        ImagenPosterNombre = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        Precio = reader.GetDecimal(5),
+                        Divisa = reader.GetString(6)
+                    };
+
+                    PacksDisponibles.Add(pack);
+                }
+
+                OnPropertyChanged(nameof(HayPacks));
+                OnPropertyChanged(nameof(NoHayPacks));
+
+                if (!PacksDisponibles.Any())
+                    MostrarMensaje("No hay packs disponibles para este pais", true);
+            }
+            catch (Exception ex)
+            {
+                MostrarMensaje($"Error al cargar packs: {ex.Message}", true);
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
+        }
 
         private async Task CargarPacksDisponiblesAsync()
         {
@@ -520,6 +690,7 @@ namespace Allva.Desktop.ViewModels
 
         private void OcultarTodasLasVistas()
         {
+            VistaSeleccionPais = false;
             VistaPrincipal = false;
             VistaBuscarCliente = false;
             VistaNuevoCliente = false;
@@ -593,6 +764,13 @@ namespace Allva.Desktop.ViewModels
             EsEdicionBeneficiario = false;
             BeneficiarioEditando = null;
             LimpiarFormularioBeneficiario();
+            
+            // Pre-llenar el pais con el pais seleccionado
+            if (PaisSeleccionado != null)
+            {
+                BeneficiarioPais = PaisSeleccionado.NombrePais;
+            }
+            
             OcultarTodasLasVistas();
             VistaNuevoBeneficiario = true;
             OnPropertyChanged(nameof(TituloFormularioBeneficiario));
@@ -1485,8 +1663,34 @@ namespace Allva.Desktop.ViewModels
                     await transaction.CommitAsync();
 
                     MostrarMensaje($"Compra finalizada correctamente. Operacion: {NumeroOperacion}", false);
-                    await Task.Delay(2500);
-                    NuevaOperacion();
+                    
+                    // Esperar un momento y luego ir a la pantalla de selección de países
+                    await Task.Delay(2000);
+                    
+                    // Limpiar datos y volver a selección de países
+                    ClienteSeleccionado = null;
+                    BeneficiarioSeleccionado = null;
+                    BeneficiarioEditando = null;
+                    PackSeleccionado = null;
+                    PaisSeleccionado = null;
+                    NumeroOperacion = string.Empty;
+                    TotalCompra = 0;
+                    BeneficiariosCliente.Clear();
+                    PacksDisponibles.Clear();
+                    
+                    LimpiarFormularioBeneficiario();
+                    LimpiarFormularioCliente();
+                    BusquedaCliente = string.Empty;
+                    
+                    ActualizarPropiedadesCliente();
+                    ActualizarPropiedadesBeneficiario();
+                    OnPropertyChanged(nameof(PaisSeleccionadoNombre));
+                    
+                    OcultarTodasLasVistas();
+                    VistaSeleccionPais = true;
+                    
+                    // Recargar países
+                    await CargarPaisesDisponiblesAsync();
                 }
                 catch
                 {
@@ -1632,9 +1836,11 @@ namespace Allva.Desktop.ViewModels
             BeneficiarioSeleccionado = null;
             BeneficiarioEditando = null;
             PackSeleccionado = null;
+            PaisSeleccionado = null;
             NumeroOperacion = string.Empty;
             TotalCompra = 0;
             BeneficiariosCliente.Clear();
+            PacksDisponibles.Clear();
             
             LimpiarFormularioBeneficiario();
             LimpiarFormularioCliente();
@@ -1642,9 +1848,13 @@ namespace Allva.Desktop.ViewModels
             
             ActualizarPropiedadesCliente();
             ActualizarPropiedadesBeneficiario();
+            OnPropertyChanged(nameof(PaisSeleccionadoNombre));
             
             OcultarTodasLasVistas();
-            VistaPrincipal = true;
+            VistaSeleccionPais = true;
+            
+            // Recargar paises
+            _ = CargarPaisesDisponiblesAsync();
             
             MostrarMensaje("Listo para nueva operacion", false);
         }
@@ -1670,6 +1880,19 @@ namespace Allva.Desktop.ViewModels
     // ============================================
     // MODELOS AUXILIARES
     // ============================================
+
+    public class PaisDesignadoFront
+    {
+        public int IdPais { get; set; }
+        public string NombrePais { get; set; } = string.Empty;
+        public string? CodigoIso { get; set; }
+        public byte[]? BanderaImagen { get; set; }
+
+        public bool TieneBandera => BanderaImagen != null && BanderaImagen.Length > 0;
+        public string NombreConCodigo => !string.IsNullOrEmpty(CodigoIso) 
+            ? $"{NombrePais} ({CodigoIso})" 
+            : NombrePais;
+    }
 
     public class PackAlimentoFront
     {
