@@ -16,7 +16,8 @@ namespace Allva.Desktop.ViewModels
 {
     /// <summary>
     /// ViewModel para el modulo de Pack de Alimentos en el Front-Office
-    /// Flujo: Buscar Cliente -> Seleccionar Pack -> Datos Beneficiario -> Confirmacion -> Guardar
+    /// Flujo: Buscar/Crear Cliente -> Seleccionar/Crear Beneficiario -> Seleccionar Pack -> Confirmacion -> Guardar
+    /// IMPORTANTE: Los datos se guardan con hora Espana (Europe/Madrid) y NO se comparten entre comercios
     /// </summary>
     public partial class FoodPacksViewModel : ObservableObject
     {
@@ -56,6 +57,9 @@ namespace Allva.Desktop.ViewModels
         [ObservableProperty]
         private string? _imagenAmpliadaNombre;
 
+        [ObservableProperty]
+        private bool _vistaEditarCliente = false;
+
         // ============================================
         // PROPIEDADES OBSERVABLES - CLIENTE
         // ============================================
@@ -84,11 +88,33 @@ namespace Allva.Desktop.ViewModels
         private ObservableCollection<ClienteModel> _clientesFiltrados = new();
 
         // ============================================
-        // PROPIEDADES OBSERVABLES - BENEFICIARIO
+        // PROPIEDADES OBSERVABLES - BENEFICIARIOS
         // ============================================
 
         [ObservableProperty]
-        private string _beneficiarioNombreCompleto = string.Empty;
+        private ObservableCollection<BeneficiarioModel> _beneficiariosCliente = new();
+
+        [ObservableProperty]
+        private BeneficiarioModel? _beneficiarioSeleccionado;
+
+        [ObservableProperty]
+        private BeneficiarioModel? _beneficiarioEditando;
+
+        [ObservableProperty]
+        private bool _esEdicionBeneficiario = false;
+
+        // Campos para nuevo/editar beneficiario
+        [ObservableProperty]
+        private string _beneficiarioNombre = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioSegundoNombre = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioApellido = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioSegundoApellido = string.Empty;
 
         [ObservableProperty]
         private string _beneficiarioTipoDocumento = "DNI";
@@ -97,16 +123,28 @@ namespace Allva.Desktop.ViewModels
         private string _beneficiarioNumeroDocumento = string.Empty;
 
         [ObservableProperty]
-        private string _beneficiarioDireccion = string.Empty;
-
-        [ObservableProperty]
-        private string _beneficiarioPaisDestino = string.Empty;
-
-        [ObservableProperty]
-        private string _beneficiarioCiudadDestino = string.Empty;
-
-        [ObservableProperty]
         private string _beneficiarioTelefono = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioPais = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioCiudad = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioCalle = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioNumero = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioPiso = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioNumeroDepartamento = string.Empty;
+
+        [ObservableProperty]
+        private string _beneficiarioCodigoPostal = string.Empty;
 
         public ObservableCollection<string> TiposDocumentoBeneficiario { get; } = new() 
         { 
@@ -134,38 +172,29 @@ namespace Allva.Desktop.ViewModels
         private bool _vistaNuevoCliente = false;
 
         [ObservableProperty]
-        private bool _vistaSeleccionPack = false;
+        private bool _vistaSeleccionBeneficiario = false;
 
         [ObservableProperty]
-        private bool _vistaDatosBeneficiario = false;
+        private bool _vistaNuevoBeneficiario = false;
+
+        [ObservableProperty]
+        private bool _vistaSeleccionPack = false;
 
         [ObservableProperty]
         private bool _vistaConfirmacionCompra = false;
 
         // ============================================
-        // CAMPOS NUEVO CLIENTE
+        // CAMPOS NUEVO/EDITAR CLIENTE
         // ============================================
 
         [ObservableProperty]
         private string _nuevoNombre = string.Empty;
 
         [ObservableProperty]
-        private string _nuevoSegundoNombre = string.Empty;
-
-        [ObservableProperty]
         private string _nuevoApellido = string.Empty;
 
         [ObservableProperty]
-        private string _nuevoSegundoApellido = string.Empty;
-
-        [ObservableProperty]
         private string _nuevoTelefono = string.Empty;
-
-        [ObservableProperty]
-        private string _nuevaDireccion = string.Empty;
-
-        [ObservableProperty]
-        private string _nuevaNacionalidad = string.Empty;
 
         [ObservableProperty]
         private string _nuevoTipoDocumento = "DNI";
@@ -173,7 +202,22 @@ namespace Allva.Desktop.ViewModels
         [ObservableProperty]
         private string _nuevoNumeroDocumento = string.Empty;
 
-        public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte" };
+        [ObservableProperty]
+        private bool _esEdicionCliente = false;
+
+        [ObservableProperty]
+        private string _nuevoSegundoNombre = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevoSegundoApellido = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevaNacionalidad = string.Empty;
+
+        [ObservableProperty]
+        private string _nuevaDireccion = string.Empty;
+
+        public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte", "Cedula" };
 
         // ============================================
         // ESTADO DE OPERACION
@@ -217,6 +261,20 @@ namespace Allva.Desktop.ViewModels
         public string ClienteSeleccionadoDocumento => ClienteSeleccionado != null 
             ? $"{ClienteSeleccionado.TipoDocumento}: {ClienteSeleccionado.NumeroDocumento}" 
             : "";
+        public string ClienteSeleccionadoTelefono => ClienteSeleccionado?.Telefono ?? "";
+
+        public bool TieneBeneficiarioSeleccionado => BeneficiarioSeleccionado != null;
+        public string BeneficiarioSeleccionadoNombre => BeneficiarioSeleccionado?.NombreCompleto ?? "Ninguno";
+        public string BeneficiarioSeleccionadoDocumento => BeneficiarioSeleccionado != null 
+            ? $"{BeneficiarioSeleccionado.TipoDocumento}: {BeneficiarioSeleccionado.NumeroDocumento}" 
+            : "";
+        public string BeneficiarioSeleccionadoDireccion => BeneficiarioSeleccionado?.DireccionCompleta ?? "";
+        public string BeneficiarioSeleccionadoTelefono => BeneficiarioSeleccionado?.Telefono ?? "";
+        public string BeneficiarioSeleccionadoPais => BeneficiarioSeleccionado?.Pais ?? "";
+        public string BeneficiarioSeleccionadoCiudad => BeneficiarioSeleccionado?.Ciudad ?? "";
+
+        public bool HayBeneficiarios => BeneficiariosCliente.Count > 0;
+        public bool NoHayBeneficiarios => BeneficiariosCliente.Count == 0;
 
         public string TotalCompraFormateado => $"{TotalCompra:N2} {DivisaCompra}";
 
@@ -224,9 +282,12 @@ namespace Allva.Desktop.ViewModels
             ? $"{PackSeleccionado.NombrePack} - {PackSeleccionado.PrecioFormateado}"
             : "";
 
-        public string ResumenBeneficiario => !string.IsNullOrEmpty(BeneficiarioNombreCompleto)
-            ? $"{BeneficiarioNombreCompleto} ({BeneficiarioPaisDestino})"
+        public string ResumenBeneficiario => BeneficiarioSeleccionado != null
+            ? $"{BeneficiarioSeleccionado.NombreCompleto} ({BeneficiarioSeleccionado.Pais})"
             : "";
+
+        public string TituloFormularioCliente => EsEdicionCliente ? "Editar Cliente" : "Nuevo Cliente";
+        public string TituloFormularioBeneficiario => EsEdicionBeneficiario ? "Editar Beneficiario" : "Nuevo Beneficiario";
 
         // ============================================
         // CONSTRUCTORES
@@ -382,6 +443,78 @@ namespace Allva.Desktop.ViewModels
         }
 
         // ============================================
+        // METODOS - CARGA DE BENEFICIARIOS
+        // ============================================
+
+        private async Task CargarBeneficiariosClienteAsync()
+        {
+            if (ClienteSeleccionado == null) return;
+
+            BeneficiariosCliente.Clear();
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                // Solo cargar beneficiarios del cliente Y del comercio actual
+                var query = @"
+                    SELECT id_beneficiario, id_cliente, id_comercio, id_local_registro,
+                           nombre, segundo_nombre, apellido, segundo_apellido,
+                           tipo_documento, numero_documento, telefono,
+                           pais, ciudad, calle, numero, piso, numero_departamento, codigo_postal,
+                           activo, fecha_creacion
+                    FROM clientes_beneficiarios
+                    WHERE id_cliente = @idCliente 
+                      AND id_comercio = @idComercio
+                      AND activo = true
+                    ORDER BY nombre, apellido";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@idCliente", ClienteSeleccionado.IdCliente);
+                cmd.Parameters.AddWithValue("@idComercio", _idComercio);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    var beneficiario = new BeneficiarioModel
+                    {
+                        IdBeneficiario = reader.GetInt32(0),
+                        IdCliente = reader.GetInt32(1),
+                        IdComercio = reader.GetInt32(2),
+                        IdLocalRegistro = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                        Nombre = reader.GetString(4),
+                        SegundoNombre = reader.IsDBNull(5) ? "" : reader.GetString(5),
+                        Apellido = reader.GetString(6),
+                        SegundoApellido = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                        TipoDocumento = reader.GetString(8),
+                        NumeroDocumento = reader.GetString(9),
+                        Telefono = reader.GetString(10),
+                        Pais = reader.GetString(11),
+                        Ciudad = reader.GetString(12),
+                        Calle = reader.GetString(13),
+                        Numero = reader.GetString(14),
+                        Piso = reader.IsDBNull(15) ? "" : reader.GetString(15),
+                        NumeroDepartamento = reader.IsDBNull(16) ? "" : reader.GetString(16),
+                        CodigoPostal = reader.IsDBNull(17) ? "" : reader.GetString(17),
+                        Activo = reader.GetBoolean(18),
+                        FechaCreacion = reader.GetDateTime(19)
+                    };
+
+                    BeneficiariosCliente.Add(beneficiario);
+                }
+
+                OnPropertyChanged(nameof(HayBeneficiarios));
+                OnPropertyChanged(nameof(NoHayBeneficiarios));
+            }
+            catch (Exception ex)
+            {
+                MostrarMensaje($"Error al cargar beneficiarios: {ex.Message}", true);
+            }
+        }
+
+        // ============================================
         // COMANDOS - NAVEGACION
         // ============================================
 
@@ -390,8 +523,10 @@ namespace Allva.Desktop.ViewModels
             VistaPrincipal = false;
             VistaBuscarCliente = false;
             VistaNuevoCliente = false;
+            VistaEditarCliente = false;
+            VistaSeleccionBeneficiario = false;
+            VistaNuevoBeneficiario = false;
             VistaSeleccionPack = false;
-            VistaDatosBeneficiario = false;
             VistaConfirmacionCompra = false;
         }
 
@@ -406,9 +541,90 @@ namespace Allva.Desktop.ViewModels
         [RelayCommand]
         private void IrANuevoCliente()
         {
+            EsEdicionCliente = false;
+            LimpiarFormularioCliente();
             OcultarTodasLasVistas();
             VistaNuevoCliente = true;
-            LimpiarFormularioCliente();
+            OnPropertyChanged(nameof(TituloFormularioCliente));
+        }
+
+        [RelayCommand]
+        private void IrAEditarCliente()
+        {
+            if (ClienteSeleccionado == null) return;
+
+            EsEdicionCliente = true;
+            NuevoNombre = ClienteSeleccionado.Nombre;
+            NuevoApellido = ClienteSeleccionado.Apellido;
+            NuevoTelefono = ClienteSeleccionado.Telefono;
+            NuevoTipoDocumento = ClienteSeleccionado.TipoDocumento;
+            NuevoNumeroDocumento = ClienteSeleccionado.NumeroDocumento;
+
+            OcultarTodasLasVistas();
+            VistaEditarCliente = true;
+            OnPropertyChanged(nameof(TituloFormularioCliente));
+        }
+
+        [RelayCommand]
+        private async Task IrASeleccionBeneficiarioAsync()
+        {
+            if (ClienteSeleccionado == null)
+            {
+                MostrarMensaje("Debe seleccionar un cliente primero", true);
+                return;
+            }
+
+            await CargarBeneficiariosClienteAsync();
+
+            // Si no tiene beneficiarios, ir directo a crear uno
+            if (!HayBeneficiarios)
+            {
+                IrANuevoBeneficiario();
+                return;
+            }
+
+            OcultarTodasLasVistas();
+            VistaSeleccionBeneficiario = true;
+        }
+
+        [RelayCommand]
+        private void IrANuevoBeneficiario()
+        {
+            EsEdicionBeneficiario = false;
+            BeneficiarioEditando = null;
+            LimpiarFormularioBeneficiario();
+            OcultarTodasLasVistas();
+            VistaNuevoBeneficiario = true;
+            OnPropertyChanged(nameof(TituloFormularioBeneficiario));
+        }
+
+        [RelayCommand]
+        private void IrAEditarBeneficiario(BeneficiarioModel? beneficiario)
+        {
+            if (beneficiario == null) return;
+
+            EsEdicionBeneficiario = true;
+            BeneficiarioEditando = beneficiario;
+
+            // Cargar datos en el formulario
+            BeneficiarioNombre = beneficiario.Nombre;
+            BeneficiarioSegundoNombre = beneficiario.SegundoNombre;
+            BeneficiarioApellido = beneficiario.Apellido;
+            BeneficiarioSegundoApellido = beneficiario.SegundoApellido;
+            BeneficiarioTipoDocumento = beneficiario.TipoDocumento;
+            BeneficiarioNumeroDocumento = beneficiario.NumeroDocumento;
+            BeneficiarioTelefono = beneficiario.Telefono;
+            BeneficiarioPais = beneficiario.Pais;
+            BeneficiarioCiudad = beneficiario.Ciudad;
+            BeneficiarioCalle = beneficiario.Calle;
+            BeneficiarioNumero = beneficiario.Numero;
+            BeneficiarioPiso = beneficiario.Piso;
+            BeneficiarioNumeroDepartamento = beneficiario.NumeroDepartamento;
+            BeneficiarioCodigoPostal = beneficiario.CodigoPostal;
+
+            OcultarTodasLasVistas();
+            VistaNuevoBeneficiario = true;
+            OnPropertyChanged(nameof(TituloFormularioBeneficiario));
         }
 
         [RelayCommand]
@@ -420,12 +636,18 @@ namespace Allva.Desktop.ViewModels
                 return;
             }
 
+            if (BeneficiarioSeleccionado == null)
+            {
+                MostrarMensaje("Debe seleccionar un beneficiario", true);
+                return;
+            }
+
             OcultarTodasLasVistas();
             VistaSeleccionPack = true;
         }
 
         [RelayCommand]
-        private void IrADatosBeneficiario()
+        private void IrAConfirmacion()
         {
             if (PackSeleccionado == null)
             {
@@ -435,21 +657,10 @@ namespace Allva.Desktop.ViewModels
 
             TotalCompra = PackSeleccionado.Precio;
             DivisaCompra = PackSeleccionado.Divisa;
+
             OnPropertyChanged(nameof(TotalCompraFormateado));
-
-            OcultarTodasLasVistas();
-            VistaDatosBeneficiario = true;
-        }
-
-        [RelayCommand]
-        private void IrAConfirmacion()
-        {
-            if (!ValidarDatosBeneficiario())
-                return;
-
             OnPropertyChanged(nameof(ResumenPack));
             OnPropertyChanged(nameof(ResumenBeneficiario));
-            OnPropertyChanged(nameof(TotalCompraFormateado));
 
             OcultarTodasLasVistas();
             VistaConfirmacionCompra = true;
@@ -457,14 +668,6 @@ namespace Allva.Desktop.ViewModels
 
         [RelayCommand]
         private void VolverAVistaPrincipal()
-        {
-            OcultarTodasLasVistas();
-            VistaPrincipal = true;
-        }
-
-        // Alias para vistas separadas
-        [RelayCommand]
-        private void VolverAPrincipal()
         {
             OcultarTodasLasVistas();
             VistaPrincipal = true;
@@ -478,9 +681,24 @@ namespace Allva.Desktop.ViewModels
         }
 
         [RelayCommand]
-        private async Task BuscarClientesManualAsync()
+        private void VolverASeleccionBeneficiario()
         {
-            await BuscarClientesAsync();
+            OcultarTodasLasVistas();
+            VistaSeleccionBeneficiario = true;
+        }
+
+        [RelayCommand]
+        private void VolverASeleccionPack()
+        {
+            OcultarTodasLasVistas();
+            VistaSeleccionPack = true;
+        }
+
+        [RelayCommand]
+        private void VolverADatosBeneficiario()
+        {
+            OcultarTodasLasVistas();
+            VistaSeleccionBeneficiario = true;
         }
 
         [RelayCommand]
@@ -495,20 +713,6 @@ namespace Allva.Desktop.ViewModels
         private async Task ConfirmarCompraAsync()
         {
             await FinalizarCompraAsync();
-        }
-
-        [RelayCommand]
-        private void VolverASeleccionPack()
-        {
-            OcultarTodasLasVistas();
-            VistaSeleccionPack = true;
-        }
-
-        [RelayCommand]
-        private void VolverADatosBeneficiario()
-        {
-            OcultarTodasLasVistas();
-            VistaDatosBeneficiario = true;
         }
 
         // ============================================
@@ -541,9 +745,15 @@ namespace Allva.Desktop.ViewModels
                 return;
             }
 
+            if (BeneficiarioSeleccionado == null)
+            {
+                MostrarMensaje("Debe seleccionar un beneficiario antes", true);
+                return;
+            }
+
             PackSeleccionado = pack;
             CerrarDetallePack();
-            IrADatosBeneficiario();
+            IrAConfirmacion();
         }
 
         [RelayCommand]
@@ -637,8 +847,7 @@ namespace Allva.Desktop.ViewModels
                 }
 
                 var query = $@"
-                    SELECT id_cliente, nombre, apellidos, telefono, direccion, nacionalidad,
-                           documento_tipo, documento_numero, segundo_nombre, segundo_apellido
+                    SELECT id_cliente, nombre, apellidos, telefono, documento_tipo, documento_numero
                     FROM clientes
                     {whereClause}
                     ORDER BY nombre, apellidos
@@ -660,12 +869,8 @@ namespace Allva.Desktop.ViewModels
                         Nombre = reader.GetString(1),
                         Apellido = reader.GetString(2),
                         Telefono = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                        Direccion = reader.IsDBNull(4) ? "" : reader.GetString(4),
-                        Nacionalidad = reader.IsDBNull(5) ? "" : reader.GetString(5),
-                        TipoDocumento = reader.IsDBNull(6) ? "DNI" : reader.GetString(6),
-                        NumeroDocumento = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                        SegundoNombre = reader.IsDBNull(8) ? "" : reader.GetString(8),
-                        SegundoApellido = reader.IsDBNull(9) ? "" : reader.GetString(9)
+                        TipoDocumento = reader.IsDBNull(4) ? "DNI" : reader.GetString(4),
+                        NumeroDocumento = reader.IsDBNull(5) ? "" : reader.GetString(5)
                     };
 
                     ClientesEncontrados.Add(cliente);
@@ -694,39 +899,56 @@ namespace Allva.Desktop.ViewModels
             MostrarSugerenciasCliente = false;
             ClientesFiltrados.Clear();
 
-            OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
-            OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
-            OnPropertyChanged(nameof(TieneClienteSeleccionado));
+            ActualizarPropiedadesCliente();
         }
 
         [RelayCommand]
-        private void SeleccionarClienteYContinuar(ClienteModel? cliente)
+        private async Task SeleccionarClienteYContinuarAsync(ClienteModel? cliente)
         {
             if (cliente == null) return;
 
             ClienteSeleccionado = cliente;
-
-            OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
-            OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
-            OnPropertyChanged(nameof(TieneClienteSeleccionado));
+            ActualizarPropiedadesCliente();
 
             MostrarMensaje($"Cliente seleccionado: {cliente.NombreCompleto}", false);
-            IrASeleccionPack();
+            await IrASeleccionBeneficiarioAsync();
         }
 
         [RelayCommand]
         private void LimpiarClienteSeleccionado()
         {
             ClienteSeleccionado = null;
+            BeneficiarioSeleccionado = null;
+            BeneficiariosCliente.Clear();
             BusquedaCliente = string.Empty;
 
+            ActualizarPropiedadesCliente();
+            ActualizarPropiedadesBeneficiario();
+        }
+
+        private void ActualizarPropiedadesCliente()
+        {
             OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
             OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
+            OnPropertyChanged(nameof(ClienteSeleccionadoTelefono));
             OnPropertyChanged(nameof(TieneClienteSeleccionado));
         }
 
+        private void ActualizarPropiedadesBeneficiario()
+        {
+            OnPropertyChanged(nameof(BeneficiarioSeleccionadoNombre));
+            OnPropertyChanged(nameof(BeneficiarioSeleccionadoDocumento));
+            OnPropertyChanged(nameof(BeneficiarioSeleccionadoDireccion));
+            OnPropertyChanged(nameof(BeneficiarioSeleccionadoTelefono));
+            OnPropertyChanged(nameof(BeneficiarioSeleccionadoPais));
+            OnPropertyChanged(nameof(BeneficiarioSeleccionadoCiudad));
+            OnPropertyChanged(nameof(TieneBeneficiarioSeleccionado));
+            OnPropertyChanged(nameof(HayBeneficiarios));
+            OnPropertyChanged(nameof(NoHayBeneficiarios));
+        }
+
         // ============================================
-        // COMANDOS - NUEVO CLIENTE
+        // COMANDOS - CLIENTE (CREAR/EDITAR)
         // ============================================
 
         private void LimpiarFormularioCliente()
@@ -736,19 +958,40 @@ namespace Allva.Desktop.ViewModels
             NuevoApellido = string.Empty;
             NuevoSegundoApellido = string.Empty;
             NuevoTelefono = string.Empty;
-            NuevaDireccion = string.Empty;
-            NuevaNacionalidad = string.Empty;
             NuevoTipoDocumento = "DNI";
             NuevoNumeroDocumento = string.Empty;
+            NuevaNacionalidad = string.Empty;
+            NuevaDireccion = string.Empty;
             ErrorMessage = string.Empty;
         }
 
         [RelayCommand]
-        private async Task GuardarNuevoClienteAsync()
+        private async Task GuardarClienteAsync()
         {
-            if (string.IsNullOrWhiteSpace(NuevoNombre) || string.IsNullOrWhiteSpace(NuevoApellido))
+            // Validaciones
+            if (string.IsNullOrWhiteSpace(NuevoNombre))
             {
-                ErrorMessage = "Nombre y Apellido son obligatorios";
+                ErrorMessage = "El nombre es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(NuevoApellido))
+            {
+                ErrorMessage = "El apellido es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(NuevoTipoDocumento))
+            {
+                ErrorMessage = "El tipo de documento es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(NuevoNumeroDocumento))
+            {
+                ErrorMessage = "El numero de documento es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(NuevoTelefono))
+            {
+                ErrorMessage = "El telefono es obligatorio";
                 return;
             }
 
@@ -760,55 +1003,83 @@ namespace Allva.Desktop.ViewModels
                 await using var conn = new NpgsqlConnection(ConnectionString);
                 await conn.OpenAsync();
 
-                var query = @"
-                    INSERT INTO clientes (nombre, segundo_nombre, apellidos, segundo_apellido,
-                                         telefono, direccion, nacionalidad, documento_tipo, 
-                                         documento_numero, id_comercio_registro, activo)
-                    VALUES (@nombre, @segundo_nombre, @apellidos, @segundo_apellido,
-                            @telefono, @direccion, @nacionalidad, @documento_tipo,
-                            @documento_numero, @id_comercio, true)
-                    RETURNING id_cliente";
-
-                await using var cmd = new NpgsqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@nombre", NuevoNombre.Trim());
-                cmd.Parameters.AddWithValue("@segundo_nombre", string.IsNullOrWhiteSpace(NuevoSegundoNombre) ? DBNull.Value : NuevoSegundoNombre.Trim());
-                cmd.Parameters.AddWithValue("@apellidos", NuevoApellido.Trim());
-                cmd.Parameters.AddWithValue("@segundo_apellido", string.IsNullOrWhiteSpace(NuevoSegundoApellido) ? DBNull.Value : NuevoSegundoApellido.Trim());
-                cmd.Parameters.AddWithValue("@telefono", NuevoTelefono?.Trim() ?? "");
-                cmd.Parameters.AddWithValue("@direccion", NuevaDireccion?.Trim() ?? "");
-                cmd.Parameters.AddWithValue("@nacionalidad", NuevaNacionalidad?.Trim() ?? "");
-                cmd.Parameters.AddWithValue("@documento_tipo", NuevoTipoDocumento);
-                cmd.Parameters.AddWithValue("@documento_numero", NuevoNumeroDocumento?.Trim() ?? "");
-                cmd.Parameters.AddWithValue("@id_comercio", _idComercio > 0 ? _idComercio : DBNull.Value);
-
-                var idCliente = (int)(await cmd.ExecuteScalarAsync() ?? 0);
-
-                if (idCliente > 0)
+                if (EsEdicionCliente && ClienteSeleccionado != null)
                 {
-                    var nuevoCliente = new ClienteModel
-                    {
-                        IdCliente = idCliente,
-                        Nombre = NuevoNombre.Trim(),
-                        SegundoNombre = NuevoSegundoNombre?.Trim() ?? "",
-                        Apellido = NuevoApellido.Trim(),
-                        SegundoApellido = NuevoSegundoApellido?.Trim() ?? "",
-                        Telefono = NuevoTelefono?.Trim() ?? "",
-                        Direccion = NuevaDireccion?.Trim() ?? "",
-                        Nacionalidad = NuevaNacionalidad?.Trim() ?? "",
-                        TipoDocumento = NuevoTipoDocumento,
-                        NumeroDocumento = NuevoNumeroDocumento?.Trim() ?? ""
-                    };
+                    // Actualizar cliente existente
+                    var queryUpdate = @"
+                        UPDATE clientes SET
+                            nombre = @nombre,
+                            apellidos = @apellidos,
+                            telefono = @telefono,
+                            documento_tipo = @documento_tipo,
+                            documento_numero = @documento_numero
+                        WHERE id_cliente = @id_cliente AND id_comercio_registro = @id_comercio";
 
-                    ClienteSeleccionado = nuevoCliente;
+                    await using var cmdUpdate = new NpgsqlCommand(queryUpdate, conn);
+                    cmdUpdate.Parameters.AddWithValue("@nombre", NuevoNombre.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@apellidos", NuevoApellido.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@telefono", NuevoTelefono.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@documento_tipo", NuevoTipoDocumento);
+                    cmdUpdate.Parameters.AddWithValue("@documento_numero", NuevoNumeroDocumento.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@id_cliente", ClienteSeleccionado.IdCliente);
+                    cmdUpdate.Parameters.AddWithValue("@id_comercio", _idComercio);
 
-                    OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
-                    OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
-                    OnPropertyChanged(nameof(TieneClienteSeleccionado));
+                    await cmdUpdate.ExecuteNonQueryAsync();
 
-                    MostrarMensaje("Cliente registrado correctamente", false);
-                    LimpiarFormularioCliente();
-                    IrASeleccionPack();
+                    // Actualizar modelo local
+                    ClienteSeleccionado.Nombre = NuevoNombre.Trim();
+                    ClienteSeleccionado.Apellido = NuevoApellido.Trim();
+                    ClienteSeleccionado.Telefono = NuevoTelefono.Trim();
+                    ClienteSeleccionado.TipoDocumento = NuevoTipoDocumento;
+                    ClienteSeleccionado.NumeroDocumento = NuevoNumeroDocumento.Trim();
+
+                    MostrarMensaje("Cliente actualizado correctamente", false);
                 }
+                else
+                {
+                    // Crear nuevo cliente (hora Espana)
+                    var queryInsert = @"
+                        INSERT INTO clientes (nombre, apellidos, telefono, documento_tipo, 
+                                             documento_numero, id_comercio_registro, id_local_registro,
+                                             id_usuario_registro, activo, fecha_registro)
+                        VALUES (@nombre, @apellidos, @telefono, @documento_tipo,
+                                @documento_numero, @id_comercio, @id_local, @id_usuario, true,
+                                CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid')
+                        RETURNING id_cliente";
+
+                    await using var cmdInsert = new NpgsqlCommand(queryInsert, conn);
+                    cmdInsert.Parameters.AddWithValue("@nombre", NuevoNombre.Trim());
+                    cmdInsert.Parameters.AddWithValue("@apellidos", NuevoApellido.Trim());
+                    cmdInsert.Parameters.AddWithValue("@telefono", NuevoTelefono.Trim());
+                    cmdInsert.Parameters.AddWithValue("@documento_tipo", NuevoTipoDocumento);
+                    cmdInsert.Parameters.AddWithValue("@documento_numero", NuevoNumeroDocumento.Trim());
+                    cmdInsert.Parameters.AddWithValue("@id_comercio", _idComercio);
+                    cmdInsert.Parameters.AddWithValue("@id_local", _idLocal);
+                    cmdInsert.Parameters.AddWithValue("@id_usuario", _idUsuario);
+
+                    var idCliente = (int)(await cmdInsert.ExecuteScalarAsync() ?? 0);
+
+                    if (idCliente > 0)
+                    {
+                        ClienteSeleccionado = new ClienteModel
+                        {
+                            IdCliente = idCliente,
+                            Nombre = NuevoNombre.Trim(),
+                            Apellido = NuevoApellido.Trim(),
+                            Telefono = NuevoTelefono.Trim(),
+                            TipoDocumento = NuevoTipoDocumento,
+                            NumeroDocumento = NuevoNumeroDocumento.Trim()
+                        };
+
+                        MostrarMensaje("Cliente creado correctamente", false);
+                    }
+                }
+
+                ActualizarPropiedadesCliente();
+                LimpiarFormularioCliente();
+
+                // Ir a seleccionar/crear beneficiario
+                await IrASeleccionBeneficiarioAsync();
             }
             catch (Exception ex)
             {
@@ -821,47 +1092,295 @@ namespace Allva.Desktop.ViewModels
         }
 
         // ============================================
-        // VALIDACION - BENEFICIARIO
+        // COMANDOS - BENEFICIARIO
         // ============================================
 
-        private bool ValidarDatosBeneficiario()
+        private void LimpiarFormularioBeneficiario()
         {
-            if (string.IsNullOrWhiteSpace(BeneficiarioNombreCompleto))
-            {
-                MostrarMensaje("El nombre del beneficiario es obligatorio", true);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(BeneficiarioNumeroDocumento))
-            {
-                MostrarMensaje("El documento del beneficiario es obligatorio", true);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(BeneficiarioDireccion))
-            {
-                MostrarMensaje("La direccion del beneficiario es obligatoria", true);
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(BeneficiarioPaisDestino))
-            {
-                MostrarMensaje("El pais de destino es obligatorio", true);
-                return false;
-            }
-
-            return true;
-        }
-
-        private void LimpiarDatosBeneficiario()
-        {
-            BeneficiarioNombreCompleto = string.Empty;
+            BeneficiarioNombre = string.Empty;
+            BeneficiarioSegundoNombre = string.Empty;
+            BeneficiarioApellido = string.Empty;
+            BeneficiarioSegundoApellido = string.Empty;
             BeneficiarioTipoDocumento = "DNI";
             BeneficiarioNumeroDocumento = string.Empty;
-            BeneficiarioDireccion = string.Empty;
-            BeneficiarioPaisDestino = string.Empty;
-            BeneficiarioCiudadDestino = string.Empty;
             BeneficiarioTelefono = string.Empty;
+            BeneficiarioPais = string.Empty;
+            BeneficiarioCiudad = string.Empty;
+            BeneficiarioCalle = string.Empty;
+            BeneficiarioNumero = string.Empty;
+            BeneficiarioPiso = string.Empty;
+            BeneficiarioNumeroDepartamento = string.Empty;
+            BeneficiarioCodigoPostal = string.Empty;
+            ErrorMessage = string.Empty;
+        }
+
+        [RelayCommand]
+        private void SeleccionarBeneficiario(BeneficiarioModel? beneficiario)
+        {
+            if (beneficiario == null) return;
+
+            BeneficiarioSeleccionado = beneficiario;
+            ActualizarPropiedadesBeneficiario();
+
+            MostrarMensaje($"Beneficiario: {beneficiario.NombreCompleto}", false);
+            IrASeleccionPack();
+        }
+
+        [RelayCommand]
+        private async Task GuardarBeneficiarioAsync()
+        {
+            // Validaciones
+            if (string.IsNullOrWhiteSpace(BeneficiarioNombre))
+            {
+                ErrorMessage = "El nombre es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioApellido))
+            {
+                ErrorMessage = "El apellido es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioTipoDocumento))
+            {
+                ErrorMessage = "El tipo de documento es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioNumeroDocumento))
+            {
+                ErrorMessage = "El numero de documento es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioTelefono))
+            {
+                ErrorMessage = "El telefono es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioPais))
+            {
+                ErrorMessage = "El pais es obligatorio";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioCiudad))
+            {
+                ErrorMessage = "La ciudad es obligatoria";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioCalle))
+            {
+                ErrorMessage = "La calle es obligatoria";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(BeneficiarioNumero))
+            {
+                ErrorMessage = "El numero es obligatorio";
+                return;
+            }
+
+            if (ClienteSeleccionado == null)
+            {
+                ErrorMessage = "Debe seleccionar un cliente primero";
+                return;
+            }
+
+            EstaCargando = true;
+            ErrorMessage = string.Empty;
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                if (EsEdicionBeneficiario && BeneficiarioEditando != null)
+                {
+                    // Actualizar beneficiario existente
+                    var queryUpdate = @"
+                        UPDATE clientes_beneficiarios SET
+                            nombre = @nombre,
+                            segundo_nombre = @segundo_nombre,
+                            apellido = @apellido,
+                            segundo_apellido = @segundo_apellido,
+                            tipo_documento = @tipo_documento,
+                            numero_documento = @numero_documento,
+                            telefono = @telefono,
+                            pais = @pais,
+                            ciudad = @ciudad,
+                            calle = @calle,
+                            numero = @numero,
+                            piso = @piso,
+                            numero_departamento = @numero_departamento,
+                            codigo_postal = @codigo_postal,
+                            fecha_modificacion = CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid'
+                        WHERE id_beneficiario = @id_beneficiario AND id_comercio = @id_comercio";
+
+                    await using var cmdUpdate = new NpgsqlCommand(queryUpdate, conn);
+                    cmdUpdate.Parameters.AddWithValue("@nombre", BeneficiarioNombre.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@segundo_nombre", BeneficiarioSegundoNombre?.Trim() ?? "");
+                    cmdUpdate.Parameters.AddWithValue("@apellido", BeneficiarioApellido.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@segundo_apellido", BeneficiarioSegundoApellido?.Trim() ?? "");
+                    cmdUpdate.Parameters.AddWithValue("@tipo_documento", BeneficiarioTipoDocumento);
+                    cmdUpdate.Parameters.AddWithValue("@numero_documento", BeneficiarioNumeroDocumento.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@telefono", BeneficiarioTelefono.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@pais", BeneficiarioPais);
+                    cmdUpdate.Parameters.AddWithValue("@ciudad", BeneficiarioCiudad.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@calle", BeneficiarioCalle.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@numero", BeneficiarioNumero.Trim());
+                    cmdUpdate.Parameters.AddWithValue("@piso", BeneficiarioPiso?.Trim() ?? "");
+                    cmdUpdate.Parameters.AddWithValue("@numero_departamento", BeneficiarioNumeroDepartamento?.Trim() ?? "");
+                    cmdUpdate.Parameters.AddWithValue("@codigo_postal", BeneficiarioCodigoPostal?.Trim() ?? "");
+                    cmdUpdate.Parameters.AddWithValue("@id_beneficiario", BeneficiarioEditando.IdBeneficiario);
+                    cmdUpdate.Parameters.AddWithValue("@id_comercio", _idComercio);
+
+                    await cmdUpdate.ExecuteNonQueryAsync();
+
+                    // Actualizar modelo local
+                    BeneficiarioEditando.Nombre = BeneficiarioNombre.Trim();
+                    BeneficiarioEditando.SegundoNombre = BeneficiarioSegundoNombre?.Trim() ?? "";
+                    BeneficiarioEditando.Apellido = BeneficiarioApellido.Trim();
+                    BeneficiarioEditando.SegundoApellido = BeneficiarioSegundoApellido?.Trim() ?? "";
+                    BeneficiarioEditando.TipoDocumento = BeneficiarioTipoDocumento;
+                    BeneficiarioEditando.NumeroDocumento = BeneficiarioNumeroDocumento.Trim();
+                    BeneficiarioEditando.Telefono = BeneficiarioTelefono.Trim();
+                    BeneficiarioEditando.Pais = BeneficiarioPais;
+                    BeneficiarioEditando.Ciudad = BeneficiarioCiudad.Trim();
+                    BeneficiarioEditando.Calle = BeneficiarioCalle.Trim();
+                    BeneficiarioEditando.Numero = BeneficiarioNumero.Trim();
+                    BeneficiarioEditando.Piso = BeneficiarioPiso?.Trim() ?? "";
+                    BeneficiarioEditando.NumeroDepartamento = BeneficiarioNumeroDepartamento?.Trim() ?? "";
+                    BeneficiarioEditando.CodigoPostal = BeneficiarioCodigoPostal?.Trim() ?? "";
+
+                    BeneficiarioSeleccionado = BeneficiarioEditando;
+                    MostrarMensaje("Beneficiario actualizado correctamente", false);
+                }
+                else
+                {
+                    // Insertar beneficiario (hora Espana)
+                    var query = @"
+                        INSERT INTO clientes_beneficiarios (
+                            id_cliente, id_comercio, id_local_registro,
+                            nombre, segundo_nombre, apellido, segundo_apellido,
+                            tipo_documento, numero_documento, telefono,
+                            pais, ciudad, calle, numero, piso, numero_departamento, codigo_postal,
+                            activo, fecha_creacion
+                        )
+                        VALUES (
+                            @id_cliente, @id_comercio, @id_local,
+                            @nombre, @segundo_nombre, @apellido, @segundo_apellido,
+                            @tipo_documento, @numero_documento, @telefono,
+                            @pais, @ciudad, @calle, @numero, @piso, @numero_departamento, @codigo_postal,
+                            true, CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid'
+                        )
+                        RETURNING id_beneficiario";
+
+                    await using var cmd = new NpgsqlCommand(query, conn);
+                    cmd.Parameters.AddWithValue("@id_cliente", ClienteSeleccionado.IdCliente);
+                    cmd.Parameters.AddWithValue("@id_comercio", _idComercio);
+                    cmd.Parameters.AddWithValue("@id_local", _idLocal);
+                    cmd.Parameters.AddWithValue("@nombre", BeneficiarioNombre.Trim());
+                    cmd.Parameters.AddWithValue("@segundo_nombre", BeneficiarioSegundoNombre?.Trim() ?? "");
+                    cmd.Parameters.AddWithValue("@apellido", BeneficiarioApellido.Trim());
+                    cmd.Parameters.AddWithValue("@segundo_apellido", BeneficiarioSegundoApellido?.Trim() ?? "");
+                    cmd.Parameters.AddWithValue("@tipo_documento", BeneficiarioTipoDocumento);
+                    cmd.Parameters.AddWithValue("@numero_documento", BeneficiarioNumeroDocumento.Trim());
+                    cmd.Parameters.AddWithValue("@telefono", BeneficiarioTelefono.Trim());
+                    cmd.Parameters.AddWithValue("@pais", BeneficiarioPais);
+                    cmd.Parameters.AddWithValue("@ciudad", BeneficiarioCiudad.Trim());
+                    cmd.Parameters.AddWithValue("@calle", BeneficiarioCalle.Trim());
+                    cmd.Parameters.AddWithValue("@numero", BeneficiarioNumero.Trim());
+                    cmd.Parameters.AddWithValue("@piso", BeneficiarioPiso?.Trim() ?? "");
+                    cmd.Parameters.AddWithValue("@numero_departamento", BeneficiarioNumeroDepartamento?.Trim() ?? "");
+                    cmd.Parameters.AddWithValue("@codigo_postal", BeneficiarioCodigoPostal?.Trim() ?? "");
+
+                    var idBeneficiario = (int)(await cmd.ExecuteScalarAsync() ?? 0);
+
+                    if (idBeneficiario > 0)
+                    {
+                        var nuevoBeneficiario = new BeneficiarioModel
+                        {
+                            IdBeneficiario = idBeneficiario,
+                            IdCliente = ClienteSeleccionado.IdCliente,
+                            IdComercio = _idComercio,
+                            IdLocalRegistro = _idLocal,
+                            Nombre = BeneficiarioNombre.Trim(),
+                            SegundoNombre = BeneficiarioSegundoNombre?.Trim() ?? "",
+                            Apellido = BeneficiarioApellido.Trim(),
+                            SegundoApellido = BeneficiarioSegundoApellido?.Trim() ?? "",
+                            TipoDocumento = BeneficiarioTipoDocumento,
+                            NumeroDocumento = BeneficiarioNumeroDocumento.Trim(),
+                            Telefono = BeneficiarioTelefono.Trim(),
+                            Pais = BeneficiarioPais,
+                            Ciudad = BeneficiarioCiudad.Trim(),
+                            Calle = BeneficiarioCalle.Trim(),
+                            Numero = BeneficiarioNumero.Trim(),
+                            Piso = BeneficiarioPiso?.Trim() ?? "",
+                            NumeroDepartamento = BeneficiarioNumeroDepartamento?.Trim() ?? "",
+                            CodigoPostal = BeneficiarioCodigoPostal?.Trim() ?? ""
+                        };
+
+                        BeneficiariosCliente.Add(nuevoBeneficiario);
+                        BeneficiarioSeleccionado = nuevoBeneficiario;
+
+                        MostrarMensaje("Beneficiario creado correctamente", false);
+                    }
+                }
+
+                ActualizarPropiedadesBeneficiario();
+                LimpiarFormularioBeneficiario();
+
+                // Ir a seleccion de pack
+                IrASeleccionPack();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error al guardar: {ex.Message}";
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
+        }
+
+        [RelayCommand]
+        private async Task EliminarBeneficiarioAsync(BeneficiarioModel? beneficiario)
+        {
+            if (beneficiario == null) return;
+
+            EstaCargando = true;
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                // Soft delete
+                var query = @"
+                    UPDATE clientes_beneficiarios 
+                    SET activo = false, fecha_modificacion = CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid'
+                    WHERE id_beneficiario = @id_beneficiario AND id_comercio = @id_comercio";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@id_beneficiario", beneficiario.IdBeneficiario);
+                cmd.Parameters.AddWithValue("@id_comercio", _idComercio);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                BeneficiariosCliente.Remove(beneficiario);
+
+                if (BeneficiarioSeleccionado?.IdBeneficiario == beneficiario.IdBeneficiario)
+                {
+                    BeneficiarioSeleccionado = null;
+                }
+
+                ActualizarPropiedadesBeneficiario();
+                MostrarMensaje("Beneficiario eliminado", false);
+            }
+            catch (Exception ex)
+            {
+                MostrarMensaje($"Error al eliminar: {ex.Message}", true);
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
         }
 
         // ============================================
@@ -871,14 +1390,11 @@ namespace Allva.Desktop.ViewModels
         [RelayCommand]
         private async Task FinalizarCompraAsync()
         {
-            if (ClienteSeleccionado == null || PackSeleccionado == null)
+            if (ClienteSeleccionado == null || PackSeleccionado == null || BeneficiarioSeleccionado == null)
             {
                 MostrarMensaje("Datos incompletos para la compra", true);
                 return;
             }
-
-            if (!ValidarDatosBeneficiario())
-                return;
 
             // Validar datos de sesion
             if (_idUsuario <= 0 || _idComercio <= 0 || _idLocal <= 0)
@@ -901,7 +1417,7 @@ namespace Allva.Desktop.ViewModels
                     // 1. Generar numero de operacion
                     NumeroOperacion = await GenerarNumeroOperacionAsync(conn, transaction);
 
-                    // 2. Insertar operacion principal
+                    // 2. Insertar operacion principal (hora Espana)
                     var queryOperacion = @"
                         INSERT INTO operaciones (
                             numero_operacion, id_comercio, id_local, codigo_local,
@@ -915,7 +1431,9 @@ namespace Allva.Desktop.ViewModels
                             @id_usuario, @nombre_usuario, @numero_usuario,
                             @id_cliente, @nombre_cliente, 'PACK_ALIMENTOS', 'VENTA',
                             'COMPLETADA', @importe_total, @importe_total, @moneda,
-                            'EFECTIVO', CURRENT_TIMESTAMP, CURRENT_TIME
+                            'EFECTIVO', 
+                            (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid')::DATE,
+                            (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid')::TIME
                         )
                         RETURNING id_operacion";
 
@@ -937,27 +1455,28 @@ namespace Allva.Desktop.ViewModels
                     // 3. Insertar detalle de pack alimentos
                     var queryDetalle = @"
                         INSERT INTO operaciones_pack_alimentos (
-                            id_operacion, nombre_pack, descripcion_pack,
+                            id_operacion, id_beneficiario, nombre_pack, descripcion_pack,
                             pais_destino, ciudad_destino, precio_pack,
                             estado_envio, observaciones
                         )
                         VALUES (
-                            @id_operacion, @nombre_pack, @descripcion_pack,
+                            @id_operacion, @id_beneficiario, @nombre_pack, @descripcion_pack,
                             @pais_destino, @ciudad_destino, @precio_pack,
                             'PENDIENTE', @observaciones
                         )";
 
-                    var observaciones = $"Beneficiario: {BeneficiarioNombreCompleto} | " +
-                                       $"Doc: {BeneficiarioTipoDocumento} {BeneficiarioNumeroDocumento} | " +
-                                       $"Dir: {BeneficiarioDireccion} | " +
-                                       $"Tel: {BeneficiarioTelefono}";
+                    var observaciones = $"Beneficiario: {BeneficiarioSeleccionado.NombreCompleto} | " +
+                                       $"Doc: {BeneficiarioSeleccionado.DocumentoCompleto} | " +
+                                       $"Dir: {BeneficiarioSeleccionado.DireccionCompleta} | " +
+                                       $"Tel: {BeneficiarioSeleccionado.Telefono}";
 
                     await using var cmdDetalle = new NpgsqlCommand(queryDetalle, conn, transaction);
                     cmdDetalle.Parameters.AddWithValue("@id_operacion", idOperacion);
+                    cmdDetalle.Parameters.AddWithValue("@id_beneficiario", BeneficiarioSeleccionado.IdBeneficiario);
                     cmdDetalle.Parameters.AddWithValue("@nombre_pack", PackSeleccionado.NombrePack);
                     cmdDetalle.Parameters.AddWithValue("@descripcion_pack", PackSeleccionado.Descripcion ?? "");
-                    cmdDetalle.Parameters.AddWithValue("@pais_destino", BeneficiarioPaisDestino);
-                    cmdDetalle.Parameters.AddWithValue("@ciudad_destino", BeneficiarioCiudadDestino ?? "");
+                    cmdDetalle.Parameters.AddWithValue("@pais_destino", BeneficiarioSeleccionado.Pais);
+                    cmdDetalle.Parameters.AddWithValue("@ciudad_destino", BeneficiarioSeleccionado.Ciudad);
                     cmdDetalle.Parameters.AddWithValue("@precio_pack", TotalCompra);
                     cmdDetalle.Parameters.AddWithValue("@observaciones", observaciones);
 
@@ -966,11 +1485,7 @@ namespace Allva.Desktop.ViewModels
                     await transaction.CommitAsync();
 
                     MostrarMensaje($"Compra finalizada correctamente. Operacion: {NumeroOperacion}", false);
-                    
-                    // Esperar un momento para mostrar el mensaje y volver al panel principal
-                    await Task.Delay(2000);
-                    
-                    // Limpiar datos y volver al panel principal
+                    await Task.Delay(2500);
                     NuevaOperacion();
                 }
                 catch
@@ -991,11 +1506,18 @@ namespace Allva.Desktop.ViewModels
 
         private async Task<string> GenerarNumeroOperacionAsync(NpgsqlConnection conn, NpgsqlTransaction transaction)
         {
-            var query = @"SELECT generar_numero_operacion('PACK_ALIMENTOS', @id_local)";
-            await using var cmd = new NpgsqlCommand(query, conn, transaction);
-            cmd.Parameters.AddWithValue("@id_local", _idLocal);
-            var resultado = await cmd.ExecuteScalarAsync();
-            return resultado?.ToString() ?? $"PA{DateTime.Now:yyyyMMddHHmmss}";
+            try
+            {
+                var query = @"SELECT generar_numero_operacion('PACK_ALIMENTOS', @id_local)";
+                await using var cmd = new NpgsqlCommand(query, conn, transaction);
+                cmd.Parameters.AddWithValue("@id_local", _idLocal);
+                var resultado = await cmd.ExecuteScalarAsync();
+                return resultado?.ToString() ?? $"PA{DateTime.Now:yyyyMMddHHmmss}";
+            }
+            catch
+            {
+                return $"PA{DateTime.Now:yyyyMMddHHmmss}";
+            }
         }
 
         // ============================================
@@ -1005,14 +1527,11 @@ namespace Allva.Desktop.ViewModels
         [RelayCommand]
         private async Task ImprimirReciboAsync(Avalonia.Controls.Window? window)
         {
-            if (ClienteSeleccionado == null || PackSeleccionado == null)
+            if (ClienteSeleccionado == null || PackSeleccionado == null || BeneficiarioSeleccionado == null)
             {
                 MostrarMensaje("Datos incompletos para generar recibo", true);
                 return;
             }
-
-            if (!ValidarDatosBeneficiario())
-                return;
 
             if (window == null)
             {
@@ -1024,14 +1543,14 @@ namespace Allva.Desktop.ViewModels
             {
                 var nombreSugerido = $"Recibo_FoodPack_{(string.IsNullOrEmpty(NumeroOperacion) ? DateTime.Now.ToString("yyyyMMdd_HHmmss") : NumeroOperacion)}.pdf";
                 
-                var archivo = await window.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+                var archivo = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
                 {
                     Title = "Guardar Recibo PDF",
                     SuggestedFileName = nombreSugerido,
                     DefaultExtension = "pdf",
                     FileTypeChoices = new[]
                     {
-                        new Avalonia.Platform.Storage.FilePickerFileType("Documento PDF") { Patterns = new[] { "*.pdf" } }
+                        new FilePickerFileType("Documento PDF") { Patterns = new[] { "*.pdf" } }
                     }
                 });
 
@@ -1055,17 +1574,17 @@ namespace Allva.Desktop.ViewModels
                     ClienteTipoDocumento = ClienteSeleccionado.TipoDocumento,
                     ClienteNumeroDocumento = ClienteSeleccionado.NumeroDocumento,
                     ClienteTelefono = ClienteSeleccionado.Telefono ?? "N/A",
-                    ClienteDireccion = ClienteSeleccionado.Direccion ?? "",
-                    ClienteNacionalidad = ClienteSeleccionado.Nacionalidad ?? "N/A",
+                    ClienteDireccion = "",
+                    ClienteNacionalidad = "",
 
                     // Beneficiario
-                    BeneficiarioNombre = BeneficiarioNombreCompleto,
-                    BeneficiarioTipoDocumento = BeneficiarioTipoDocumento,
-                    BeneficiarioNumeroDocumento = BeneficiarioNumeroDocumento,
-                    BeneficiarioDireccion = BeneficiarioDireccion,
-                    BeneficiarioTelefono = BeneficiarioTelefono ?? "",
-                    BeneficiarioPaisDestino = BeneficiarioPaisDestino,
-                    BeneficiarioCiudadDestino = BeneficiarioCiudadDestino ?? "",
+                    BeneficiarioNombre = BeneficiarioSeleccionado.NombreCompleto,
+                    BeneficiarioTipoDocumento = BeneficiarioSeleccionado.TipoDocumento,
+                    BeneficiarioNumeroDocumento = BeneficiarioSeleccionado.NumeroDocumento,
+                    BeneficiarioDireccion = BeneficiarioSeleccionado.DireccionCompleta,
+                    BeneficiarioTelefono = BeneficiarioSeleccionado.Telefono,
+                    BeneficiarioPaisDestino = BeneficiarioSeleccionado.Pais,
+                    BeneficiarioCiudadDestino = BeneficiarioSeleccionado.Ciudad,
 
                     // Pack
                     PackNombre = PackSeleccionado.NombrePack,
@@ -1110,16 +1629,19 @@ namespace Allva.Desktop.ViewModels
         {
             // Limpiar todo para nueva operacion
             ClienteSeleccionado = null;
+            BeneficiarioSeleccionado = null;
+            BeneficiarioEditando = null;
             PackSeleccionado = null;
             NumeroOperacion = string.Empty;
             TotalCompra = 0;
+            BeneficiariosCliente.Clear();
             
-            LimpiarDatosBeneficiario();
-            LimpiarClienteSeleccionado();
+            LimpiarFormularioBeneficiario();
+            LimpiarFormularioCliente();
+            BusquedaCliente = string.Empty;
             
-            OnPropertyChanged(nameof(TieneClienteSeleccionado));
-            OnPropertyChanged(nameof(ClienteSeleccionadoNombre));
-            OnPropertyChanged(nameof(ClienteSeleccionadoDocumento));
+            ActualizarPropiedadesCliente();
+            ActualizarPropiedadesBeneficiario();
             
             OcultarTodasLasVistas();
             VistaPrincipal = true;
