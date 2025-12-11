@@ -99,6 +99,16 @@ public partial class MainDashboardView : UserControl
         UpdateModuleHeader("balancecuentas");
     }
 
+    /// <summary>
+    /// Metodo publico para navegar a Ultimas Noticias desde otras vistas
+    /// </summary>
+    public void IrAUltimasNoticias()
+    {
+        ViewModel?.NavigateToModule("dashboard");
+        UpdateMenuSelection("dashboard");
+        UpdateModuleHeader("dashboard");
+    }
+
     // ============================================
     // BOTONES DE ACCION DEL HEADER
     // ============================================

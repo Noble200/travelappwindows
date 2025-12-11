@@ -251,36 +251,70 @@
                                         Watermark="dd/mm/aaaa"
                                         MaxLength="10"/>
                             </StackPanel>
-                            
-                            <!-- N Operacion -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="N Operacion"
-                                        FontSize="11"
-                                        FontWeight="SemiBold"
-                                        Foreground="#333333"/>
-                                <TextBox Classes="filter-input"
-                                        Watermark="Desde"
-                                        Text="{Binding OperacionDesde}"/>
-                                <TextBox Classes="filter-input"
-                                        Watermark="Hasta"
-                                        Text="{Binding OperacionHasta}"/>
+
+                            <!-- FILTROS PARA DIVISA -->
+                            <StackPanel Spacing="10" IsVisible="{Binding EsPanelDivisa}">
+                                <!-- N Operacion -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="N Operacion"
+                                            FontSize="11"
+                                            FontWeight="SemiBold"
+                                            Foreground="#333333"/>
+                                    <TextBox Classes="filter-input"
+                                            Watermark="Desde"
+                                            Text="{Binding OperacionDesde}"/>
+                                    <TextBox Classes="filter-input"
+                                            Watermark="Hasta"
+                                            Text="{Binding OperacionHasta}"/>
+                                </StackPanel>
+
+                                <!-- Tipo Operacion -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Tipo Operacion"
+                                            FontSize="11"
+                                            FontWeight="SemiBold"
+                                            Foreground="#333333"/>
+                                    <ComboBox ItemsSource="{Binding TiposOperacion}"
+                                            SelectedItem="{Binding TipoOperacionFiltro}"
+                                            HorizontalAlignment="Stretch"
+                                            Background="White"
+                                            BorderBrush="#CCCCCC"
+                                            BorderThickness="1"
+                                            Padding="6,4"
+                                            FontSize="11"
+                                            CornerRadius="4"/>
+                                </StackPanel>
                             </StackPanel>
 
-                            <!-- Tipo Operacion -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Tipo Operacion"
-                                        FontSize="11"
-                                        FontWeight="SemiBold"
-                                        Foreground="#333333"/>
-                                <ComboBox ItemsSource="{Binding TiposOperacion}"
-                                        SelectedItem="{Binding TipoOperacionFiltro}"
-                                        HorizontalAlignment="Stretch"
-                                        Background="White"
-                                        BorderBrush="#CCCCCC"
-                                        BorderThickness="1"
-                                        Padding="6,4"
-                                        FontSize="11"
-                                        CornerRadius="4"/>
+                            <!-- FILTROS PARA PACK ALIMENTOS -->
+                            <StackPanel Spacing="10" IsVisible="{Binding EsPanelAlimentos}">
+                                <!-- Pais Destino -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Pais Destino"
+                                            FontSize="11"
+                                            FontWeight="SemiBold"
+                                            Foreground="#333333"/>
+                                    <ComboBox ItemsSource="{Binding PaisesDestinoDisponibles}"
+                                            SelectedItem="{Binding FiltroPaisDestino}"
+                                            HorizontalAlignment="Stretch"
+                                            Background="White"
+                                            BorderBrush="#CCCCCC"
+                                            BorderThickness="1"
+                                            Padding="6,4"
+                                            FontSize="11"
+                                            CornerRadius="4"/>
+                                </StackPanel>
+
+                                <!-- N Operacion -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="N Operacion"
+                                            FontSize="11"
+                                            FontWeight="SemiBold"
+                                            Foreground="#333333"/>
+                                    <TextBox Classes="filter-input"
+                                            Watermark="Buscar..."
+                                            Text="{Binding FiltroNumeroOperacionAlimentos}"/>
+                                </StackPanel>
                             </StackPanel>
                             
                             <Button Content="Buscar"
@@ -316,29 +350,60 @@
                         <Border Background="#F5F5F5" CornerRadius="4" Padding="3">
                             <StackPanel Orientation="Horizontal" Spacing="0">
                                 <Button Content="Billetes avion"
-                                        Classes="tab-button"
+                                        Padding="14,8"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Cursor="Hand"
+                                        CornerRadius="0"
+                                        BorderThickness="0"
+                                        Background="{Binding TabBilletesBackground}"
+                                        Foreground="{Binding TabBilletesForeground}"
                                         Command="{Binding CambiarPanelCommand}"
                                         CommandParameter="billetes"/>
                                 <Button Content="Pack viaje"
-                                        Classes="tab-button"
+                                        Padding="14,8"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Cursor="Hand"
+                                        CornerRadius="0"
+                                        BorderThickness="0"
+                                        Background="{Binding TabViajeBackground}"
+                                        Foreground="{Binding TabViajeForeground}"
                                         Command="{Binding CambiarPanelCommand}"
                                         CommandParameter="viaje"/>
                                 <Button Content="Pack alimentos"
-                                        Classes="tab-button"
+                                        Padding="14,8"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Cursor="Hand"
+                                        CornerRadius="0"
+                                        BorderThickness="0"
+                                        Background="{Binding TabAlimentosBackground}"
+                                        Foreground="{Binding TabAlimentosForeground}"
                                         Command="{Binding CambiarPanelCommand}"
                                         CommandParameter="alimentos"/>
                                 <Button Content="Divisa"
-                                        Classes="tab-button-selected"
+                                        Padding="14,8"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Cursor="Hand"
+                                        CornerRadius="0"
+                                        BorderThickness="0"
+                                        Background="{Binding TabDivisaBackground}"
+                                        Foreground="{Binding TabDivisaForeground}"
                                         Command="{Binding CambiarPanelCommand}"
                                         CommandParameter="divisa"/>
                             </StackPanel>
                         </Border>
                         
-                        <!-- TABLA DE OPERACIONES -->
+                        <!-- ═══════════════════════════════════════════════════════════ -->
+                        <!-- TABLA DE OPERACIONES DIVISA -->
+                        <!-- ═══════════════════════════════════════════════════════════ -->
                         <Border BorderBrush="#E0E0E0"
                                 BorderThickness="1"
                                 CornerRadius="4"
-                                ClipToBounds="True">
+                                ClipToBounds="True"
+                                IsVisible="{Binding EsPanelDivisa}">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -463,20 +528,168 @@
                                 </ScrollViewer>
                             </Grid>
                         </Border>
-                        
-                        <!-- Mensaje sin operaciones -->
+
+                        <!-- ═══════════════════════════════════════════════════════════ -->
+                        <!-- TABLA DE OPERACIONES PACK ALIMENTOS -->
+                        <!-- ═══════════════════════════════════════════════════════════ -->
+                        <Border BorderBrush="#E0E0E0"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                ClipToBounds="True"
+                                IsVisible="{Binding EsPanelAlimentos}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Header de tabla Pack Alimentos -->
+                                <Border Grid.Row="0"
+                                        Background="#0b5394"
+                                        Padding="0">
+                                    <Grid MinWidth="900">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="65"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="100"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <TextBlock Grid.Column="0" Text="Fecha" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="Hora" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="N Oper." 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="Descripcion" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8"/>
+                                        <TextBlock Grid.Column="4" Text="Destino" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="5" Text="Cliente" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8"/>
+                                        <TextBlock Grid.Column="6" Text="Beneficiario" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8"/>
+                                        <TextBlock Grid.Column="7" Text="Estado" 
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                
+                                <!-- Filas de datos Pack Alimentos -->
+                                <ScrollViewer Grid.Row="1" 
+                                              MaxHeight="400"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding OperacionesAlimentos}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{Binding BackgroundColor}"
+                                                        BorderBrush="#EEEEEE"
+                                                        BorderThickness="0,0,0,1">
+                                                    <Grid MinWidth="900">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="65"/>
+                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="80"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="90"/>
+                                                            <ColumnDefinition Width="130"/>
+                                                            <ColumnDefinition Width="130"/>
+                                                            <ColumnDefinition Width="100"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        
+                                                        <TextBlock Grid.Column="0" Text="{Binding Fecha}" 
+                                                                   FontSize="10" Foreground="#444444"
+                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Hora}" 
+                                                                   FontSize="10" Foreground="#444444"
+                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding NumeroOperacion}" 
+                                                                   FontSize="9" Foreground="#0b5394" FontWeight="Medium"
+                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="3" Text="{Binding Descripcion}" 
+                                                                   FontSize="10" Foreground="#444444"
+                                                                   Padding="6,6"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="4" Text="{Binding PaisDestino}" 
+                                                                   FontSize="10" Foreground="#444444" FontWeight="Medium"
+                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="5" Text="{Binding NombreCliente}" 
+                                                                   FontSize="10" Foreground="#444444"
+                                                                   Padding="6,6"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="6" Text="{Binding NombreBeneficiario}" 
+                                                                   FontSize="10" Foreground="#444444"
+                                                                   Padding="6,6"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <Border Grid.Column="7"
+                                                                Background="{Binding EstadoColor}"
+                                                                CornerRadius="4"
+                                                                Padding="6,3"
+                                                                Margin="4,2"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding EstadoTexto}" 
+                                                                       FontSize="9"
+                                                                       Foreground="White"
+                                                                       FontWeight="SemiBold"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+
+                        <!-- Mensaje sin operaciones (Divisa) -->
                         <TextBlock Text="No se encontraron operaciones"
                                    FontSize="12"
                                    Foreground="#888888"
                                    HorizontalAlignment="Center"
-                                   IsVisible="{Binding !Operaciones.Count}"/>
+                                   IsVisible="{Binding !Operaciones.Count}">
+                            <TextBlock.IsVisible>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="EsPanelDivisa"/>
+                                    <Binding Path="!Operaciones.Count"/>
+                                </MultiBinding>
+                            </TextBlock.IsVisible>
+                        </TextBlock>
+
+                        <!-- Mensaje sin operaciones (Pack Alimentos) -->
+                        <TextBlock Text="No se encontraron operaciones de Pack Alimentos"
+                                   FontSize="12"
+                                   Foreground="#888888"
+                                   HorizontalAlignment="Center">
+                            <TextBlock.IsVisible>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="EsPanelAlimentos"/>
+                                    <Binding Path="!OperacionesAlimentos.Count"/>
+                                </MultiBinding>
+                            </TextBlock.IsVisible>
+                        </TextBlock>
                         
-                        <!-- RESUMEN -->
+                        <!-- ═══════════════════════════════════════════════════════════ -->
+                        <!-- RESUMEN DIVISA -->
+                        <!-- ═══════════════════════════════════════════════════════════ -->
                         <Border Background="#F8F8F8"
                                 BorderBrush="#E0E0E0"
                                 BorderThickness="1"
                                 CornerRadius="4"
-                                Padding="15,12">
+                                Padding="15,12"
+                                IsVisible="{Binding EsPanelDivisa}">
                             <Grid ColumnDefinitions="Auto,*">
                                 <Border Grid.Column="0"
                                         Background="#0b5394"
@@ -557,6 +770,136 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
+
+                        <!-- ═══════════════════════════════════════════════════════════ -->
+                        <!-- RESUMEN PACK ALIMENTOS -->
+                        <!-- ═══════════════════════════════════════════════════════════ -->
+                        <Border Background="#F8F8F8"
+                                BorderBrush="#E0E0E0"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="15,12"
+                                IsVisible="{Binding EsPanelAlimentos}">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Border Grid.Column="0"
+                                        Background="#0b5394"
+                                        CornerRadius="4"
+                                        Padding="14,8"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="RESUMEN"
+                                               FontSize="12"
+                                               FontWeight="Bold"
+                                               Foreground="White"/>
+                                </Border>
+                                
+                                <StackPanel Grid.Column="1" 
+                                            Orientation="Horizontal" 
+                                            HorizontalAlignment="Right" 
+                                            Spacing="12">
+                                    <!-- Total Operaciones -->
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="Total"
+                                                   FontSize="10"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="#0b5394"
+                                                CornerRadius="4"
+                                                Padding="10,6"
+                                                MinWidth="45"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalOperaciones}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- Pendientes -->
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="Pendientes"
+                                                   FontSize="10"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="#ffc107"
+                                                CornerRadius="4"
+                                                Padding="10,6"
+                                                MinWidth="45"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalPendientes}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- Enviados -->
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="Enviados"
+                                                   FontSize="10"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="#28a745"
+                                                CornerRadius="4"
+                                                Padding="10,6"
+                                                MinWidth="45"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalEnviados}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- Anulados -->
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="Anulados"
+                                                   FontSize="10"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="#dc3545"
+                                                CornerRadius="4"
+                                                Padding="10,6"
+                                                MinWidth="45"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalAnulados}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- Total Importe -->
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="Importe EUR"
+                                                   FontSize="10"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="White"
+                                                BorderBrush="#0b5394"
+                                                BorderThickness="2"
+                                                CornerRadius="4"
+                                                Padding="10,6"
+                                                MinWidth="70"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalImporteAlimentos}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0b5394"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
                         
                         <!-- MENSAJES -->
                         <TextBlock Text="{Binding ErrorMessage}"
@@ -587,7 +930,8 @@
                                     BorderThickness="1"
                                     Padding="14,8"
                                     CornerRadius="4"
-                                    Cursor="Hand">
+                                    Cursor="Hand"
+                                    IsVisible="{Binding EsPanelDivisa}">
                                 <TextBlock Text="Imprimir historial"
                                            FontSize="12"
                                            Foreground="#0b5394"

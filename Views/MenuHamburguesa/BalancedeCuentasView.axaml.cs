@@ -1,71 +1,103 @@
-using System;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
 using Allva.Desktop.ViewModels;
+using System.Linq;
 
 namespace Allva.Desktop.Views.MenuHamburguesa;
 
 public partial class BalancedeCuentasView : UserControl
 {
+    private int _idComercio;
+    private int _idLocal;
     private string _codigoLocal = "";
-    
+    private int _idUsuario;
+    private string _nombreUsuario = "";
+
     public BalancedeCuentasView()
     {
         InitializeComponent();
+        DataContext = new BalancedeCuentasViewModel();
     }
     
-    public BalancedeCuentasView(int idComercio, int idLocal, string codigoLocal, int idUsuario, string nombreUsuario) : this()
+    public BalancedeCuentasView(int idComercio, int idLocal, string codigoLocal)
     {
+        InitializeComponent();
+        _idComercio = idComercio;
+        _idLocal = idLocal;
         _codigoLocal = codigoLocal;
-        DataContext = new BalancedeCuentasViewModel(idComercio, idLocal, codigoLocal, idUsuario, nombreUsuario);
+        var vm = new BalancedeCuentasViewModel(idComercio, idLocal, codigoLocal);
+        vm.OnVolverAInicio += VolverADashboard;
+        DataContext = vm;
     }
     
+    public BalancedeCuentasView(int idComercio, int idLocal, string codigoLocal, int idUsuario, string nombreUsuario)
+    {
+        InitializeComponent();
+        _idComercio = idComercio;
+        _idLocal = idLocal;
+        _codigoLocal = codigoLocal;
+        _idUsuario = idUsuario;
+        _nombreUsuario = nombreUsuario;
+        var vm = new BalancedeCuentasViewModel(idComercio, idLocal, codigoLocal, idUsuario, nombreUsuario);
+        vm.OnVolverAInicio += VolverADashboard;
+        DataContext = vm;
+    }
+
+    private void VolverADashboard()
+    {
+        var mainDashboard = this.GetVisualAncestors()
+            .OfType<MainDashboardView>()
+            .FirstOrDefault();
+
+        if (mainDashboard != null)
+        {
+            mainDashboard.IrAUltimasNoticias();
+        }
+    }
+
     private async void OnFilaOperacionClick(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Border border) return;
-        if (border.DataContext is not OperacionItem operacion) return;
-        
-        // Solo abrir popup si tiene numero de operacion (es una compra de divisa)
-        if (string.IsNullOrEmpty(operacion.NumeroOperacion)) return;
-        
-        // Obtener codigo local
-        var codigoLocal = _codigoLocal;
-        if (string.IsNullOrEmpty(codigoLocal))
+        if (sender is Border border && border.DataContext is OperacionItem operacion)
         {
-            var vm = DataContext as BalancedeCuentasViewModel;
-            if (vm != null && !string.IsNullOrEmpty(vm.LocalInfo))
+            if (operacion.EsClickeable && !string.IsNullOrEmpty(operacion.NumeroOperacion))
             {
-                var inicio = vm.LocalInfo.IndexOf("- ");
-                var fin = vm.LocalInfo.IndexOf(")");
-                if (inicio >= 0 && fin > inicio)
+                var mainWindow = this.GetVisualAncestors()
+                    .OfType<Window>()
+                    .FirstOrDefault();
+
+                if (mainWindow != null)
                 {
-                    codigoLocal = vm.LocalInfo.Substring(inicio + 2, fin - inicio - 2);
+                    // Usar constructor existente de DetalleOperacionDivisaView
+                    var vm = new DetalleOperacionDivisaViewModel(operacion.NumeroOperacion, _codigoLocal);
+                    var dialog = new DetalleOperacionDivisaView(vm);
+                    await dialog.ShowDialog(mainWindow);
                 }
             }
         }
-        
-        // Crear ViewModel del popup
-        var detalleVm = new DetalleOperacionDivisaViewModel(operacion.NumeroOperacion, codigoLocal);
-        var ventana = new DetalleOperacionDivisaView(detalleVm);
-        
-        // Mostrar como dialogo modal
-        Window? mainWindow = null;
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+    }
+
+    private async void OnFilaPackAlimentosClick(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Border border && border.DataContext is OperacionPackAlimentoBalanceItem operacion)
         {
-            mainWindow = desktop.MainWindow;
-        }
-        
-        if (mainWindow != null)
-        {
-            await ventana.ShowDialog(mainWindow);
-        }
-        else
-        {
-            ventana.Show();
+            if (!string.IsNullOrEmpty(operacion.NumeroOperacion))
+            {
+                var mainWindow = this.GetVisualAncestors()
+                    .OfType<Window>()
+                    .FirstOrDefault();
+
+                if (mainWindow != null)
+                {
+                    var dialog = new DetalleOperacionPackAlimentosView(
+                        operacion.NumeroOperacion, 
+                        _codigoLocal, 
+                        _nombreUsuario, 
+                        _idUsuario);
+                    await dialog.ShowDialog(mainWindow);
+                }
+            }
         }
     }
 }

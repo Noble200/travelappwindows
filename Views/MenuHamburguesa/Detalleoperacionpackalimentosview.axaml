@@ -1,0 +1,292 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:Allva.Desktop.ViewModels"
+        mc:Ignorable="d"
+        x:Class="Allva.Desktop.Views.MenuHamburguesa.DetalleOperacionPackAlimentosView"
+        x:DataType="vm:DetalleOperacionPackAlimentosViewModel"
+        Title="Detalle de Operacion - Pack Alimentos"
+        Width="600"
+        Height="700"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#666666"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.section">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Background="#F5F5F5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#0b5394" Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="DETALLE DE OPERACION"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               Foreground="White"/>
+                    <TextBlock Text="{Binding NumeroOperacion, StringFormat='N {0}'}"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#ffd966"/>
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        Background="{Binding EstadoColor}"
+                        CornerRadius="4"
+                        Padding="12,6"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{Binding EstadoEnvio}"
+                               Foreground="White"
+                               FontWeight="SemiBold"
+                               FontSize="12"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Contenido -->
+        <ScrollViewer Grid.Row="1" Padding="16">
+            <StackPanel>
+                <!-- Info de operación -->
+                <Border Classes="section">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="FECHA" Classes="label"/>
+                            <TextBlock Text="{Binding FechaOperacion}" Classes="value"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="HORA" Classes="label"/>
+                            <TextBlock Text="{Binding HoraOperacion}" Classes="value"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="USUARIO" Classes="label"/>
+                            <TextBlock Text="{Binding UsuarioOperacion}" Classes="value"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Pack -->
+                <Border Classes="section">
+                    <StackPanel>
+                        <TextBlock Text="PACK DE ALIMENTOS" 
+                                   FontSize="12" FontWeight="Bold" Foreground="#0b5394"
+                                   Margin="0,0,0,8"/>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="NOMBRE DEL PACK" Classes="label"/>
+                                <TextBlock Text="{Binding PackNombre}" Classes="value"/>
+                                
+                                <TextBlock Text="DESCRIPCION" Classes="label" Margin="0,8,0,0"/>
+                                <TextBlock Text="{Binding PackDescripcion}" Classes="value"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            
+                            <Border Grid.Column="1"
+                                    Background="#ffd966"
+                                    CornerRadius="6"
+                                    Padding="16,12"
+                                    VerticalAlignment="Top"
+                                    Margin="12,0,0,0">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="IMPORTE" 
+                                               FontSize="10" Foreground="#0b5394"
+                                               HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding ImporteTotal}"
+                                                   FontSize="20" FontWeight="Bold" Foreground="#0b5394"/>
+                                        <TextBlock Text="{Binding Moneda}"
+                                                   FontSize="12" Foreground="#0b5394"
+                                                   VerticalAlignment="Bottom" Margin="4,0,0,2"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Cliente -->
+                <Border Classes="section">
+                    <StackPanel>
+                        <TextBlock Text="CLIENTE" 
+                                   FontSize="12" FontWeight="Bold" Foreground="#0b5394"
+                                   Margin="0,0,0,8"/>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <StackPanel Grid.Column="0" Grid.Row="0" Margin="0,0,0,8">
+                                <TextBlock Text="NOMBRE COMPLETO" Classes="label"/>
+                                <TextBlock Text="{Binding ClienteNombre}" Classes="value"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1" Grid.Row="0" Margin="0,0,0,8">
+                                <TextBlock Text="DOCUMENTO" Classes="label"/>
+                                <TextBlock Text="{Binding ClienteDocumento}" Classes="value"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="0" Grid.Row="1">
+                                <TextBlock Text="TELEFONO" Classes="label"/>
+                                <TextBlock Text="{Binding ClienteTelefono}" Classes="value"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Beneficiario -->
+                <Border Classes="section">
+                    <StackPanel>
+                        <TextBlock Text="BENEFICIARIO" 
+                                   FontSize="12" FontWeight="Bold" Foreground="#0b5394"
+                                   Margin="0,0,0,8"/>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <StackPanel Grid.Column="0" Grid.Row="0" Margin="0,0,0,8">
+                                <TextBlock Text="NOMBRE COMPLETO" Classes="label"/>
+                                <TextBlock Text="{Binding BeneficiarioNombre}" Classes="value"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1" Grid.Row="0" Margin="0,0,0,8">
+                                <TextBlock Text="DOCUMENTO" Classes="label"/>
+                                <TextBlock Text="{Binding BeneficiarioDocumento}" Classes="value"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,0,0,8">
+                                <TextBlock Text="TELEFONO" Classes="label"/>
+                                <TextBlock Text="{Binding BeneficiarioTelefono}" Classes="value"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1" Grid.Row="1" Margin="0,0,0,8">
+                                <TextBlock Text="DIRECCION" Classes="label"/>
+                                <TextBlock Text="{Binding BeneficiarioDireccion}" Classes="value"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="0" Grid.Row="2">
+                                <TextBlock Text="PAIS DESTINO" Classes="label"/>
+                                <TextBlock Text="{Binding BeneficiarioPais}" Classes="value"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1" Grid.Row="2">
+                                <TextBlock Text="CIUDAD DESTINO" Classes="label"/>
+                                <TextBlock Text="{Binding BeneficiarioCiudad}" Classes="value"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Mensaje -->
+                <TextBlock Text="{Binding Mensaje}"
+                           FontSize="11"
+                           HorizontalAlignment="Center"
+                           Margin="0,8"
+                           Foreground="{Binding MensajeColor}"
+                           IsVisible="{Binding Mensaje, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Loading -->
+        <Border Grid.Row="1" 
+                Background="#80FFFFFF"
+                IsVisible="{Binding EstaCargando}">
+            <TextBlock Text="Cargando..."
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="14"
+                       Foreground="#0b5394"/>
+        </Border>
+
+        <!-- Footer con botones -->
+        <Border Grid.Row="2" Background="White" Padding="16" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="1"
+                        Content="Reimprimir PDF"
+                        Command="{Binding ReimprimirCommand}"
+                        Background="#ffd966"
+                        Foreground="#0b5394"
+                        FontWeight="SemiBold"
+                        Padding="20,10"
+                        Margin="0,0,12,0"
+                        CornerRadius="4"
+                        Cursor="Hand"/>
+
+                <Button Grid.Column="2"
+                        Content="Cerrar"
+                        Command="{Binding CerrarCommand}"
+                        Background="#E0E0E0"
+                        Foreground="#333333"
+                        FontWeight="Medium"
+                        Padding="20,10"
+                        CornerRadius="4"
+                        Cursor="Hand"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
