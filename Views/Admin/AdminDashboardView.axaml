@@ -16,93 +16,120 @@
         <!-- Fondo neutro gris claro -->
         <Border Background="#F0F2F5" />
 
-        <Grid ColumnDefinitions="240,*">
+        <Grid ColumnDefinitions="Auto,*">
             
-            <!-- SIDEBAR -->
+            <!-- SIDEBAR - Se oculta completamente -->
             <Border Grid.Column="0" 
                     Background="White"
-                    BoxShadow="2 0 8 0 #15000000">
+                    BoxShadow="2 0 8 0 #15000000"
+                    Width="240"
+                    IsVisible="{Binding SidebarVisible}">
                 <Grid RowDefinitions="Auto,Auto,*,Auto">
                     
-                    <!-- Logo Allva -->
-                    <Border Grid.Row="0" 
-                            Padding="24,28,24,20"
-                            HorizontalAlignment="Center">
-                        <Border Background="#FAFAFA"
-                                CornerRadius="12"
-                                Padding="16,12"
+                    <!-- Logo Allva + Boton cerrar -->
+                    <Grid Grid.Row="0" Margin="16,20,16,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Logo -->
+                        <Border Grid.Column="0"
+                                Background="#FAFAFA"
+                                CornerRadius="10"
+                                Padding="12,8"
                                 BorderBrush="#E8E8E8"
-                                BorderThickness="1">
+                                BorderThickness="1"
+                                HorizontalAlignment="Left">
                             <Image Source="/Assets/logo.png" 
-                                   Width="160" 
-                                   Height="70"
+                                   Width="140" 
+                                   Height="55"
                                    Stretch="Uniform"
                                    RenderOptions.BitmapInterpolationMode="HighQuality"/>
                         </Border>
-                    </Border>
+                        
+                        <!-- Boton cerrar sidebar -->
+                        <Button Grid.Column="1"
+                                Command="{Binding OcultarSidebarCommand}"
+                                Background="Transparent"
+                                Width="32"
+                                Height="32"
+                                Padding="0"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                ToolTip.Tip="Ocultar menu"
+                                VerticalAlignment="Center">
+                            <Canvas Width="16" Height="16">
+                                <!-- Flecha izquierda -->
+                                <Line StartPoint="10,3" EndPoint="4,8" Stroke="#666666" StrokeThickness="2" StrokeLineCap="Round"/>
+                                <Line StartPoint="4,8" EndPoint="10,13" Stroke="#666666" StrokeThickness="2" StrokeLineCap="Round"/>
+                                <Line StartPoint="14,2" EndPoint="14,14" Stroke="#666666" StrokeThickness="2" StrokeLineCap="Round"/>
+                            </Canvas>
+                        </Button>
+                    </Grid>
 
-                    <!-- Separador simple -->
+                    <!-- Separador -->
                     <Border Grid.Row="1" 
                             Height="1"
                             Background="#E0E0E0"
-                            Margin="20,0,20,8"/>
+                            Margin="16,0,16,8"/>
 
-                    <!-- Menú de navegación -->
+                    <!-- Menu de navegacion -->
                     <StackPanel Grid.Row="2" Margin="0,8,0,0">
                         
-                        <TextBlock Text="MENÚ PRINCIPAL"
+                        <TextBlock Text="MENU PRINCIPAL"
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    Foreground="#999999"
-                                   Margin="24,0,24,12"/>
+                                   Margin="20,0,20,12"/>
 
-                        <!-- Gestión de comercios -->
+                        <!-- Gestion de comercios -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='comercios'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="comercios"
                                 IsVisible="{Binding MostrarGestionComercios}"
-                                Margin="12,0"
+                                Margin="12,2"
                                 CornerRadius="8">
-                            <TextBlock Text="Gestión de comercios" Classes="admin-menu-text"/>
+                            <TextBlock Text="Gestion de comercios" Classes="admin-menu-text"/>
                         </Button>
 
-                        <!-- Gestión de usuarios -->
+                        <!-- Gestion de usuarios -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='usuarios'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="usuarios"
                                 IsVisible="{Binding MostrarGestionUsuarios}"
-                                Margin="12,0"
+                                Margin="12,2"
                                 CornerRadius="8">
-                            <TextBlock Text="Gestión de usuarios" Classes="admin-menu-text"/>
+                            <TextBlock Text="Gestion de usuarios" Classes="admin-menu-text"/>
                         </Button>
 
-                        <!-- Usuarios Allva (solo nivel 3-4) -->
+                        <!-- Usuarios Allva -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='usuarios_allva'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="usuarios_allva"
                                 IsVisible="{Binding MostrarUsuariosAllva}"
-                                Margin="12,0"
+                                Margin="12,2"
                                 CornerRadius="8">
                             <TextBlock Text="Usuarios Allva" Classes="admin-menu-text"/>
                         </Button>
 
-                        <!-- Divisas - NUEVO -->
+                        <!-- Divisas -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='divisas'}"
                                 Command="{Binding NavigateToModuleCommand}"
                                 CommandParameter="divisas"
                                 IsVisible="{Binding MostrarDivisas}"
-                                Margin="12,0"
+                                Margin="12,2"
                                 CornerRadius="8">
                             <TextBlock Text="Divisas" Classes="admin-menu-text"/>
                         </Button>
 
                     </StackPanel>
 
-                    <!-- Cerrar Sesión al fondo -->
+                    <!-- Cerrar Sesion -->
                     <Border Grid.Row="3" 
                             Margin="12,0,12,16"
                             Padding="0,12,0,0"
@@ -112,7 +139,7 @@
                                 Command="{Binding LogoutCommand}"
                                 CornerRadius="8"
                                 Margin="0">
-                            <TextBlock Text="Cerrar Sesión" Classes="admin-menu-text"/>
+                            <TextBlock Text="Cerrar Sesion" Classes="admin-menu-text"/>
                         </Button>
                     </Border>
 
@@ -125,26 +152,49 @@
                 <!-- Header superior -->
                 <Border Grid.Row="0" 
                         Background="#0b5394"
-                        Padding="28,14"
+                        Padding="20,14"
                         Margin="24,24,24,0"
                         CornerRadius="12,12,0,0">
-                    <Grid ColumnDefinitions="*,Auto">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                         
-                        <!-- Título del módulo -->
-                        <TextBlock Grid.Column="0"
+                        <!-- Boton mostrar sidebar (solo visible cuando esta oculto) -->
+                        <Button Grid.Column="0"
+                                Command="{Binding MostrarSidebarCommand}"
+                                Background="White"
+                                Width="36"
+                                Height="36"
+                                CornerRadius="8"
+                                Padding="0"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                Margin="0,0,16,0"
+                                ToolTip.Tip="Mostrar menu"
+                                IsVisible="{Binding !SidebarVisible}"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center">
+                            <Canvas Width="16" Height="16">
+                                <!-- Icono hamburguesa con flecha -->
+                                <Line StartPoint="2,4" EndPoint="14,4" Stroke="#0b5394" StrokeThickness="2" StrokeLineCap="Round"/>
+                                <Line StartPoint="2,8" EndPoint="10,8" Stroke="#0b5394" StrokeThickness="2" StrokeLineCap="Round"/>
+                                <Line StartPoint="2,12" EndPoint="14,12" Stroke="#0b5394" StrokeThickness="2" StrokeLineCap="Round"/>
+                            </Canvas>
+                        </Button>
+                        
+                        <!-- Titulo del modulo -->
+                        <TextBlock Grid.Column="1"
                                    Text="{Binding SelectedModuleTitle}" 
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Foreground="White"
                                    VerticalAlignment="Center"/>
 
-                        <!-- Botones de usuario y menú -->
-                        <StackPanel Grid.Column="1" 
+                        <!-- Botones de usuario y menu -->
+                        <StackPanel Grid.Column="2" 
                                     Orientation="Horizontal" 
                                     Spacing="10"
                                     VerticalAlignment="Center">
                             
-                            <!-- Botón Usuario -->
+                            <!-- Boton Usuario -->
                             <Panel>
                                 <Button x:Name="UserButton"
                                         Click="UserButton_Click"
@@ -157,12 +207,15 @@
                                         Cursor="Hand"
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center">
-                                    <TextBlock Text="A"
-                                               FontSize="16"
-                                               FontWeight="Bold"
-                                               Foreground="#0b5394"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
+                                    <!-- Icono usuario profesional -->
+                                    <Canvas Width="20" Height="20">
+                                        <!-- Cabeza -->
+                                        <Ellipse Width="8" Height="8" Canvas.Left="6" Canvas.Top="2" 
+                                                 Fill="#0b5394"/>
+                                        <!-- Cuerpo -->
+                                        <Ellipse Width="14" Height="10" Canvas.Left="3" Canvas.Top="11" 
+                                                 Fill="#0b5394"/>
+                                    </Canvas>
                                 </Button>
                                 
                                 <Popup x:Name="UserPopup" 
@@ -177,7 +230,6 @@
                                             MinWidth="200"
                                             Padding="0">
                                         <StackPanel>
-                                            <!-- Encabezado -->
                                             <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
                                                 <StackPanel Spacing="2">
                                                     <TextBlock Text="{Binding AdminName}" 
@@ -192,7 +244,6 @@
                                             
                                             <Border Height="1" Background="#EEEEEE"/>
                                             
-                                            <!-- Opciones -->
                                             <Button Background="Transparent"
                                                     BorderThickness="0"
                                                     Padding="16,12"
@@ -214,7 +265,7 @@
                                 </Popup>
                             </Panel>
 
-                            <!-- Botón Menú Hamburguesa -->
+                            <!-- Boton Menu Hamburguesa -->
                             <Panel>
                                 <Button x:Name="MenuButton"
                                         Click="MenuButton_Click"
@@ -248,7 +299,6 @@
                                             MinWidth="220"
                                             Padding="0">
                                         <StackPanel>
-                                            <!-- Encabezado del menú -->
                                             <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
                                                 <TextBlock Text="Opciones" 
                                                            FontSize="15"
@@ -258,7 +308,6 @@
                                             
                                             <Border Height="1" Background="#EEEEEE"/>
                                             
-                                            <!-- Items dinámicos del menú hamburguesa -->
                                             <ItemsControl ItemsSource="{Binding MenuHamburguesaItems}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
@@ -292,7 +341,7 @@
                     </Grid>
                 </Border>
 
-                <!-- Área de contenido -->
+                <!-- Area de contenido -->
                 <Border Grid.Row="1" 
                         Background="White"
                         Margin="24,0,24,24"

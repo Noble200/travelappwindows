@@ -13,7 +13,7 @@
     <!-- ========================================= -->
     <!-- CONFIGURACIÓN DE VELOPACK Y PUBLICACIÓN -->
     <!-- ========================================= -->
-    <Version>1.1.2</Version>
+    <Version>1.1.3</Version>
     <Company>AllvaSystem</Company>
     <Product>AllvaSystem</Product>
     <Description>Sistema de gestión empresarial AllvaSystem</Description>
@@ -48,6 +48,7 @@
     
     <!-- Utilidades -->
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
     
