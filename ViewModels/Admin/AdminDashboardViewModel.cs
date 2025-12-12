@@ -27,6 +27,36 @@ public partial class AdminDashboardViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<MenuHamburguesaItem> _menuHamburguesaItems = new();
 
+    // ============================================
+    // SIDEBAR COLAPSABLE
+    // ============================================
+
+    [ObservableProperty]
+    private bool _sidebarVisible = true;
+
+    partial void OnSidebarVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SidebarWidth));
+    }
+
+    public double SidebarWidth => SidebarVisible ? 240 : 0;
+
+    [RelayCommand]
+    private void MostrarSidebar()
+    {
+        SidebarVisible = true;
+    }
+
+    [RelayCommand]
+    private void OcultarSidebar()
+    {
+        SidebarVisible = false;
+    }
+
+    // ============================================
+    // PROPIEDADES
+    // ============================================
+
     public string SelectedModuleTitle
     {
         get
@@ -38,11 +68,11 @@ public partial class AdminDashboardViewModel : ObservableObject
             
             return SelectedModule switch
             {
-                "comercios" => "GESTIÓN DE COMERCIOS",
-                "usuarios" => "GESTIÓN DE USUARIOS",
+                "comercios" => "GESTION DE COMERCIOS",
+                "usuarios" => "GESTION DE USUARIOS",
                 "usuarios_allva" => "USUARIOS ALLVA",
-                "divisas" => "CONFIGURACIÓN DE DIVISAS",
-                _ => "PANEL DE ADMINISTRACIÓN"
+                "divisas" => "CONFIGURACION DE DIVISAS",
+                _ => "PANEL DE ADMINISTRACION"
             };
         }
     }
@@ -51,6 +81,10 @@ public partial class AdminDashboardViewModel : ObservableObject
     public bool MostrarGestionUsuarios => _permisos?.AccesoGestionUsuariosLocales ?? true;
     public bool MostrarUsuariosAllva => _permisos?.AccesoGestionUsuariosAllva ?? false;
     public bool MostrarDivisas => true;
+
+    // ============================================
+    // CONSTRUCTORES
+    // ============================================
 
     public AdminDashboardViewModel()
     {
@@ -93,6 +127,10 @@ public partial class AdminDashboardViewModel : ObservableObject
             MenuHamburguesaItems.Add(item);
         }
     }
+
+    // ============================================
+    // COMANDOS DE NAVEGACION
+    // ============================================
 
     [RelayCommand]
     private void NavigateToModule(string? moduleName)

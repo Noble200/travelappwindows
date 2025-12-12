@@ -8,8 +8,8 @@ using Allva.Desktop.Views.Admin.MenuHamburguesa;
 namespace Allva.Desktop.Services
 {
     /// <summary>
-    /// Servicio que gestiona los paneles disponibles en el menú hamburguesa
-    /// Centraliza el registro de todos los módulos de configuración
+    /// Servicio que gestiona los paneles disponibles en el menu hamburguesa
+    /// Centraliza el registro de todos los modulos de configuracion
     /// </summary>
     public class MenuHamburguesaService
     {
@@ -26,16 +26,27 @@ namespace Allva.Desktop.Services
 
         /// <summary>
         /// Registra todos los paneles disponibles en la carpeta MenuHamburguesa
-        /// IMPORTANTE: Agregar aquí cada nuevo panel que se cree
+        /// IMPORTANTE: Agregar aqui cada nuevo panel que se cree
         /// </summary>
         private void RegistrarPanelesDisponibles()
         {
+            // Panel de Operaciones (BackOffice) - NUEVO
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "operaciones_admin",
+                Titulo = "Operaciones",
+                Descripcion = "Ver todas las operaciones de todos los comercios",
+                Orden = 1,
+                Habilitado = true,
+                TipoVista = typeof(OperacionesAdminView)
+            });
+
             // Panel de Packs de Alimentos
             RegistrarItem(new MenuHamburguesaItem
             {
                 Id = "packs_alimentos",
                 Titulo = "Packs Alimentos",
-                Descripcion = "Gestión de packs de alimentos",
+                Descripcion = "Gestion de packs de alimentos",
                 Orden = 5,
                 Habilitado = true,
                 TipoVista = typeof(PacksAlimentosView)
@@ -46,18 +57,18 @@ namespace Allva.Desktop.Services
             {
                 Id = "apis",
                 Titulo = "APIs",
-                Descripcion = "Configuración de APIs externas",
+                Descripcion = "Configuracion de APIs externas",
                 Orden = 10,
                 Habilitado = true,
                 TipoVista = typeof(APIsConfigView)
             });
 
-            // Panel de Configuración General (ejemplo para futuro)
+            // Panel de Configuracion General
             RegistrarItem(new MenuHamburguesaItem
             {
                 Id = "configuracion",
-                Titulo = "Configuración",
-                Descripcion = "Configuración general del sistema",
+                Titulo = "Configuracion",
+                Descripcion = "Configuracion general del sistema",
                 Orden = 20,
                 Habilitado = true,
                 TipoVista = typeof(ConfiguracionGeneralView)
@@ -67,7 +78,7 @@ namespace Allva.Desktop.Services
         public void RegistrarItem(MenuHamburguesaItem item)
         {
             if (string.IsNullOrWhiteSpace(item.Id))
-                throw new ArgumentException("El Id del item no puede estar vacío");
+                throw new ArgumentException("El Id del item no puede estar vacio");
 
             if (_items.Any(x => x.Id.Equals(item.Id, StringComparison.OrdinalIgnoreCase)))
             {
@@ -136,7 +147,7 @@ namespace Allva.Desktop.Services
         public string ObtenerTituloModulo(string id)
         {
             var item = ObtenerItemPorId(id);
-            return item?.Titulo?.ToUpper() ?? "CONFIGURACIÓN";
+            return item?.Titulo?.ToUpper() ?? "CONFIGURACION";
         }
 
         public bool EsModuloMenuHamburguesa(string id)

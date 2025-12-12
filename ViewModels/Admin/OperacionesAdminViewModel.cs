@@ -1,0 +1,1331 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Npgsql;
+using Allva.Desktop.Services;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+
+namespace Allva.Desktop.ViewModels.Admin;
+
+/// <summary>
+/// ViewModel para el panel de operaciones del BackOffice
+/// Permite ver todas las operaciones de todos los comercios y locales
+/// </summary>
+public partial class OperacionesAdminViewModel : ObservableObject
+{
+    private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
+
+    // ============================================
+    // FILTROS PRINCIPALES
+    // ============================================
+
+    [ObservableProperty]
+    private string _fechaDesdeTexto = "";
+
+    [ObservableProperty]
+    private string _fechaHastaTexto = "";
+
+    [ObservableProperty]
+    private string _filtroNumeroOperacion = "";
+
+    // Filtros con autocompletado - Comercio
+    [ObservableProperty]
+    private string _filtroComercioTexto = "";
+
+    [ObservableProperty]
+    private bool _mostrarSugerenciasComercio = false;
+
+    // Filtros con autocompletado - Local
+    [ObservableProperty]
+    private string _filtroLocalTexto = "";
+
+    [ObservableProperty]
+    private bool _mostrarSugerenciasLocal = false;
+
+    // Filtros con autocompletado - Divisa
+    [ObservableProperty]
+    private string _filtroDivisaTexto = "";
+
+    [ObservableProperty]
+    private bool _mostrarSugerenciasDivisa = false;
+
+    // Filtros especificos por panel (Pack Alimentos)
+    [ObservableProperty]
+    private string _filtroPaisDestino = "Todos";
+
+    [ObservableProperty]
+    private string _filtroEstadoAlimentos = "Todos";
+
+    // ============================================
+    // COLECCIONES PARA AUTOCOMPLETADO
+    // ============================================
+
+    // Datos completos
+    private List<ComercioItem> _todosLosComerciosData = new();
+    private List<LocalItem> _todosLosLocalesData = new();
+    private List<string> _todasLasDivisasData = new();
+
+    // Sugerencias filtradas
+    public ObservableCollection<string> SugerenciasComercio { get; } = new();
+    public ObservableCollection<string> SugerenciasLocal { get; } = new();
+    public ObservableCollection<string> SugerenciasDivisa { get; } = new();
+
+    // Colecciones para ComboBox de otros paneles
+    public ObservableCollection<string> PaisesDestinoDisponibles { get; } = new() { "Todos" };
+    public ObservableCollection<string> EstadosAlimentos { get; } = new() { "Todos", "PENDIENTE", "ENVIADO", "ANULADO" };
+
+    // Mapeo de comercio/local a ID
+    private readonly Dictionary<string, int> _comercioIdMap = new();
+    private readonly Dictionary<string, int> _localIdMap = new();
+
+    // ============================================
+    // PANEL ACTUAL
+    // ============================================
+
+    [ObservableProperty]
+    private string _panelActual = "divisa";
+
+    public bool EsPanelDivisa => PanelActual == "divisa";
+    public bool EsPanelAlimentos => PanelActual == "alimentos";
+    public bool EsPanelBilletes => PanelActual == "billetes";
+    public bool EsPanelViaje => PanelActual == "viaje";
+
+    // Colores de tabs
+    public string TabDivisaBackground => EsPanelDivisa ? "#ffd966" : "White";
+    public string TabDivisaForeground => EsPanelDivisa ? "#0b5394" : "#595959";
+    public string TabAlimentosBackground => EsPanelAlimentos ? "#ffd966" : "White";
+    public string TabAlimentosForeground => EsPanelAlimentos ? "#0b5394" : "#595959";
+    public string TabBilletesBackground => EsPanelBilletes ? "#ffd966" : "White";
+    public string TabBilletesForeground => EsPanelBilletes ? "#0b5394" : "#595959";
+    public string TabViajeBackground => EsPanelViaje ? "#ffd966" : "White";
+    public string TabViajeForeground => EsPanelViaje ? "#0b5394" : "#595959";
+
+    // ============================================
+    // COLECCIONES DE DATOS
+    // ============================================
+
+    public ObservableCollection<OperacionAdminItem> OperacionesDivisa { get; } = new();
+    public ObservableCollection<OperacionAlimentosAdminItem> OperacionesAlimentos { get; } = new();
+    public ObservableCollection<OperacionBilletesAdminItem> OperacionesBilletes { get; } = new();
+    public ObservableCollection<OperacionViajeAdminItem> OperacionesViaje { get; } = new();
+
+    // Desglose de divisas del local
+    public ObservableCollection<DivisaDesglose> DesgloseDivisas { get; } = new();
+
+    // ============================================
+    // RESUMEN DIVISAS
+    // ============================================
+
+    [ObservableProperty]
+    private string _totalOperaciones = "0";
+
+    [ObservableProperty]
+    private string _totalEuros = "0.00";
+
+    [ObservableProperty]
+    private string _totalDivisas = "0.00";
+
+    // Colección dinámica de totales por divisa (solo las que tienen valor > 0)
+    public ObservableCollection<TotalDivisaItem> TotalesDivisasVisibles { get; } = new();
+
+    // Resumen Pack Alimentos
+    [ObservableProperty]
+    private string _totalPendientes = "0";
+
+    [ObservableProperty]
+    private string _totalEnviados = "0";
+
+    [ObservableProperty]
+    private string _totalAnulados = "0";
+
+    [ObservableProperty]
+    private string _totalImporteAlimentos = "0.00";
+
+    // ============================================
+    // ESTADOS
+    // ============================================
+
+    [ObservableProperty]
+    private bool _isLoading = false;
+
+    [ObservableProperty]
+    private string _errorMessage = "";
+
+    [ObservableProperty]
+    private string _successMessage = "";
+
+    [ObservableProperty]
+    private bool _mostrarFiltros = true;
+
+    [ObservableProperty]
+    private string _fechaActualTexto = "";
+
+    // ============================================
+    // EXPORTACIÓN
+    // ============================================
+
+    [ObservableProperty]
+    private bool _mostrarModalExportar = false;
+
+    [ObservableProperty]
+    private bool _formatoPDF = true;
+
+    [ObservableProperty]
+    private bool _formatoExcel = false;
+
+    [ObservableProperty]
+    private bool _formatoCSV = false;
+
+    // Diccionario para almacenar totales por divisa (para exportación)
+    private Dictionary<string, decimal> _totalesPorDivisaExport = new();
+
+    public string PanelActualTexto => PanelActual switch
+    {
+        "divisa" => "Divisas",
+        "alimentos" => "Pack Alimentos",
+        "billetes" => "Billetes Avión",
+        "viaje" => "Pack Viaje",
+        _ => PanelActual
+    };
+
+    // ============================================
+    // CONSTRUCTOR
+    // ============================================
+
+    public OperacionesAdminViewModel()
+    {
+        InicializarFechas();
+        _ = CargarDatosInicialesAsync();
+    }
+
+    private void InicializarFechas()
+    {
+        var hoy = ObtenerHoraEspana();
+        FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
+        FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
+
+        var diaSemana = ObtenerDiaSemana(hoy.DayOfWeek);
+        var mes = ObtenerNombreMes(hoy.Month);
+        FechaActualTexto = $"{diaSemana}, {hoy.Day} de {mes} de {hoy.Year}";
+    }
+
+    private DateTime ObtenerHoraEspana()
+    {
+        try
+        {
+            var zonaEspana = TimeZoneInfo.FindSystemTimeZoneById("Europe/Madrid");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaEspana);
+        }
+        catch
+        {
+            try
+            {
+                var zonaEspana = TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaEspana);
+            }
+            catch
+            {
+                return DateTime.Now;
+            }
+        }
+    }
+
+    private string ObtenerDiaSemana(DayOfWeek dia)
+    {
+        return dia switch
+        {
+            DayOfWeek.Monday => "Lunes",
+            DayOfWeek.Tuesday => "Martes",
+            DayOfWeek.Wednesday => "Miercoles",
+            DayOfWeek.Thursday => "Jueves",
+            DayOfWeek.Friday => "Viernes",
+            DayOfWeek.Saturday => "Sabado",
+            DayOfWeek.Sunday => "Domingo",
+            _ => ""
+        };
+    }
+
+    private string ObtenerNombreMes(int mes)
+    {
+        string[] meses = { "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+                          "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre" };
+        return mes >= 1 && mes <= 12 ? meses[mes] : "";
+    }
+
+    // ============================================
+    // AUTOCOMPLETADO - COMERCIO
+    // ============================================
+
+    partial void OnFiltroComercioTextoChanged(string value)
+    {
+        FiltrarSugerenciasComercio(value);
+        // Al cambiar comercio, resetear local
+        FiltroLocalTexto = "";
+        SugerenciasLocal.Clear();
+    }
+
+    private void FiltrarSugerenciasComercio(string texto)
+    {
+        SugerenciasComercio.Clear();
+
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            MostrarSugerenciasComercio = false;
+            return;
+        }
+
+        var coincidencias = _todosLosComerciosData
+            .Where(c => c.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase))
+            .Take(10)
+            .Select(c => c.Nombre);
+
+        foreach (var item in coincidencias)
+        {
+            SugerenciasComercio.Add(item);
+        }
+
+        MostrarSugerenciasComercio = SugerenciasComercio.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SeleccionarComercio(string? comercio)
+    {
+        if (string.IsNullOrEmpty(comercio)) return;
+        FiltroComercioTexto = comercio;
+        MostrarSugerenciasComercio = false;
+    }
+
+    // ============================================
+    // AUTOCOMPLETADO - LOCAL
+    // ============================================
+
+    partial void OnFiltroLocalTextoChanged(string value)
+    {
+        FiltrarSugerenciasLocal(value);
+    }
+
+    private void FiltrarSugerenciasLocal(string texto)
+    {
+        SugerenciasLocal.Clear();
+
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            MostrarSugerenciasLocal = false;
+            return;
+        }
+
+        // Si hay un comercio seleccionado, filtrar solo sus locales
+        int? idComercioSeleccionado = null;
+        if (!string.IsNullOrWhiteSpace(FiltroComercioTexto) && _comercioIdMap.ContainsKey(FiltroComercioTexto))
+        {
+            idComercioSeleccionado = _comercioIdMap[FiltroComercioTexto];
+        }
+
+        var coincidencias = _todosLosLocalesData
+            .Where(l => 
+                (idComercioSeleccionado == null || l.IdComercio == idComercioSeleccionado) &&
+                (l.Codigo.Contains(texto, StringComparison.OrdinalIgnoreCase) || 
+                 l.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase)))
+            .Take(10)
+            .Select(l => $"{l.Codigo} - {l.Nombre}");
+
+        foreach (var item in coincidencias)
+        {
+            SugerenciasLocal.Add(item);
+        }
+
+        MostrarSugerenciasLocal = SugerenciasLocal.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SeleccionarLocal(string? local)
+    {
+        if (string.IsNullOrEmpty(local)) return;
+        FiltroLocalTexto = local;
+        MostrarSugerenciasLocal = false;
+    }
+
+    // ============================================
+    // AUTOCOMPLETADO - DIVISA
+    // ============================================
+
+    partial void OnFiltroDivisaTextoChanged(string value)
+    {
+        FiltrarSugerenciasDivisa(value);
+    }
+
+    private void FiltrarSugerenciasDivisa(string texto)
+    {
+        SugerenciasDivisa.Clear();
+
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            MostrarSugerenciasDivisa = false;
+            return;
+        }
+
+        var coincidencias = _todasLasDivisasData
+            .Where(d => d.Contains(texto, StringComparison.OrdinalIgnoreCase))
+            .Take(10);
+
+        foreach (var item in coincidencias)
+        {
+            SugerenciasDivisa.Add(item);
+        }
+
+        MostrarSugerenciasDivisa = SugerenciasDivisa.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SeleccionarDivisa(string? divisa)
+    {
+        if (string.IsNullOrEmpty(divisa)) return;
+        FiltroDivisaTexto = divisa;
+        MostrarSugerenciasDivisa = false;
+    }
+
+    // ============================================
+    // CARGA DE DATOS INICIALES
+    // ============================================
+
+    private async Task CargarDatosInicialesAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            await CargarComerciosAsync();
+            await CargarTodosLosLocalesAsync();
+            await CargarDivisasDisponiblesAsync();
+            await CargarPaisesDestinoAsync();
+            await CargarOperacionesAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al cargar datos: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task CargarComerciosAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var sql = "SELECT id_comercio, nombre_comercio FROM comercios WHERE activo = true ORDER BY nombre_comercio";
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            _todosLosComerciosData.Clear();
+            _comercioIdMap.Clear();
+
+            while (await reader.ReadAsync())
+            {
+                var id = reader.GetInt32(0);
+                var nombre = reader.GetString(1);
+                _todosLosComerciosData.Add(new ComercioItem { Id = id, Nombre = nombre });
+                _comercioIdMap[nombre] = id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar comercios: {ex.Message}");
+        }
+    }
+
+    private async Task CargarTodosLosLocalesAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var sql = "SELECT id_local, id_comercio, codigo_local, nombre_local FROM locales WHERE activo = true ORDER BY codigo_local";
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            _todosLosLocalesData.Clear();
+            _localIdMap.Clear();
+
+            while (await reader.ReadAsync())
+            {
+                var id = reader.GetInt32(0);
+                var idComercio = reader.GetInt32(1);
+                var codigo = reader.GetString(2);
+                var nombre = reader.IsDBNull(3) ? codigo : reader.GetString(3);
+                
+                _todosLosLocalesData.Add(new LocalItem 
+                { 
+                    Id = id, 
+                    IdComercio = idComercio, 
+                    Codigo = codigo, 
+                    Nombre = nombre 
+                });
+                _localIdMap[$"{codigo} - {nombre}"] = id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar locales: {ex.Message}");
+        }
+    }
+
+    private async Task CargarDivisasDisponiblesAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var sql = @"SELECT DISTINCT od.divisa_origen
+                        FROM operaciones_divisas od
+                        WHERE od.divisa_origen IS NOT NULL AND od.divisa_origen != ''
+                        ORDER BY od.divisa_origen";
+
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            _todasLasDivisasData.Clear();
+
+            while (await reader.ReadAsync())
+            {
+                var divisa = reader.GetString(0);
+                if (!string.IsNullOrWhiteSpace(divisa))
+                    _todasLasDivisasData.Add(divisa);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar divisas: {ex.Message}");
+        }
+    }
+
+    private async Task CargarPaisesDestinoAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var sql = @"SELECT DISTINCT opa.pais_destino
+                        FROM operaciones_pack_alimentos opa
+                        WHERE opa.pais_destino IS NOT NULL AND opa.pais_destino != ''
+                        ORDER BY opa.pais_destino";
+
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            PaisesDestinoDisponibles.Clear();
+            PaisesDestinoDisponibles.Add("Todos");
+
+            while (await reader.ReadAsync())
+            {
+                var pais = reader.GetString(0);
+                if (!string.IsNullOrWhiteSpace(pais))
+                    PaisesDestinoDisponibles.Add(pais);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar paises: {ex.Message}");
+        }
+    }
+
+    // ============================================
+    // COMANDOS
+    // ============================================
+
+    [RelayCommand]
+    private void CambiarPanel(string? panel)
+    {
+        if (string.IsNullOrWhiteSpace(panel)) return;
+
+        PanelActual = panel;
+
+        OnPropertyChanged(nameof(EsPanelDivisa));
+        OnPropertyChanged(nameof(EsPanelAlimentos));
+        OnPropertyChanged(nameof(EsPanelBilletes));
+        OnPropertyChanged(nameof(EsPanelViaje));
+        OnPropertyChanged(nameof(TabDivisaBackground));
+        OnPropertyChanged(nameof(TabDivisaForeground));
+        OnPropertyChanged(nameof(TabAlimentosBackground));
+        OnPropertyChanged(nameof(TabAlimentosForeground));
+        OnPropertyChanged(nameof(TabBilletesBackground));
+        OnPropertyChanged(nameof(TabBilletesForeground));
+        OnPropertyChanged(nameof(TabViajeBackground));
+        OnPropertyChanged(nameof(TabViajeForeground));
+
+        _ = CargarOperacionesAsync();
+    }
+
+    [RelayCommand]
+    private async Task BuscarAsync()
+    {
+        // Cerrar sugerencias
+        MostrarSugerenciasComercio = false;
+        MostrarSugerenciasLocal = false;
+        MostrarSugerenciasDivisa = false;
+        
+        await CargarOperacionesAsync();
+    }
+
+    [RelayCommand]
+    private void LimpiarFiltros()
+    {
+        var hoy = ObtenerHoraEspana();
+        FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
+        FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
+        FiltroComercioTexto = "";
+        FiltroLocalTexto = "";
+        FiltroDivisaTexto = "";
+        FiltroNumeroOperacion = "";
+        FiltroPaisDestino = "Todos";
+        FiltroEstadoAlimentos = "Todos";
+        
+        MostrarSugerenciasComercio = false;
+        MostrarSugerenciasLocal = false;
+        MostrarSugerenciasDivisa = false;
+    }
+
+    [RelayCommand]
+    private void ToggleFiltros()
+    {
+        MostrarFiltros = !MostrarFiltros;
+    }
+
+    [RelayCommand]
+    private void CerrarSugerencias()
+    {
+        MostrarSugerenciasComercio = false;
+        MostrarSugerenciasLocal = false;
+        MostrarSugerenciasDivisa = false;
+    }
+
+    // ============================================
+    // EXPORTACIÓN
+    // ============================================
+
+    [RelayCommand]
+    private void Exportar()
+    {
+        // Mostrar modal de exportación
+        FormatoPDF = true;
+        FormatoExcel = false;
+        FormatoCSV = false;
+        MostrarModalExportar = true;
+    }
+
+    [RelayCommand]
+    private void CancelarExportar()
+    {
+        MostrarModalExportar = false;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmarExportar()
+    {
+        try
+        {
+            MostrarModalExportar = false;
+
+            // Determinar extensión y filtro
+            string extension;
+            string filtroNombre;
+            string filtroExtension;
+
+            if (FormatoPDF)
+            {
+                extension = "pdf";
+                filtroNombre = "PDF";
+                filtroExtension = "pdf";
+            }
+            else if (FormatoExcel)
+            {
+                extension = "xlsx";
+                filtroNombre = "Excel";
+                filtroExtension = "xlsx";
+            }
+            else
+            {
+                extension = "csv";
+                filtroNombre = "CSV";
+                filtroExtension = "csv";
+            }
+
+            // Mostrar diálogo para elegir ubicación
+            var topLevel = TopLevel.GetTopLevel(App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                ? desktop.MainWindow 
+                : null);
+
+            if (topLevel == null)
+            {
+                ErrorMessage = "No se pudo abrir el diálogo de guardado";
+                return;
+            }
+
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var nombreSugerido = $"Operaciones_{PanelActual}_{timestamp}.{extension}";
+
+            var archivo = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Guardar archivo de exportación",
+                SuggestedFileName = nombreSugerido,
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType(filtroNombre) { Patterns = new[] { $"*.{filtroExtension}" } }
+                }
+            });
+
+            if (archivo == null)
+            {
+                // Usuario canceló
+                return;
+            }
+
+            IsLoading = true;
+
+            // Preparar datos de exportación
+            var datos = new ExportacionOperacionesService.DatosExportacion
+            {
+                Modulo = PanelActualTexto,
+                FechaGeneracion = DateTime.Now.ToString("dd/MM/yyyy"),
+                HoraGeneracion = DateTime.Now.ToString("HH:mm:ss"),
+                FiltroFechaDesde = string.IsNullOrEmpty(FechaDesdeTexto) ? null : FechaDesdeTexto,
+                FiltroFechaHasta = string.IsNullOrEmpty(FechaHastaTexto) ? null : FechaHastaTexto,
+                FiltroComercio = string.IsNullOrEmpty(FiltroComercioTexto) ? null : FiltroComercioTexto,
+                FiltroLocal = string.IsNullOrEmpty(FiltroLocalTexto) ? null : FiltroLocalTexto,
+                FiltroDivisa = string.IsNullOrEmpty(FiltroDivisaTexto) ? null : FiltroDivisaTexto,
+                TotalOperaciones = int.TryParse(TotalOperaciones, out var total) ? total : 0,
+                TotalEuros = decimal.TryParse(TotalEuros.Replace(",", ""), out var euros) ? euros : 0,
+                TotalesPorDivisa = _totalesPorDivisaExport,
+                Operaciones = OperacionesDivisa.Select(op => new ExportacionOperacionesService.OperacionExportar
+                {
+                    Fecha = op.Fecha,
+                    Hora = op.Hora,
+                    IdOperacion = int.TryParse(op.NumeroOperacionGlobal, out var id) ? id : 0,
+                    NumeroOperacion = op.NumeroOperacion,
+                    CodigoLocal = op.CodigoLocal,
+                    NombreComercio = op.NombreComercio,
+                    Divisa = op.Divisa,
+                    Cantidad = op.CantidadDivisaNum,
+                    CantidadEuros = op.CantidadPagadaNum,
+                    Cliente = op.Cliente,
+                    TipoDocumento = op.TipoDocumento,
+                    NumeroDocumento = op.NumeroDocumento
+                }).ToList()
+            };
+
+            byte[] contenido;
+
+            if (FormatoPDF)
+            {
+                contenido = ExportacionOperacionesService.GenerarPDF(datos);
+            }
+            else if (FormatoExcel)
+            {
+                contenido = ExportacionOperacionesService.GenerarExcel(datos);
+            }
+            else
+            {
+                contenido = ExportacionOperacionesService.GenerarCSV(datos);
+            }
+
+            // Guardar archivo en la ubicación seleccionada
+            await using var stream = await archivo.OpenWriteAsync();
+            await stream.WriteAsync(contenido);
+            
+            SuccessMessage = $"Archivo exportado correctamente";
+            
+            // Limpiar mensaje después de 4 segundos
+            await Task.Delay(4000);
+            SuccessMessage = "";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al exportar: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    // ============================================
+    // CARGA DE OPERACIONES
+    // ============================================
+
+    private async Task CargarOperacionesAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+
+            var fechaDesde = ParsearFecha(FechaDesdeTexto);
+            var fechaHasta = ParsearFecha(FechaHastaTexto);
+
+            int? idComercio = !string.IsNullOrEmpty(FiltroComercioTexto) && _comercioIdMap.ContainsKey(FiltroComercioTexto)
+                ? _comercioIdMap[FiltroComercioTexto]
+                : null;
+
+            int? idLocal = null;
+            if (!string.IsNullOrEmpty(FiltroLocalTexto))
+            {
+                // Buscar el local por el texto (puede ser parcial)
+                var localMatch = _localIdMap.Keys.FirstOrDefault(k => k.Equals(FiltroLocalTexto, StringComparison.OrdinalIgnoreCase));
+                if (localMatch != null)
+                {
+                    idLocal = _localIdMap[localMatch];
+                }
+            }
+
+            switch (PanelActual)
+            {
+                case "divisa":
+                    await CargarOperacionesDivisaAsync(fechaDesde, fechaHasta, idComercio, idLocal);
+                    await CargarDesgloseDivisasAsync(idLocal);
+                    break;
+                case "alimentos":
+                    await CargarOperacionesAlimentosAsync(fechaDesde, fechaHasta, idComercio, idLocal);
+                    break;
+                case "billetes":
+                    await CargarOperacionesBilletesAsync(fechaDesde, fechaHasta, idComercio, idLocal);
+                    break;
+                case "viaje":
+                    await CargarOperacionesViajeAsync(fechaDesde, fechaHasta, idComercio, idLocal);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al cargar operaciones: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private DateTime? ParsearFecha(string fechaTexto)
+    {
+        if (string.IsNullOrWhiteSpace(fechaTexto)) return null;
+
+        var partes = fechaTexto.Split('/');
+        if (partes.Length == 3 &&
+            int.TryParse(partes[0], out int dia) &&
+            int.TryParse(partes[1], out int mes) &&
+            int.TryParse(partes[2], out int anio))
+        {
+            try
+            {
+                return new DateTime(anio, mes, dia);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    // ============================================
+    // OPERACIONES DIVISA
+    // ============================================
+
+    private async Task CargarOperacionesDivisaAsync(DateTime? fechaDesde, DateTime? fechaHasta, int? idComercio, int? idLocal)
+    {
+        OperacionesDivisa.Clear();
+
+        await using var conn = new NpgsqlConnection(ConnectionString);
+        await conn.OpenAsync();
+
+        var sql = @"SELECT 
+                        o.id_operacion,
+                        o.fecha_operacion,
+                        o.hora_operacion,
+                        o.numero_operacion,
+                        l.codigo_local,
+                        c.nombre_comercio,
+                        od.divisa_origen,
+                        od.cantidad_origen,
+                        od.cantidad_destino,
+                        CONCAT(cl.nombre, ' ', cl.apellidos) as cliente,
+                        cl.documento_tipo,
+                        cl.documento_numero
+                    FROM operaciones o
+                    INNER JOIN operaciones_divisas od ON o.id_operacion = od.id_operacion
+                    INNER JOIN locales l ON o.id_local = l.id_local
+                    INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                    LEFT JOIN clientes cl ON o.id_cliente = cl.id_cliente
+                    WHERE o.modulo = 'DIVISAS'";
+
+        if (fechaDesde.HasValue)
+            sql += " AND o.fecha_operacion >= @fechaDesde";
+        if (fechaHasta.HasValue)
+            sql += " AND o.fecha_operacion <= @fechaHasta";
+        if (idComercio.HasValue)
+            sql += " AND l.id_comercio = @idComercio";
+        if (idLocal.HasValue)
+            sql += " AND o.id_local = @idLocal";
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
+            sql += " AND o.numero_operacion ILIKE @numOp";
+        if (!string.IsNullOrWhiteSpace(FiltroDivisaTexto))
+            sql += " AND od.divisa_origen ILIKE @divisa";
+
+        sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+
+        if (fechaDesde.HasValue)
+            cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
+        if (fechaHasta.HasValue)
+            cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
+        if (idComercio.HasValue)
+            cmd.Parameters.AddWithValue("idComercio", idComercio.Value);
+        if (idLocal.HasValue)
+            cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
+            cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
+        if (!string.IsNullOrWhiteSpace(FiltroDivisaTexto))
+            cmd.Parameters.AddWithValue("divisa", $"%{FiltroDivisaTexto}%");
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        int index = 0;
+        decimal totalEuros = 0;
+        
+        // Totales por divisa
+        var totalesPorDivisa = new Dictionary<string, decimal>();
+
+        while (await reader.ReadAsync())
+        {
+            var idOperacion = reader.GetInt32(0);
+            var fecha = reader.GetDateTime(1);
+            var hora = reader.IsDBNull(2) ? TimeSpan.Zero : reader.GetTimeSpan(2);
+            var numOp = reader.IsDBNull(3) ? "" : reader.GetString(3);
+            var codigoLocal = reader.GetString(4);
+            var comercio = reader.GetString(5);
+            var divisa = reader.GetString(6);
+            var cantidadOrigen = reader.GetDecimal(7);
+            var cantidadDestino = reader.GetDecimal(8);
+            var cliente = reader.IsDBNull(9) ? "" : reader.GetString(9);
+            var tipoDoc = reader.IsDBNull(10) ? "" : reader.GetString(10);
+            var numDoc = reader.IsDBNull(11) ? "" : reader.GetString(11);
+
+            OperacionesDivisa.Add(new OperacionAdminItem
+            {
+                NumeroOperacionGlobal = idOperacion.ToString(),
+                Fecha = fecha.ToString("dd/MM/yy"),
+                Hora = hora.ToString(@"hh\:mm"),
+                NumeroOperacion = numOp,
+                CodigoLocal = codigoLocal,
+                NombreComercio = comercio,
+                Divisa = divisa,
+                CantidadDivisa = $"{cantidadOrigen:N2}",
+                CantidadPagada = $"{cantidadDestino:N2}",
+                Cliente = cliente,
+                TipoDocumento = tipoDoc,
+                NumeroDocumento = numDoc,
+                BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5",
+                CantidadDivisaNum = cantidadOrigen,
+                CantidadPagadaNum = cantidadDestino
+            });
+
+            totalEuros += cantidadDestino;
+            
+            // Acumular por divisa
+            if (!totalesPorDivisa.ContainsKey(divisa))
+                totalesPorDivisa[divisa] = 0;
+            totalesPorDivisa[divisa] += cantidadOrigen;
+            
+            index++;
+        }
+
+        TotalOperaciones = index.ToString();
+        TotalEuros = $"{totalEuros:N2}";
+        
+        // Calcular total de divisas (suma de todas las cantidades en divisa original)
+        decimal totalDivisas = totalesPorDivisa.Values.Sum();
+        TotalDivisas = $"{totalDivisas:N2}";
+        
+        // Almacenar para exportación
+        _totalesPorDivisaExport = new Dictionary<string, decimal>(totalesPorDivisa);
+        
+        // Llenar colección dinámica de divisas (solo las que tienen valor > 0)
+        TotalesDivisasVisibles.Clear();
+        foreach (var kvp in totalesPorDivisa.OrderByDescending(x => x.Value))
+        {
+            if (kvp.Value > 0)
+            {
+                TotalesDivisasVisibles.Add(new TotalDivisaItem
+                {
+                    Codigo = kvp.Key,
+                    Total = kvp.Value.ToString("N2"),
+                    Color = TotalDivisaItem.ObtenerColor(kvp.Key)
+                });
+            }
+        }
+    }
+
+    // ============================================
+    // DESGLOSE DE DIVISAS DEL LOCAL
+    // ============================================
+
+    private async Task CargarDesgloseDivisasAsync(int? idLocal)
+    {
+        DesgloseDivisas.Clear();
+
+        if (!idLocal.HasValue)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            // Obtener el stock actual de divisas del local
+            // Considerando las compras y los depositos en banco
+            var sql = @"SELECT 
+                            ld.codigo_divisa,
+                            ld.cantidad_disponible,
+                            COALESCE(depositos.total_depositado, 0) as depositado
+                        FROM local_divisas ld
+                        LEFT JOIN (
+                            SELECT 
+                                o.id_local,
+                                od.divisa_origen as codigo_divisa,
+                                SUM(od.cantidad_origen) as total_depositado
+                            FROM operaciones o
+                            INNER JOIN operaciones_divisas od ON o.id_operacion = od.id_operacion
+                            WHERE o.tipo_operacion = 'DEPOSITO_BANCO'
+                            GROUP BY o.id_local, od.divisa_origen
+                        ) depositos ON ld.id_local = depositos.id_local AND ld.codigo_divisa = depositos.codigo_divisa
+                        WHERE ld.id_local = @idLocal
+                        ORDER BY ld.codigo_divisa";
+
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var codigo = reader.GetString(0);
+                var disponible = reader.GetDecimal(1);
+                var depositado = reader.GetDecimal(2);
+
+                DesgloseDivisas.Add(new DivisaDesglose
+                {
+                    CodigoDivisa = codigo,
+                    CantidadDisponible = disponible,
+                    CantidadDepositada = depositado,
+                    CantidadTotal = disponible + depositado
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar desglose de divisas: {ex.Message}");
+        }
+    }
+
+    // ============================================
+    // OPERACIONES PACK ALIMENTOS
+    // ============================================
+
+    private async Task CargarOperacionesAlimentosAsync(DateTime? fechaDesde, DateTime? fechaHasta, int? idComercio, int? idLocal)
+    {
+        OperacionesAlimentos.Clear();
+
+        await using var conn = new NpgsqlConnection(ConnectionString);
+        await conn.OpenAsync();
+
+        var sql = @"SELECT 
+                        o.id_operacion,
+                        o.fecha_operacion,
+                        o.hora_operacion,
+                        o.numero_operacion,
+                        l.codigo_local,
+                        c.nombre_comercio,
+                        opa.nombre_pack,
+                        opa.pais_destino,
+                        CONCAT(cl.nombre, ' ', cl.apellidos) as cliente,
+                        CONCAT(cb.nombre, ' ', cb.apellido) as beneficiario,
+                        opa.estado_envio,
+                        o.importe_total
+                    FROM operaciones o
+                    INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                    INNER JOIN locales l ON o.id_local = l.id_local
+                    INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                    LEFT JOIN clientes cl ON o.id_cliente = cl.id_cliente
+                    LEFT JOIN clientes_beneficiarios cb ON opa.id_beneficiario = cb.id_beneficiario
+                    WHERE o.modulo = 'PACK_ALIMENTOS'";
+
+        if (fechaDesde.HasValue)
+            sql += " AND o.fecha_operacion >= @fechaDesde";
+        if (fechaHasta.HasValue)
+            sql += " AND o.fecha_operacion <= @fechaHasta";
+        if (idComercio.HasValue)
+            sql += " AND l.id_comercio = @idComercio";
+        if (idLocal.HasValue)
+            sql += " AND o.id_local = @idLocal";
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
+            sql += " AND o.numero_operacion ILIKE @numOp";
+        if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
+            sql += " AND opa.pais_destino = @pais";
+        if (!string.IsNullOrEmpty(FiltroEstadoAlimentos) && FiltroEstadoAlimentos != "Todos")
+            sql += " AND opa.estado_envio = @estado";
+
+        sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+
+        if (fechaDesde.HasValue)
+            cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
+        if (fechaHasta.HasValue)
+            cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
+        if (idComercio.HasValue)
+            cmd.Parameters.AddWithValue("idComercio", idComercio.Value);
+        if (idLocal.HasValue)
+            cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
+            cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
+        if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
+            cmd.Parameters.AddWithValue("pais", FiltroPaisDestino);
+        if (!string.IsNullOrEmpty(FiltroEstadoAlimentos) && FiltroEstadoAlimentos != "Todos")
+            cmd.Parameters.AddWithValue("estado", FiltroEstadoAlimentos);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        int index = 0;
+        int pendientes = 0, enviados = 0, anulados = 0;
+        decimal totalImporte = 0;
+
+        while (await reader.ReadAsync())
+        {
+            var idOperacion = reader.GetInt32(0);
+            var fecha = reader.GetDateTime(1);
+            var hora = reader.IsDBNull(2) ? TimeSpan.Zero : reader.GetTimeSpan(2);
+            var numOp = reader.IsDBNull(3) ? "" : reader.GetString(3);
+            var codigoLocal = reader.GetString(4);
+            var comercio = reader.GetString(5);
+            var nombrePack = reader.IsDBNull(6) ? "" : reader.GetString(6);
+            var paisDestino = reader.IsDBNull(7) ? "" : reader.GetString(7);
+            var cliente = reader.IsDBNull(8) ? "" : reader.GetString(8);
+            var beneficiario = reader.IsDBNull(9) ? "" : reader.GetString(9);
+            var estado = reader.IsDBNull(10) ? "PENDIENTE" : reader.GetString(10);
+            var importe = reader.IsDBNull(11) ? 0 : reader.GetDecimal(11);
+
+            var estadoColor = estado switch
+            {
+                "PENDIENTE" => "#ffc107",
+                "ENVIADO" => "#28a745",
+                "ANULADO" => "#dc3545",
+                _ => "#6c757d"
+            };
+
+            OperacionesAlimentos.Add(new OperacionAlimentosAdminItem
+            {
+                NumeroOperacionGlobal = idOperacion.ToString(),
+                Fecha = fecha.ToString("dd/MM/yy"),
+                Hora = hora.ToString(@"hh\:mm"),
+                NumeroOperacion = numOp,
+                CodigoLocal = codigoLocal,
+                NombreComercio = comercio,
+                Descripcion = nombrePack,
+                PaisDestino = paisDestino,
+                NombreCliente = cliente,
+                NombreBeneficiario = beneficiario,
+                EstadoTexto = estado,
+                EstadoColor = estadoColor,
+                Importe = $"{importe:N2} EUR",
+                BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+            });
+
+            if (estado == "PENDIENTE") pendientes++;
+            else if (estado == "ENVIADO") enviados++;
+            else if (estado == "ANULADO") anulados++;
+
+            totalImporte += importe;
+            index++;
+        }
+
+        TotalOperaciones = index.ToString();
+        TotalPendientes = pendientes.ToString();
+        TotalEnviados = enviados.ToString();
+        TotalAnulados = anulados.ToString();
+        TotalImporteAlimentos = $"{totalImporte:N2}";
+    }
+
+    // ============================================
+    // OPERACIONES BILLETES AVION (Placeholder)
+    // ============================================
+
+    private async Task CargarOperacionesBilletesAsync(DateTime? fechaDesde, DateTime? fechaHasta, int? idComercio, int? idLocal)
+    {
+        OperacionesBilletes.Clear();
+        TotalOperaciones = "0";
+        await Task.CompletedTask;
+    }
+
+    // ============================================
+    // OPERACIONES PACK VIAJE (Placeholder)
+    // ============================================
+
+    private async Task CargarOperacionesViajeAsync(DateTime? fechaDesde, DateTime? fechaHasta, int? idComercio, int? idLocal)
+    {
+        OperacionesViaje.Clear();
+        TotalOperaciones = "0";
+        await Task.CompletedTask;
+    }
+}
+
+// ============================================
+// MODELOS AUXILIARES
+// ============================================
+
+public class ComercioItem
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = "";
+}
+
+public class LocalItem
+{
+    public int Id { get; set; }
+    public int IdComercio { get; set; }
+    public string Codigo { get; set; } = "";
+    public string Nombre { get; set; } = "";
+}
+
+// ============================================
+// MODELOS DE DATOS
+// ============================================
+
+public class OperacionAdminItem
+{
+    public string NumeroOperacionGlobal { get; set; } = "";
+    public string Fecha { get; set; } = "";
+    public string Hora { get; set; } = "";
+    public string NumeroOperacion { get; set; } = "";
+    public string CodigoLocal { get; set; } = "";
+    public string NombreComercio { get; set; } = "";
+    public string Divisa { get; set; } = "";
+    public string CantidadDivisa { get; set; } = "";
+    public string CantidadPagada { get; set; } = "";
+    public string Cliente { get; set; } = "";
+    public string TipoDocumento { get; set; } = "";
+    public string NumeroDocumento { get; set; } = "";
+    public string BackgroundColor { get; set; } = "White";
+    public decimal CantidadDivisaNum { get; set; }
+    public decimal CantidadPagadaNum { get; set; }
+}
+
+public class OperacionAlimentosAdminItem
+{
+    public string NumeroOperacionGlobal { get; set; } = "";
+    public string Fecha { get; set; } = "";
+    public string Hora { get; set; } = "";
+    public string NumeroOperacion { get; set; } = "";
+    public string CodigoLocal { get; set; } = "";
+    public string NombreComercio { get; set; } = "";
+    public string Descripcion { get; set; } = "";
+    public string PaisDestino { get; set; } = "";
+    public string NombreCliente { get; set; } = "";
+    public string NombreBeneficiario { get; set; } = "";
+    public string EstadoTexto { get; set; } = "";
+    public string EstadoColor { get; set; } = "#6c757d";
+    public string Importe { get; set; } = "";
+    public string BackgroundColor { get; set; } = "White";
+}
+
+public class OperacionBilletesAdminItem
+{
+    public string NumeroOperacionGlobal { get; set; } = "";
+    public string Fecha { get; set; } = "";
+    public string Hora { get; set; } = "";
+    public string NumeroOperacion { get; set; } = "";
+    public string CodigoLocal { get; set; } = "";
+    public string NombreComercio { get; set; } = "";
+    public string Descripcion { get; set; } = "";
+    public string Estado { get; set; } = "";
+    public string Importe { get; set; } = "";
+    public string BackgroundColor { get; set; } = "White";
+}
+
+public class OperacionViajeAdminItem
+{
+    public string NumeroOperacionGlobal { get; set; } = "";
+    public string Fecha { get; set; } = "";
+    public string Hora { get; set; } = "";
+    public string NumeroOperacion { get; set; } = "";
+    public string CodigoLocal { get; set; } = "";
+    public string NombreComercio { get; set; } = "";
+    public string Descripcion { get; set; } = "";
+    public string Destino { get; set; } = "";
+    public string Estado { get; set; } = "";
+    public string Importe { get; set; } = "";
+    public string BackgroundColor { get; set; } = "White";
+}
+
+public class DivisaDesglose
+{
+    public string CodigoDivisa { get; set; } = "";
+    public decimal CantidadDisponible { get; set; }
+    public decimal CantidadDepositada { get; set; }
+    public decimal CantidadTotal { get; set; }
+    
+    public string CantidadDisponibleTexto => $"{CantidadDisponible:N2}";
+    public string CantidadDepositadaTexto => $"{CantidadDepositada:N2}";
+    public string CantidadTotalTexto => $"{CantidadTotal:N2}";
+}
+
+public class TotalDivisaItem
+{
+    public string Codigo { get; set; } = "";
+    public string Total { get; set; } = "0.00";
+    public string Color { get; set; } = "#6c757d";
+    
+    // Diccionario de colores por divisa
+    private static readonly Dictionary<string, string> ColoresDivisa = new()
+    {
+        { "USD", "#17a2b8" },  // Cyan
+        { "GBP", "#6f42c1" },  // Violeta
+        { "CHF", "#fd7e14" },  // Naranja
+        { "JPY", "#e83e8c" },  // Rosa
+        { "CAD", "#20c997" },  // Verde agua
+        { "AUD", "#007bff" },  // Azul
+        { "MXN", "#28a745" },  // Verde
+        { "BRL", "#ffc107" },  // Amarillo
+        { "ARS", "#6610f2" },  // Indigo
+        { "CLP", "#dc3545" },  // Rojo
+        { "CNY", "#fd7e14" },  // Naranja
+        { "INR", "#17a2b8" },  // Cyan
+        { "KRW", "#e83e8c" },  // Rosa
+        { "SGD", "#20c997" },  // Verde agua
+        { "HKD", "#007bff" },  // Azul
+        { "NOK", "#6f42c1" },  // Violeta
+        { "SEK", "#28a745" },  // Verde
+        { "DKK", "#dc3545" },  // Rojo
+        { "NZD", "#6610f2" },  // Indigo
+        { "ZAR", "#ffc107" },  // Amarillo
+    };
+    
+    public static string ObtenerColor(string codigoDivisa)
+    {
+        return ColoresDivisa.GetValueOrDefault(codigoDivisa, "#6c757d");
+    }
+}
