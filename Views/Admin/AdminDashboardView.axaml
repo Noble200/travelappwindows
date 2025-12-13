@@ -127,6 +127,17 @@
                             <TextBlock Text="Divisas" Classes="admin-menu-text"/>
                         </Button>
 
+                        <!-- Balance -->
+                        <Button Classes="admin-menu-item"
+                                Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='balance'}"
+                                Command="{Binding NavigateToModuleCommand}"
+                                CommandParameter="balance"
+                                IsVisible="{Binding MostrarBalance}"
+                                Margin="12,2"
+                                CornerRadius="8">
+                            <TextBlock Text="Balance" Classes="admin-menu-text"/>
+                        </Button>
+
                     </StackPanel>
 
                     <!-- Cerrar Sesion -->

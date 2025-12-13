@@ -305,6 +305,23 @@
                                             CornerRadius="4"/>
                                 </StackPanel>
 
+                                <!-- Estado Operacion -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Estado"
+                                            FontSize="11"
+                                            FontWeight="SemiBold"
+                                            Foreground="#333333"/>
+                                    <ComboBox ItemsSource="{Binding EstadosOperacionDisponibles}"
+                                            SelectedItem="{Binding FiltroEstadoOperacion}"
+                                            HorizontalAlignment="Stretch"
+                                            Background="White"
+                                            BorderBrush="#CCCCCC"
+                                            BorderThickness="1"
+                                            Padding="6,4"
+                                            FontSize="11"
+                                            CornerRadius="4"/>
+                                </StackPanel>
+
                                 <!-- N Operacion -->
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="N Operacion"
@@ -414,50 +431,50 @@
                                 <Border Grid.Row="0"
                                         Background="#0b5394"
                                         Padding="0">
-                                    <Grid MinWidth="900">
+                                    <Grid MinWidth="1100">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="45"/>
-                                            <ColumnDefinition Width="65"/>
-                                            <ColumnDefinition Width="70"/>
-                                            <ColumnDefinition Width="100"/>
-                                            <ColumnDefinition Width="80"/>
-                                            <ColumnDefinition Width="65"/>
-                                            <ColumnDefinition Width="65"/>
-                                            <ColumnDefinition Width="170"/>
-                                            <ColumnDefinition Width="50"/>
-                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="55"/>
+                                            <ColumnDefinition Width="75"/>
+                                            <ColumnDefinition Width="75"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="85"/>
+                                            <ColumnDefinition Width="85"/>
+                                            <ColumnDefinition Width="220"/>
+                                            <ColumnDefinition Width="55"/>
+                                            <ColumnDefinition Width="110"/>
                                         </Grid.ColumnDefinitions>
                                         
                                         <TextBlock Grid.Column="0" Text="Hora" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Text="Fecha" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="2" Text="N Oper." 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="3" Text="Usuario" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="4" Text="Descripcion" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="5" Text="Cantidad" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="6" Text="Pagado" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="7" Text="Cliente" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="8" Text="Doc" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="9" Text="N Documento" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 
@@ -472,53 +489,53 @@
                                                 <Border Background="{Binding BackgroundColor}"
                                                         BorderBrush="#EEEEEE"
                                                         BorderThickness="0,0,0,1">
-                                                    <Grid MinWidth="900">
+                                                    <Grid MinWidth="1100">
                                                         <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="45"/>
-                                                            <ColumnDefinition Width="65"/>
-                                                            <ColumnDefinition Width="70"/>
-                                                            <ColumnDefinition Width="100"/>
-                                                            <ColumnDefinition Width="80"/>
-                                                            <ColumnDefinition Width="65"/>
-                                                            <ColumnDefinition Width="65"/>
-                                                            <ColumnDefinition Width="170"/>
-                                                            <ColumnDefinition Width="50"/>
-                                                            <ColumnDefinition Width="90"/>
+                                                            <ColumnDefinition Width="55"/>
+                                                            <ColumnDefinition Width="75"/>
+                                                            <ColumnDefinition Width="75"/>
+                                                            <ColumnDefinition Width="130"/>
+                                                            <ColumnDefinition Width="110"/>
+                                                            <ColumnDefinition Width="85"/>
+                                                            <ColumnDefinition Width="85"/>
+                                                            <ColumnDefinition Width="220"/>
+                                                            <ColumnDefinition Width="55"/>
+                                                            <ColumnDefinition Width="110"/>
                                                         </Grid.ColumnDefinitions>
                                                         
                                                         <TextBlock Grid.Column="0" Text="{Binding Hora}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="{Binding Fecha}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="2" Text="{Binding NumeroOperacion}" 
-                                                                   FontSize="9" Foreground="#0b5394" FontWeight="Medium"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="12" Foreground="#0b5394" FontWeight="Medium"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="3" Text="{Binding Usuario}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6" HorizontalAlignment="Center"
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="4" Text="{Binding Descripcion}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6"
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="5" Text="{Binding CantidadDivisa}" 
-                                                                   FontSize="10" Foreground="#0b5394" FontWeight="SemiBold"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="13" Foreground="#0b5394" FontWeight="SemiBold"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="6" Text="{Binding CantidadPagada}" 
-                                                                   FontSize="10" Foreground="#008800" FontWeight="Medium"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="13" Foreground="#008800" FontWeight="Medium"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="7" Text="{Binding Cliente}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6"
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="8" Text="{Binding TipoDocumento}" 
-                                                                   FontSize="9" Foreground="#666666"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="12" Foreground="#666666"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="9" Text="{Binding NumeroDocumento}" 
-                                                                   FontSize="9" Foreground="#666666"
-                                                                   Padding="6,6" HorizontalAlignment="Center"
+                                                                   FontSize="12" Foreground="#666666"
+                                                                   Padding="8,8" HorizontalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                     </Grid>
                                                 </Border>
@@ -547,48 +564,48 @@
                                 <Border Grid.Row="0"
                                         Background="#0b5394"
                                         Padding="0">
-                                    <Grid MinWidth="900">
+                                    <Grid MinWidth="1000">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="65"/>
-                                            <ColumnDefinition Width="50"/>
-                                            <ColumnDefinition Width="80"/>
-                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="75"/>
+                                            <ColumnDefinition Width="60"/>
                                             <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="180"/>
                                             <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="110"/>
                                         </Grid.ColumnDefinitions>
                                         
                                         <TextBlock Grid.Column="0" Text="Fecha" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Text="Hora" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="2" Text="N Oper." 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="3" Text="Descripcion" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="4" Text="Destino" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="5" Text="Cliente" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="6" Text="Beneficiario" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="7" Text="Estado" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
-                                                   Padding="6,8" HorizontalAlignment="Center"/>
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                                   Padding="8,10" HorizontalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 
-                                <!-- Filas de datos Pack Alimentos -->
+                                <!-- Filas de datos Pack Alimentos (aumentado 30%: 400 -> 520) -->
                                 <ScrollViewer Grid.Row="1" 
-                                              MaxHeight="400"
+                                              MaxHeight="520"
                                               VerticalScrollBarVisibility="Auto"
                                               HorizontalScrollBarVisibility="Disabled">
                                     <ItemsControl ItemsSource="{Binding OperacionesAlimentos}">
@@ -597,51 +614,51 @@
                                                 <Border Background="{Binding BackgroundColor}"
                                                         BorderBrush="#EEEEEE"
                                                         BorderThickness="0,0,0,1">
-                                                    <Grid MinWidth="900">
+                                                    <Grid MinWidth="1000">
                                                         <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="65"/>
-                                                            <ColumnDefinition Width="50"/>
-                                                            <ColumnDefinition Width="80"/>
-                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="75"/>
+                                                            <ColumnDefinition Width="60"/>
                                                             <ColumnDefinition Width="90"/>
-                                                            <ColumnDefinition Width="130"/>
-                                                            <ColumnDefinition Width="130"/>
+                                                            <ColumnDefinition Width="180"/>
                                                             <ColumnDefinition Width="100"/>
+                                                            <ColumnDefinition Width="150"/>
+                                                            <ColumnDefinition Width="150"/>
+                                                            <ColumnDefinition Width="110"/>
                                                         </Grid.ColumnDefinitions>
                                                         
                                                         <TextBlock Grid.Column="0" Text="{Binding Fecha}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="{Binding Hora}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="2" Text="{Binding NumeroOperacion}" 
-                                                                   FontSize="9" Foreground="#0b5394" FontWeight="Medium"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="12" Foreground="#0b5394" FontWeight="Medium"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="3" Text="{Binding Descripcion}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6"
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="4" Text="{Binding PaisDestino}" 
-                                                                   FontSize="10" Foreground="#444444" FontWeight="Medium"
-                                                                   Padding="6,6" HorizontalAlignment="Center"/>
+                                                                   FontSize="13" Foreground="#444444" FontWeight="Medium"
+                                                                   Padding="8,8" HorizontalAlignment="Center"/>
                                                         <TextBlock Grid.Column="5" Text="{Binding NombreCliente}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6"
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="6" Text="{Binding NombreBeneficiario}" 
-                                                                   FontSize="10" Foreground="#444444"
-                                                                   Padding="6,6"
+                                                                   FontSize="13" Foreground="#444444"
+                                                                   Padding="8,8" HorizontalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <Border Grid.Column="7"
                                                                 Background="{Binding EstadoColor}"
                                                                 CornerRadius="4"
-                                                                Padding="6,3"
-                                                                Margin="4,2"
+                                                                Padding="8,4"
+                                                                Margin="6,3"
                                                                 HorizontalAlignment="Center"
                                                                 VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding EstadoTexto}" 
-                                                                       FontSize="9"
+                                                                       FontSize="11"
                                                                        Foreground="White"
                                                                        FontWeight="SemiBold"/>
                                                         </Border>
@@ -772,7 +789,7 @@
                         </Border>
 
                         <!-- ═══════════════════════════════════════════════════════════ -->
-                        <!-- RESUMEN PACK ALIMENTOS -->
+                        <!-- RESUMEN PACK ALIMENTOS (4 estados + total con color dinamico) -->
                         <!-- ═══════════════════════════════════════════════════════════ -->
                         <Border Background="#F8F8F8"
                                 BorderBrush="#E0E0E0"
@@ -787,7 +804,7 @@
                                         Padding="14,8"
                                         VerticalAlignment="Center">
                                     <TextBlock Text="RESUMEN"
-                                               FontSize="12"
+                                               FontSize="13"
                                                FontWeight="Bold"
                                                Foreground="White"/>
                                 </Border>
@@ -795,21 +812,21 @@
                                 <StackPanel Grid.Column="1" 
                                             Orientation="Horizontal" 
                                             HorizontalAlignment="Right" 
-                                            Spacing="12">
+                                            Spacing="10">
                                     <!-- Total Operaciones -->
                                     <StackPanel Spacing="3">
                                         <TextBlock Text="Total"
-                                                   FontSize="10"
+                                                   FontSize="11"
                                                    Foreground="#666666"
                                                    HorizontalAlignment="Center"
                                                    FontWeight="Medium"/>
                                         <Border Background="#0b5394"
                                                 CornerRadius="4"
-                                                Padding="10,6"
+                                                Padding="12,7"
                                                 MinWidth="45"
                                                 HorizontalAlignment="Center">
                                             <TextBlock Text="{Binding TotalOperaciones}"
-                                                       FontSize="12"
+                                                       FontSize="14"
                                                        FontWeight="Bold"
                                                        Foreground="White"
                                                        HorizontalAlignment="Center"/>
@@ -819,17 +836,37 @@
                                     <!-- Pendientes -->
                                     <StackPanel Spacing="3">
                                         <TextBlock Text="Pendientes"
-                                                   FontSize="10"
+                                                   FontSize="11"
                                                    Foreground="#666666"
                                                    HorizontalAlignment="Center"
                                                    FontWeight="Medium"/>
                                         <Border Background="#ffc107"
                                                 CornerRadius="4"
-                                                Padding="10,6"
+                                                Padding="12,7"
                                                 MinWidth="45"
                                                 HorizontalAlignment="Center">
                                             <TextBlock Text="{Binding TotalPendientes}"
-                                                       FontSize="12"
+                                                       FontSize="14"
+                                                       FontWeight="Bold"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    
+                                    <!-- Pagados -->
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="Pagados"
+                                                   FontSize="11"
+                                                   Foreground="#666666"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Medium"/>
+                                        <Border Background="#17a2b8"
+                                                CornerRadius="4"
+                                                Padding="12,7"
+                                                MinWidth="45"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding TotalPagados}"
+                                                       FontSize="14"
                                                        FontWeight="Bold"
                                                        Foreground="White"
                                                        HorizontalAlignment="Center"/>
@@ -839,17 +876,17 @@
                                     <!-- Enviados -->
                                     <StackPanel Spacing="3">
                                         <TextBlock Text="Enviados"
-                                                   FontSize="10"
+                                                   FontSize="11"
                                                    Foreground="#666666"
                                                    HorizontalAlignment="Center"
                                                    FontWeight="Medium"/>
                                         <Border Background="#28a745"
                                                 CornerRadius="4"
-                                                Padding="10,6"
+                                                Padding="12,7"
                                                 MinWidth="45"
                                                 HorizontalAlignment="Center">
                                             <TextBlock Text="{Binding TotalEnviados}"
-                                                       FontSize="12"
+                                                       FontSize="14"
                                                        FontWeight="Bold"
                                                        Foreground="White"
                                                        HorizontalAlignment="Center"/>
@@ -859,41 +896,39 @@
                                     <!-- Anulados -->
                                     <StackPanel Spacing="3">
                                         <TextBlock Text="Anulados"
-                                                   FontSize="10"
+                                                   FontSize="11"
                                                    Foreground="#666666"
                                                    HorizontalAlignment="Center"
                                                    FontWeight="Medium"/>
                                         <Border Background="#dc3545"
                                                 CornerRadius="4"
-                                                Padding="10,6"
+                                                Padding="12,7"
                                                 MinWidth="45"
                                                 HorizontalAlignment="Center">
                                             <TextBlock Text="{Binding TotalAnulados}"
-                                                       FontSize="12"
+                                                       FontSize="14"
                                                        FontWeight="Bold"
                                                        Foreground="White"
                                                        HorizontalAlignment="Center"/>
                                         </Border>
                                     </StackPanel>
                                     
-                                    <!-- Total Importe -->
+                                    <!-- Total Importe (color dinamico) -->
                                     <StackPanel Spacing="3">
-                                        <TextBlock Text="Importe EUR"
-                                                   FontSize="10"
+                                        <TextBlock Text="Balance EUR"
+                                                   FontSize="11"
                                                    Foreground="#666666"
                                                    HorizontalAlignment="Center"
                                                    FontWeight="Medium"/>
-                                        <Border Background="White"
-                                                BorderBrush="#0b5394"
-                                                BorderThickness="2"
+                                        <Border Background="{Binding TotalImporteAlimentosColor}"
                                                 CornerRadius="4"
-                                                Padding="10,6"
-                                                MinWidth="70"
+                                                Padding="12,7"
+                                                MinWidth="80"
                                                 HorizontalAlignment="Center">
                                             <TextBlock Text="{Binding TotalImporteAlimentos}"
-                                                       FontSize="12"
+                                                       FontSize="14"
                                                        FontWeight="Bold"
-                                                       Foreground="#0b5394"
+                                                       Foreground="White"
                                                        HorizontalAlignment="Center"/>
                                         </Border>
                                     </StackPanel>
