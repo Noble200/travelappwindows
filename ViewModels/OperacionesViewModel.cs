@@ -69,7 +69,19 @@ public partial class OperacionesViewModel : ObservableObject
     [ObservableProperty]
     private string filtroNumeroOperacionAlimentos = "";
 
+    [ObservableProperty]
+    private string filtroEstadoOperacion = "Todos";
+
     public ObservableCollection<string> PaisesDestinoDisponibles { get; } = new() { "Todos" };
+
+    public ObservableCollection<string> EstadosOperacionDisponibles { get; } = new() 
+    { 
+        "Todos", 
+        "Pendiente", 
+        "Pagado", 
+        "Enviado", 
+        "Anulado" 
+    };
 
     // ============================================
     // PROPIEDADES DE VISIBILIDAD
@@ -111,6 +123,9 @@ public partial class OperacionesViewModel : ObservableObject
     private string totalPendientes = "0";
 
     [ObservableProperty]
+    private string totalPagados = "0";
+
+    [ObservableProperty]
     private string totalEnviados = "0";
 
     [ObservableProperty]
@@ -118,6 +133,9 @@ public partial class OperacionesViewModel : ObservableObject
 
     [ObservableProperty]
     private string totalImporteAlimentos = "0.00";
+
+    [ObservableProperty]
+    private string totalImporteAlimentosColor = "#0b5394";
     
     [ObservableProperty]
     private bool isLoading = false;
@@ -267,6 +285,7 @@ public partial class OperacionesViewModel : ObservableObject
         TipoOperacionFiltro = "Todas";
         FiltroPaisDestino = "Todos";
         FiltroNumeroOperacionAlimentos = "";
+        FiltroEstadoOperacion = "Todos";
     }
     
     [RelayCommand]
@@ -461,9 +480,30 @@ public partial class OperacionesViewModel : ObservableObject
         {
             TotalOperaciones = OperacionesAlimentos.Count.ToString();
             TotalPendientes = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "PENDIENTE").ToString();
+            TotalPagados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "PAGADO").ToString();
             TotalEnviados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "ENVIADO").ToString();
             TotalAnulados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "ANULADO").ToString();
-            TotalImporteAlimentos = OperacionesAlimentos.Sum(o => o.Importe).ToString("N2");
+            
+            // Calcular total como negativo (deuda del local)
+            var totalImporte = OperacionesAlimentos.Sum(o => o.Importe);
+            var totalNegativo = -totalImporte;
+            
+            // Formato con signo
+            if (totalNegativo < 0)
+            {
+                TotalImporteAlimentos = totalNegativo.ToString("N2");
+                TotalImporteAlimentosColor = "#dc3545"; // Rojo para negativo
+            }
+            else if (totalNegativo > 0)
+            {
+                TotalImporteAlimentos = $"+{totalNegativo:N2}";
+                TotalImporteAlimentosColor = "#28a745"; // Verde para positivo
+            }
+            else
+            {
+                TotalImporteAlimentos = "0.00";
+                TotalImporteAlimentosColor = "#0b5394"; // Azul para neutral
+            }
         }
         else
         {
@@ -587,6 +627,9 @@ public partial class OperacionesViewModel : ObservableObject
         if (FiltroPaisDestino != "Todos" && !string.IsNullOrWhiteSpace(FiltroPaisDestino))
             whereConditions.Add("opa.pais_destino = @paisDestino");
 
+        if (FiltroEstadoOperacion != "Todos" && !string.IsNullOrWhiteSpace(FiltroEstadoOperacion))
+            whereConditions.Add("UPPER(opa.estado_envio) = @estadoOperacion");
+
         var whereClause = string.Join(" AND ", whereConditions);
 
         var query = $@"
@@ -627,6 +670,9 @@ public partial class OperacionesViewModel : ObservableObject
 
         if (FiltroPaisDestino != "Todos" && !string.IsNullOrWhiteSpace(FiltroPaisDestino))
             cmd.Parameters.AddWithValue("@paisDestino", FiltroPaisDestino);
+
+        if (FiltroEstadoOperacion != "Todos" && !string.IsNullOrWhiteSpace(FiltroEstadoOperacion))
+            cmd.Parameters.AddWithValue("@estadoOperacion", FiltroEstadoOperacion.ToUpper());
 
         await using var reader = await cmd.ExecuteReaderAsync();
 
@@ -680,7 +726,8 @@ public partial class OperacionesViewModel : ObservableObject
     {
         return estado.ToUpper() switch
         {
-            "PENDIENTE" => "Pendiente pago",
+            "PENDIENTE" => "Pendiente",
+            "PAGADO" => "Pagado",
             "ENVIADO" => "Enviado",
             "ANULADO" => "Anulado",
             _ => estado
@@ -692,6 +739,7 @@ public partial class OperacionesViewModel : ObservableObject
         return estado.ToUpper() switch
         {
             "PENDIENTE" => "#ffc107",
+            "PAGADO" => "#17a2b8",
             "ENVIADO" => "#28a745",
             "ANULADO" => "#dc3545",
             _ => "#6c757d"

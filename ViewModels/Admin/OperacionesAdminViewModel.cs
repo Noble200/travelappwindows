@@ -79,7 +79,16 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
     // Colecciones para ComboBox de otros paneles
     public ObservableCollection<string> PaisesDestinoDisponibles { get; } = new() { "Todos" };
-    public ObservableCollection<string> EstadosAlimentos { get; } = new() { "Todos", "PENDIENTE", "ENVIADO", "ANULADO" };
+    
+    // Estados con PAGADO agregado
+    public ObservableCollection<string> EstadosAlimentos { get; } = new() 
+    { 
+        "Todos", 
+        "PENDIENTE", 
+        "PAGADO",
+        "ENVIADO", 
+        "ANULADO" 
+    };
 
     // Mapeo de comercio/local a ID
     private readonly Dictionary<string, int> _comercioIdMap = new();
@@ -135,9 +144,12 @@ public partial class OperacionesAdminViewModel : ObservableObject
     // Colección dinámica de totales por divisa (solo las que tienen valor > 0)
     public ObservableCollection<TotalDivisaItem> TotalesDivisasVisibles { get; } = new();
 
-    // Resumen Pack Alimentos
+    // Resumen Pack Alimentos (4 estados)
     [ObservableProperty]
     private string _totalPendientes = "0";
+
+    [ObservableProperty]
+    private string _totalPagados = "0";
 
     [ObservableProperty]
     private string _totalEnviados = "0";
@@ -147,6 +159,16 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
     [ObservableProperty]
     private string _totalImporteAlimentos = "0.00";
+
+    [ObservableProperty]
+    private string _totalImporteAlimentosColor = "#dc3545";
+
+    // Selección múltiple
+    [ObservableProperty]
+    private int _cantidadSeleccionados = 0;
+
+    [ObservableProperty]
+    private bool _haySeleccionados = false;
 
     // ============================================
     // ESTADOS
@@ -613,6 +635,180 @@ public partial class OperacionesAdminViewModel : ObservableObject
     }
 
     // ============================================
+    // CAMBIO DE ESTADO (Solo Pagado -> Enviado)
+    // ============================================
+
+    [RelayCommand]
+    private async Task CambiarEstadoAEnviado(string? idOperacion)
+    {
+        if (string.IsNullOrEmpty(idOperacion)) return;
+
+        if (!int.TryParse(idOperacion, out int id))
+        {
+            ErrorMessage = "ID de operacion invalido";
+            return;
+        }
+
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            // Verificar que el estado actual sea PAGADO
+            var sqlVerificar = @"SELECT opa.estado_envio 
+                                 FROM operaciones_pack_alimentos opa 
+                                 WHERE opa.id_operacion = @idOperacion";
+            
+            await using var cmdVerificar = new NpgsqlCommand(sqlVerificar, conn);
+            cmdVerificar.Parameters.AddWithValue("idOperacion", id);
+            
+            var estadoActual = await cmdVerificar.ExecuteScalarAsync() as string;
+
+            if (estadoActual?.ToUpper() != "PAGADO")
+            {
+                ErrorMessage = "Solo se pueden marcar como enviadas las operaciones con estado PAGADO";
+                return;
+            }
+
+            // Actualizar estado a ENVIADO
+            var sqlActualizar = @"UPDATE operaciones_pack_alimentos 
+                                  SET estado_envio = 'ENVIADO',
+                                      fecha_envio = @fechaEnvio
+                                  WHERE id_operacion = @idOperacion";
+
+            await using var cmdActualizar = new NpgsqlCommand(sqlActualizar, conn);
+            cmdActualizar.Parameters.AddWithValue("idOperacion", id);
+            cmdActualizar.Parameters.AddWithValue("fechaEnvio", ObtenerHoraEspana());
+
+            var filasAfectadas = await cmdActualizar.ExecuteNonQueryAsync();
+
+            if (filasAfectadas > 0)
+            {
+                SuccessMessage = "Estado actualizado a ENVIADO correctamente";
+                
+                // Recargar operaciones
+                await CargarOperacionesAsync();
+                
+                // Limpiar mensaje despues de 3 segundos
+                await Task.Delay(3000);
+                SuccessMessage = "";
+            }
+            else
+            {
+                ErrorMessage = "No se pudo actualizar el estado";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al cambiar estado: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task MarcarSeleccionadosComoEnviados()
+    {
+        var seleccionados = OperacionesAlimentos
+            .Where(o => o.EstaSeleccionado && o.PuedeMarcarEnviado)
+            .ToList();
+
+        if (seleccionados.Count == 0)
+        {
+            ErrorMessage = "No hay operaciones PAGADAS seleccionadas";
+            return;
+        }
+
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            int actualizados = 0;
+            var fechaEnvio = ObtenerHoraEspana();
+
+            foreach (var op in seleccionados)
+            {
+                if (int.TryParse(op.NumeroOperacionGlobal, out int id))
+                {
+                    var sql = @"UPDATE operaciones_pack_alimentos 
+                                SET estado_envio = 'ENVIADO',
+                                    fecha_envio = @fechaEnvio
+                                WHERE id_operacion = @idOperacion 
+                                AND estado_envio = 'PAGADO'";
+
+                    await using var cmd = new NpgsqlCommand(sql, conn);
+                    cmd.Parameters.AddWithValue("idOperacion", id);
+                    cmd.Parameters.AddWithValue("fechaEnvio", fechaEnvio);
+
+                    actualizados += await cmd.ExecuteNonQueryAsync();
+                }
+            }
+
+            if (actualizados > 0)
+            {
+                SuccessMessage = $"{actualizados} operacion(es) marcada(s) como ENVIADO";
+                await CargarOperacionesAsync();
+                
+                await Task.Delay(3000);
+                SuccessMessage = "";
+            }
+            else
+            {
+                ErrorMessage = "No se pudo actualizar ninguna operacion";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al cambiar estados: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void SeleccionarTodosPagados()
+    {
+        foreach (var op in OperacionesAlimentos.Where(o => o.PuedeMarcarEnviado))
+        {
+            op.EstaSeleccionado = true;
+        }
+        ActualizarContadorSeleccionados();
+    }
+
+    [RelayCommand]
+    private void DeseleccionarTodos()
+    {
+        foreach (var op in OperacionesAlimentos)
+        {
+            op.EstaSeleccionado = false;
+        }
+        ActualizarContadorSeleccionados();
+    }
+
+    [RelayCommand]
+    private void ActualizarSeleccion()
+    {
+        ActualizarContadorSeleccionados();
+    }
+
+    private void ActualizarContadorSeleccionados()
+    {
+        CantidadSeleccionados = OperacionesAlimentos.Count(o => o.EstaSeleccionado && o.PuedeMarcarEnviado);
+        HaySeleccionados = CantidadSeleccionados > 0;
+    }
+
+    // ============================================
     // EXPORTACIÓN
     // ============================================
 
@@ -695,50 +891,51 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
             IsLoading = true;
 
-            // Preparar datos de exportación
-            var datos = new ExportacionOperacionesService.DatosExportacion
-            {
-                Modulo = PanelActualTexto,
-                FechaGeneracion = DateTime.Now.ToString("dd/MM/yyyy"),
-                HoraGeneracion = DateTime.Now.ToString("HH:mm:ss"),
-                FiltroFechaDesde = string.IsNullOrEmpty(FechaDesdeTexto) ? null : FechaDesdeTexto,
-                FiltroFechaHasta = string.IsNullOrEmpty(FechaHastaTexto) ? null : FechaHastaTexto,
-                FiltroComercio = string.IsNullOrEmpty(FiltroComercioTexto) ? null : FiltroComercioTexto,
-                FiltroLocal = string.IsNullOrEmpty(FiltroLocalTexto) ? null : FiltroLocalTexto,
-                FiltroDivisa = string.IsNullOrEmpty(FiltroDivisaTexto) ? null : FiltroDivisaTexto,
-                TotalOperaciones = int.TryParse(TotalOperaciones, out var total) ? total : 0,
-                TotalEuros = decimal.TryParse(TotalEuros.Replace(",", ""), out var euros) ? euros : 0,
-                TotalesPorDivisa = _totalesPorDivisaExport,
-                Operaciones = OperacionesDivisa.Select(op => new ExportacionOperacionesService.OperacionExportar
-                {
-                    Fecha = op.Fecha,
-                    Hora = op.Hora,
-                    IdOperacion = int.TryParse(op.NumeroOperacionGlobal, out var id) ? id : 0,
-                    NumeroOperacion = op.NumeroOperacion,
-                    CodigoLocal = op.CodigoLocal,
-                    NombreComercio = op.NombreComercio,
-                    Divisa = op.Divisa,
-                    Cantidad = op.CantidadDivisaNum,
-                    CantidadEuros = op.CantidadPagadaNum,
-                    Cliente = op.Cliente,
-                    TipoDocumento = op.TipoDocumento,
-                    NumeroDocumento = op.NumeroDocumento
-                }).ToList()
-            };
-
             byte[] contenido;
 
-            if (FormatoPDF)
+            if (PanelActual == "alimentos")
             {
-                contenido = ExportacionOperacionesService.GenerarPDF(datos);
-            }
-            else if (FormatoExcel)
-            {
-                contenido = ExportacionOperacionesService.GenerarExcel(datos);
+                contenido = await ExportarAlimentosAsync(extension);
             }
             else
             {
-                contenido = ExportacionOperacionesService.GenerarCSV(datos);
+                // Preparar datos de exportación para Divisas
+                var datos = new ExportacionOperacionesService.DatosExportacion
+                {
+                    Modulo = PanelActualTexto,
+                    FechaGeneracion = DateTime.Now.ToString("dd/MM/yyyy"),
+                    HoraGeneracion = DateTime.Now.ToString("HH:mm:ss"),
+                    FiltroFechaDesde = string.IsNullOrEmpty(FechaDesdeTexto) ? null : FechaDesdeTexto,
+                    FiltroFechaHasta = string.IsNullOrEmpty(FechaHastaTexto) ? null : FechaHastaTexto,
+                    FiltroComercio = string.IsNullOrEmpty(FiltroComercioTexto) ? null : FiltroComercioTexto,
+                    FiltroLocal = string.IsNullOrEmpty(FiltroLocalTexto) ? null : FiltroLocalTexto,
+                    FiltroDivisa = string.IsNullOrEmpty(FiltroDivisaTexto) ? null : FiltroDivisaTexto,
+                    TotalOperaciones = int.TryParse(TotalOperaciones, out var total) ? total : 0,
+                    TotalEuros = decimal.TryParse(TotalEuros.Replace(",", ""), out var euros) ? euros : 0,
+                    TotalesPorDivisa = _totalesPorDivisaExport,
+                    Operaciones = OperacionesDivisa.Select(op => new ExportacionOperacionesService.OperacionExportar
+                    {
+                        Fecha = op.Fecha,
+                        Hora = op.Hora,
+                        IdOperacion = int.TryParse(op.NumeroOperacionGlobal, out var id) ? id : 0,
+                        NumeroOperacion = op.NumeroOperacion,
+                        CodigoLocal = op.CodigoLocal,
+                        NombreComercio = op.NombreComercio,
+                        Divisa = op.Divisa,
+                        Cantidad = op.CantidadDivisaNum,
+                        CantidadEuros = op.CantidadPagadaNum,
+                        Cliente = op.Cliente,
+                        TipoDocumento = op.TipoDocumento,
+                        NumeroDocumento = op.NumeroDocumento
+                    }).ToList()
+                };
+
+                if (FormatoPDF)
+                    contenido = ExportacionOperacionesService.GenerarPDF(datos);
+                else if (FormatoExcel)
+                    contenido = ExportacionOperacionesService.GenerarExcel(datos);
+                else
+                    contenido = ExportacionOperacionesService.GenerarCSV(datos);
             }
 
             // Guardar archivo en la ubicación seleccionada
@@ -759,6 +956,55 @@ public partial class OperacionesAdminViewModel : ObservableObject
         {
             IsLoading = false;
         }
+    }
+
+    private async Task<byte[]> ExportarAlimentosAsync(string formato)
+    {
+        // Usar el mismo servicio de exportación adaptando los datos
+        var datos = new ExportacionOperacionesService.DatosExportacion
+        {
+            Modulo = "Pack Alimentos",
+            FechaGeneracion = DateTime.Now.ToString("dd/MM/yyyy"),
+            HoraGeneracion = DateTime.Now.ToString("HH:mm:ss"),
+            FiltroFechaDesde = string.IsNullOrEmpty(FechaDesdeTexto) ? null : FechaDesdeTexto,
+            FiltroFechaHasta = string.IsNullOrEmpty(FechaHastaTexto) ? null : FechaHastaTexto,
+            FiltroComercio = string.IsNullOrEmpty(FiltroComercioTexto) ? null : FiltroComercioTexto,
+            FiltroLocal = string.IsNullOrEmpty(FiltroLocalTexto) ? null : FiltroLocalTexto,
+            FiltroDivisa = null,
+            TotalOperaciones = int.TryParse(TotalOperaciones, out var total) ? total : 0,
+            TotalEuros = decimal.TryParse(TotalImporteAlimentos.Replace(",", "").Replace("-", ""), out var imp) ? imp : 0,
+            TotalesPorDivisa = new Dictionary<string, decimal>
+            {
+                { "Pendientes", int.TryParse(TotalPendientes, out var pend) ? pend : 0 },
+                { "Pagados", int.TryParse(TotalPagados, out var pag) ? pag : 0 },
+                { "Enviados", int.TryParse(TotalEnviados, out var env) ? env : 0 },
+                { "Anulados", int.TryParse(TotalAnulados, out var anul) ? anul : 0 }
+            },
+            Operaciones = OperacionesAlimentos.Select(op => new ExportacionOperacionesService.OperacionExportar
+            {
+                Fecha = op.Fecha,
+                Hora = op.Hora,
+                IdOperacion = int.TryParse(op.NumeroOperacionGlobal, out var id) ? id : 0,
+                NumeroOperacion = op.NumeroOperacion,
+                CodigoLocal = op.CodigoLocal,
+                NombreComercio = op.NombreComercio,
+                Divisa = op.PaisDestino,
+                Cantidad = 0,
+                CantidadEuros = op.ImporteNum,
+                Cliente = op.NombreCliente,
+                TipoDocumento = op.EstadoTexto,
+                NumeroDocumento = op.NombreBeneficiario
+            }).ToList()
+        };
+
+        await Task.CompletedTask;
+
+        return formato switch
+        {
+            "pdf" => ExportacionOperacionesService.GenerarPDF(datos),
+            "xlsx" => ExportacionOperacionesService.GenerarExcel(datos),
+            _ => ExportacionOperacionesService.GenerarCSV(datos)
+        };
     }
 
     // ============================================
@@ -1111,7 +1357,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
         await using var reader = await cmd.ExecuteReaderAsync();
 
         int index = 0;
-        int pendientes = 0, enviados = 0, anulados = 0;
+        int pendientes = 0, pagados = 0, enviados = 0, anulados = 0;
         decimal totalImporte = 0;
 
         while (await reader.ReadAsync())
@@ -1129,13 +1375,16 @@ public partial class OperacionesAdminViewModel : ObservableObject
             var estado = reader.IsDBNull(10) ? "PENDIENTE" : reader.GetString(10);
             var importe = reader.IsDBNull(11) ? 0 : reader.GetDecimal(11);
 
-            var estadoColor = estado switch
+            var estadoColor = estado.Trim().ToUpper() switch
             {
-                "PENDIENTE" => "#ffc107",
+                "PAGADO" => "#17a2b8",
                 "ENVIADO" => "#28a745",
                 "ANULADO" => "#dc3545",
-                _ => "#6c757d"
+                _ => "#ffc107"  // Por defecto amarillo (PENDIENTE y otros)
             };
+
+            // Determinar si se puede cambiar a Enviado (solo si esta en PAGADO)
+            var puedeEnviar = estado.ToUpper() == "PAGADO";
 
             OperacionesAlimentos.Add(new OperacionAlimentosAdminItem
             {
@@ -1149,15 +1398,22 @@ public partial class OperacionesAdminViewModel : ObservableObject
                 PaisDestino = paisDestino,
                 NombreCliente = cliente,
                 NombreBeneficiario = beneficiario,
-                EstadoTexto = estado,
+                EstadoTexto = estado.Trim().ToUpper(),
                 EstadoColor = estadoColor,
                 Importe = $"{importe:N2} EUR",
-                BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+                ImporteNum = importe,
+                BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5",
+                PuedeMarcarEnviado = puedeEnviar
             });
 
-            if (estado == "PENDIENTE") pendientes++;
-            else if (estado == "ENVIADO") enviados++;
-            else if (estado == "ANULADO") anulados++;
+            // Contar por estado
+            switch (estado.Trim().ToUpper())
+            {
+                case "PENDIENTE": pendientes++; break;
+                case "PAGADO": pagados++; break;
+                case "ENVIADO": enviados++; break;
+                case "ANULADO": anulados++; break;
+            }
 
             totalImporte += importe;
             index++;
@@ -1165,9 +1421,27 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
         TotalOperaciones = index.ToString();
         TotalPendientes = pendientes.ToString();
+        TotalPagados = pagados.ToString();
         TotalEnviados = enviados.ToString();
         TotalAnulados = anulados.ToString();
-        TotalImporteAlimentos = $"{totalImporte:N2}";
+        
+        // Total como negativo (deuda del local)
+        var totalNegativo = -totalImporte;
+        if (totalNegativo < 0)
+        {
+            TotalImporteAlimentos = totalNegativo.ToString("N2");
+            TotalImporteAlimentosColor = "#dc3545"; // Rojo
+        }
+        else if (totalNegativo > 0)
+        {
+            TotalImporteAlimentos = $"+{totalNegativo:N2}";
+            TotalImporteAlimentosColor = "#28a745"; // Verde
+        }
+        else
+        {
+            TotalImporteAlimentos = "0.00";
+            TotalImporteAlimentosColor = "#0b5394"; // Azul
+        }
     }
 
     // ============================================
@@ -1234,7 +1508,7 @@ public class OperacionAdminItem
     public decimal CantidadPagadaNum { get; set; }
 }
 
-public class OperacionAlimentosAdminItem
+public partial class OperacionAlimentosAdminItem : ObservableObject
 {
     public string NumeroOperacionGlobal { get; set; } = "";
     public string Fecha { get; set; } = "";
@@ -1247,9 +1521,15 @@ public class OperacionAlimentosAdminItem
     public string NombreCliente { get; set; } = "";
     public string NombreBeneficiario { get; set; } = "";
     public string EstadoTexto { get; set; } = "";
-    public string EstadoColor { get; set; } = "#6c757d";
+    public string EstadoColor { get; set; } = "#ffc107";
     public string Importe { get; set; } = "";
+    public decimal ImporteNum { get; set; }
     public string BackgroundColor { get; set; } = "White";
+    public bool PuedeMarcarEnviado { get; set; } = false;
+    
+    // Para selección múltiple
+    [ObservableProperty]
+    private bool _estaSeleccionado;
 }
 
 public class OperacionBilletesAdminItem

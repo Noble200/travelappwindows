@@ -1,0 +1,1125 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Npgsql;
+
+namespace Allva.Desktop.ViewModels.Admin
+{
+    public partial class BalanceAdminViewModel : ObservableObject
+    {
+        private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
+
+        // ============================================
+        // PROPIEDADES DE ESTADO
+        // ============================================
+
+        [ObservableProperty]
+        private bool _isLoading;
+
+        [ObservableProperty]
+        private string _errorMessage = "";
+
+        [ObservableProperty]
+        private string _successMessage = "";
+
+        [ObservableProperty]
+        private string _fechaActualTexto = "";
+
+        [ObservableProperty]
+        private bool _mostrarFiltros = true;
+
+        // ============================================
+        // TABS
+        // ============================================
+
+        [ObservableProperty]
+        private bool _esPanelAlimentos = true;
+
+        [ObservableProperty]
+        private bool _esPanelBilletes = false;
+
+        [ObservableProperty]
+        private bool _esPanelViaje = false;
+
+        [ObservableProperty]
+        private string _tabAlimentosBackground = "#ffd966";
+
+        [ObservableProperty]
+        private string _tabAlimentosForeground = "#0b5394";
+
+        [ObservableProperty]
+        private string _tabBilletesBackground = "White";
+
+        [ObservableProperty]
+        private string _tabBilletesForeground = "#595959";
+
+        [ObservableProperty]
+        private string _tabViajeBackground = "White";
+
+        [ObservableProperty]
+        private string _tabViajeForeground = "#595959";
+
+        // ============================================
+        // FILTROS - Fechas como texto
+        // ============================================
+
+        [ObservableProperty]
+        private string _fechaDesdeTexto = "";
+
+        [ObservableProperty]
+        private string _fechaHastaTexto = "";
+
+        [ObservableProperty]
+        private string _filtroNumeroOperacion = "";
+
+        [ObservableProperty]
+        private string _filtroPaisDestino = "Todos";
+
+        [ObservableProperty]
+        private string _filtroEstado = "Todos";
+
+        // ============================================
+        // AUTOCOMPLETADO - Comercio
+        // ============================================
+
+        [ObservableProperty]
+        private string _filtroComercioTexto = "";
+
+        [ObservableProperty]
+        private bool _mostrarSugerenciasComercio = false;
+
+        public ObservableCollection<string> SugerenciasComercio { get; } = new();
+
+        private List<ComercioItem> _todosLosComerciosData = new();
+        private Dictionary<string, int> _comercioIdMap = new();
+
+        // ============================================
+        // AUTOCOMPLETADO - Local
+        // ============================================
+
+        [ObservableProperty]
+        private string _filtroLocalTexto = "";
+
+        [ObservableProperty]
+        private bool _mostrarSugerenciasLocal = false;
+
+        public ObservableCollection<string> SugerenciasLocal { get; } = new();
+
+        private List<LocalItem> _todosLosLocalesData = new();
+        private Dictionary<string, int> _localIdMap = new();
+
+        // ============================================
+        // LISTAS PARA FILTROS
+        // ============================================
+
+        public ObservableCollection<string> PaisesDestino { get; } = new() { "Todos" };
+
+        public ObservableCollection<string> EstadosDisponibles { get; } = new() 
+        { 
+            "Todos", "PENDIENTE", "PAGADO", "ENVIADO", "ANULADO" 
+        };
+
+        // ============================================
+        // DATOS PACK ALIMENTOS - TABLA PRINCIPAL
+        // ============================================
+
+        public ObservableCollection<BalanceAlimentosItem> OperacionesAlimentos { get; } = new();
+
+        [ObservableProperty]
+        private string _totalOperacionesAlimentos = "0";
+
+        [ObservableProperty]
+        private string _totalImporteAlimentos = "0.00";
+
+        [ObservableProperty]
+        private string _totalDebidoAlimentos = "0.00";
+
+        public string TotalDebidoAlimentosTexto => decimal.TryParse(TotalDebidoAlimentos, out decimal val) && val > 0 
+            ? $"-{TotalDebidoAlimentos} EUR" 
+            : "0.00 EUR";
+
+        partial void OnTotalDebidoAlimentosChanged(string value)
+        {
+            OnPropertyChanged(nameof(TotalDebidoAlimentosTexto));
+        }
+
+        [ObservableProperty]
+        private string _totalPendientes = "0";
+
+        [ObservableProperty]
+        private string _totalPagados = "0";
+
+        [ObservableProperty]
+        private string _totalEnviados = "0";
+
+        [ObservableProperty]
+        private string _totalAnulados = "0";
+
+        // ============================================
+        // RESUMEN POR LOCALES - SECCION NUEVA
+        // ============================================
+
+        public ObservableCollection<LocalBalanceItem> LocalesConDeuda { get; } = new();
+
+        [ObservableProperty]
+        private LocalBalanceItem? _localSeleccionadoDeposito;
+
+        [ObservableProperty]
+        private string _totalDeudaGlobal = "0.00";
+
+        // ============================================
+        // PANEL DE DEPOSITO - SECCION NUEVA
+        // ============================================
+
+        [ObservableProperty]
+        private string _montoDeposito = "";
+
+        [ObservableProperty]
+        private string _operacionesAPagar = "0";
+
+        [ObservableProperty]
+        private string _montoAPagar = "0.00";
+
+        [ObservableProperty]
+        private string _excedente = "0.00";
+
+        [ObservableProperty]
+        private string _deudaRestante = "0.00";
+
+        [ObservableProperty]
+        private bool _mostrarPrevisualizacion = false;
+
+        [ObservableProperty]
+        private string _totalPendienteLocalSeleccionado = "0.00";
+
+        [ObservableProperty]
+        private int _cantidadOpsPendientesLocal = 0;
+
+        public ObservableCollection<OperacionLocalItem> OperacionesLocalSeleccionado { get; } = new();
+
+        private List<OperacionParaPago> _operacionesParaPago = new();
+
+        // ============================================
+        // CONSTRUCTOR
+        // ============================================
+
+        public BalanceAdminViewModel()
+        {
+            InicializarFechas();
+            _ = InicializarAsync();
+        }
+
+        private void InicializarFechas()
+        {
+            var hoy = ObtenerHoraEspana();
+            FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
+            FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
+
+            var diaSemana = ObtenerDiaSemana(hoy.DayOfWeek);
+            var mes = ObtenerNombreMes(hoy.Month);
+            FechaActualTexto = $"{diaSemana}, {hoy.Day} de {mes} de {hoy.Year}";
+        }
+
+        private DateTime ObtenerHoraEspana()
+        {
+            try
+            {
+                var zonaEspana = TimeZoneInfo.FindSystemTimeZoneById("Europe/Madrid");
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaEspana);
+            }
+            catch
+            {
+                try
+                {
+                    var zonaEspana = TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
+                    return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonaEspana);
+                }
+                catch
+                {
+                    return DateTime.Now;
+                }
+            }
+        }
+
+        private string ObtenerDiaSemana(DayOfWeek dia) => dia switch
+        {
+            DayOfWeek.Monday => "Lunes",
+            DayOfWeek.Tuesday => "Martes",
+            DayOfWeek.Wednesday => "Miercoles",
+            DayOfWeek.Thursday => "Jueves",
+            DayOfWeek.Friday => "Viernes",
+            DayOfWeek.Saturday => "Sabado",
+            DayOfWeek.Sunday => "Domingo",
+            _ => ""
+        };
+
+        private string ObtenerNombreMes(int mes)
+        {
+            string[] meses = { "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+                              "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre" };
+            return mes >= 1 && mes <= 12 ? meses[mes] : "";
+        }
+
+        private async Task InicializarAsync()
+        {
+            await CargarComerciosAsync();
+            await CargarPaisesDestinoAsync();
+            await CargarLocalesConDeudaAsync();
+            await CargarOperacionesAlimentosAsync();
+        }
+
+        // ============================================
+        // TOGGLE FILTROS
+        // ============================================
+
+        [RelayCommand]
+        private void ToggleFiltros()
+        {
+            MostrarFiltros = !MostrarFiltros;
+        }
+
+        // ============================================
+        // AUTOCOMPLETADO - COMERCIO
+        // ============================================
+
+        partial void OnFiltroComercioTextoChanged(string value)
+        {
+            FiltrarSugerenciasComercio(value);
+            FiltroLocalTexto = "";
+            SugerenciasLocal.Clear();
+        }
+
+        private void FiltrarSugerenciasComercio(string texto)
+        {
+            SugerenciasComercio.Clear();
+            if (string.IsNullOrWhiteSpace(texto)) { MostrarSugerenciasComercio = false; return; }
+
+            var coincidencias = _todosLosComerciosData
+                .Where(c => c.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase))
+                .Take(10).Select(c => c.Nombre);
+
+            foreach (var item in coincidencias) SugerenciasComercio.Add(item);
+            MostrarSugerenciasComercio = SugerenciasComercio.Count > 0;
+        }
+
+        [RelayCommand]
+        private void SeleccionarComercio(string? comercio)
+        {
+            if (string.IsNullOrEmpty(comercio)) return;
+            FiltroComercioTexto = comercio;
+            MostrarSugerenciasComercio = false;
+        }
+
+        // ============================================
+        // AUTOCOMPLETADO - LOCAL
+        // ============================================
+
+        partial void OnFiltroLocalTextoChanged(string value)
+        {
+            FiltrarSugerenciasLocal(value);
+        }
+
+        private void FiltrarSugerenciasLocal(string texto)
+        {
+            SugerenciasLocal.Clear();
+            if (string.IsNullOrWhiteSpace(texto)) { MostrarSugerenciasLocal = false; return; }
+
+            int? idComercioSeleccionado = null;
+            if (!string.IsNullOrWhiteSpace(FiltroComercioTexto) && _comercioIdMap.ContainsKey(FiltroComercioTexto))
+                idComercioSeleccionado = _comercioIdMap[FiltroComercioTexto];
+
+            var coincidencias = _todosLosLocalesData
+                .Where(l => (idComercioSeleccionado == null || l.IdComercio == idComercioSeleccionado) &&
+                    (l.Codigo.Contains(texto, StringComparison.OrdinalIgnoreCase) || 
+                     l.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase)))
+                .Take(10).Select(l => $"{l.Codigo} - {l.Nombre}");
+
+            foreach (var item in coincidencias) SugerenciasLocal.Add(item);
+            MostrarSugerenciasLocal = SugerenciasLocal.Count > 0;
+        }
+
+        [RelayCommand]
+        private void SeleccionarLocal(string? local)
+        {
+            if (string.IsNullOrEmpty(local)) return;
+            FiltroLocalTexto = local;
+            MostrarSugerenciasLocal = false;
+        }
+
+        [RelayCommand]
+        private void CerrarSugerencias()
+        {
+            MostrarSugerenciasComercio = false;
+            MostrarSugerenciasLocal = false;
+        }
+
+        // ============================================
+        // CARGA DE COMERCIOS Y LOCALES
+        // ============================================
+
+        private async Task CargarComerciosAsync()
+        {
+            try
+            {
+                _todosLosComerciosData.Clear();
+                _comercioIdMap.Clear();
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = "SELECT id_comercio, nombre_comercio FROM comercios WHERE activo = true ORDER BY nombre_comercio";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    var id = reader.GetInt32(0);
+                    var nombre = reader.GetString(1);
+                    _todosLosComerciosData.Add(new ComercioItem { Id = id, Nombre = nombre });
+                    _comercioIdMap[nombre] = id;
+                }
+
+                await CargarLocalesDataAsync();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error al cargar comercios: {ex.Message}";
+            }
+        }
+
+        private async Task CargarLocalesDataAsync()
+        {
+            try
+            {
+                _todosLosLocalesData.Clear();
+                _localIdMap.Clear();
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"SELECT l.id_local, l.codigo_local, COALESCE(l.nombre_local, l.codigo_local), l.id_comercio 
+                           FROM locales l WHERE l.activo = true ORDER BY l.codigo_local";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    var id = reader.GetInt32(0);
+                    var codigo = reader.GetString(1);
+                    var nombre = reader.GetString(2);
+                    var idComercio = reader.GetInt32(3);
+                    var key = $"{codigo} - {nombre}";
+                    _todosLosLocalesData.Add(new LocalItem { Id = id, Codigo = codigo, Nombre = nombre, IdComercio = idComercio });
+                    _localIdMap[key] = id;
+                }
+            }
+            catch { }
+        }
+
+        private async Task CargarPaisesDestinoAsync()
+        {
+            try
+            {
+                PaisesDestino.Clear();
+                PaisesDestino.Add("Todos");
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = "SELECT DISTINCT pais_destino FROM operaciones_pack_alimentos WHERE pais_destino IS NOT NULL AND pais_destino != '' ORDER BY pais_destino";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                    PaisesDestino.Add(reader.GetString(0));
+            }
+            catch { }
+        }
+
+        // ============================================
+        // CARGA DE LOCALES CON DEUDA - SECCION NUEVA
+        // ============================================
+
+        private async Task CargarLocalesConDeudaAsync()
+        {
+            try
+            {
+                LocalesConDeuda.Clear();
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"
+                    SELECT 
+                        l.id_local,
+                        l.codigo_local,
+                        c.id_comercio,
+                        c.nombre_comercio,
+                        COUNT(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN 1 END) as total_operaciones,
+                        COALESCE(SUM(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN o.importe_total ELSE 0 END), 0) as total_deuda
+                    FROM locales l
+                    INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                    LEFT JOIN operaciones o ON l.id_local = o.id_local AND o.modulo = 'PACK_ALIMENTOS'
+                    LEFT JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                    WHERE l.activo = true
+                    GROUP BY l.id_local, l.codigo_local, c.id_comercio, c.nombre_comercio
+                    HAVING COUNT(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN 1 END) > 0
+                    ORDER BY total_deuda DESC";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                decimal totalDeuda = 0;
+                int index = 0;
+
+                while (await reader.ReadAsync())
+                {
+                    var idLocal = reader.GetInt32(0);
+                    var codigoLocal = reader.GetString(1);
+                    var idComercio = reader.GetInt32(2);
+                    var nombreComercio = reader.GetString(3);
+                    var totalOps = reader.GetInt32(4);
+                    var deuda = reader.GetDecimal(5);
+
+                    LocalesConDeuda.Add(new LocalBalanceItem
+                    {
+                        IdLocal = idLocal,
+                        IdComercio = idComercio,
+                        CodigoLocal = codigoLocal,
+                        NombreComercio = nombreComercio,
+                        TotalOperaciones = totalOps,
+                        TotalDeuda = deuda,
+                        DeudaTexto = $"{deuda:N2} EUR",
+                        BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+                    });
+
+                    totalDeuda += deuda;
+                    index++;
+                }
+
+                TotalDeudaGlobal = $"{totalDeuda:N2}";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error al cargar locales con deuda: {ex.Message}";
+            }
+        }
+
+        // ============================================
+        // SELECCION DE LOCAL PARA DEPOSITO
+        // ============================================
+
+        [RelayCommand]
+        private async Task SeleccionarLocalDeposito(LocalBalanceItem? local)
+        {
+            if (local == null) return;
+
+            LocalSeleccionadoDeposito = local;
+            MontoDeposito = "";
+            MostrarPrevisualizacion = false;
+            TotalPendienteLocalSeleccionado = $"{local.TotalDeuda:N2}";
+            CantidadOpsPendientesLocal = local.TotalOperaciones;
+
+            await CargarOperacionesParaPagoAsync(local.IdLocal);
+        }
+
+        private async Task CargarOperacionesParaPagoAsync(int idLocal)
+        {
+            try
+            {
+                _operacionesParaPago.Clear();
+                OperacionesLocalSeleccionado.Clear();
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"
+                    SELECT o.id_operacion, o.fecha_operacion, o.hora_operacion, o.numero_operacion, 
+                           opa.nombre_pack, o.importe_total
+                    FROM operaciones o
+                    INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                    WHERE o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS' AND opa.estado_envio = 'PENDIENTE'
+                    ORDER BY o.fecha_operacion ASC, o.hora_operacion ASC";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("idLocal", idLocal);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                int index = 0;
+                while (await reader.ReadAsync())
+                {
+                    var idOp = reader.GetInt32(0);
+                    var fecha = reader.IsDBNull(1) ? DateTime.Today : reader.GetDateTime(1);
+                    var hora = reader.IsDBNull(2) ? TimeSpan.Zero : reader.GetTimeSpan(2);
+                    var numOp = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                    var pack = reader.IsDBNull(4) ? "" : reader.GetString(4);
+                    var importe = reader.IsDBNull(5) ? 0 : reader.GetDecimal(5);
+
+                    _operacionesParaPago.Add(new OperacionParaPago
+                    {
+                        IdOperacion = idOp,
+                        Fecha = fecha,
+                        Importe = importe
+                    });
+
+                    OperacionesLocalSeleccionado.Add(new OperacionLocalItem
+                    {
+                        IdOperacion = idOp,
+                        Fecha = fecha.ToString("dd/MM/yy"),
+                        Hora = hora.ToString(@"hh\:mm"),
+                        NumeroOperacion = numOp,
+                        Descripcion = pack,
+                        Importe = importe,
+                        ImporteTexto = $"{importe:N2} EUR",
+                        EstadoPago = "PENDIENTE",
+                        EstadoPagoColor = "#ffc107",
+                        BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+                    });
+                    index++;
+                }
+            }
+            catch { }
+        }
+
+        // ============================================
+        // CALCULO DE DEPOSITO
+        // ============================================
+
+        partial void OnMontoDepositoChanged(string value)
+        {
+            CalcularOperacionesAPagar();
+        }
+
+        private void CalcularOperacionesAPagar()
+        {
+            if (string.IsNullOrWhiteSpace(MontoDeposito))
+            {
+                MostrarPrevisualizacion = false;
+                OperacionesAPagar = "0";
+                MontoAPagar = "0.00";
+                Excedente = "0.00";
+                DeudaRestante = TotalPendienteLocalSeleccionado;
+                
+                // Resetear colores
+                int idx = 0;
+                foreach (var op in OperacionesLocalSeleccionado)
+                {
+                    op.EstadoPago = "PENDIENTE";
+                    op.EstadoPagoColor = "#ffc107";
+                    op.BackgroundColor = idx % 2 == 0 ? "White" : "#F5F5F5";
+                    idx++;
+                }
+                return;
+            }
+
+            if (!decimal.TryParse(MontoDeposito.Replace(",", "."), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal monto) || monto <= 0)
+            {
+                MostrarPrevisualizacion = false;
+                return;
+            }
+
+            MostrarPrevisualizacion = true;
+
+            decimal montoRestante = monto;
+            decimal totalAPagar = 0;
+            int count = 0;
+
+            // Resetear y marcar las que se van a pagar
+            int index = 0;
+            foreach (var opLocal in OperacionesLocalSeleccionado)
+            {
+                var opPago = _operacionesParaPago.FirstOrDefault(o => o.IdOperacion == opLocal.IdOperacion);
+                if (opPago != null && montoRestante >= opPago.Importe)
+                {
+                    opLocal.EstadoPago = "SE PAGARA";
+                    opLocal.EstadoPagoColor = "#28a745";
+                    opLocal.BackgroundColor = "#C8E6C9";
+                    montoRestante -= opPago.Importe;
+                    totalAPagar += opPago.Importe;
+                    count++;
+                }
+                else
+                {
+                    opLocal.EstadoPago = "PENDIENTE";
+                    opLocal.EstadoPagoColor = "#ffc107";
+                    opLocal.BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5";
+                }
+                index++;
+            }
+
+            OperacionesAPagar = count.ToString();
+            MontoAPagar = $"{totalAPagar:N2}";
+
+            decimal totalPendiente = _operacionesParaPago.Sum(o => o.Importe);
+            decimal deudaRestante = totalPendiente - totalAPagar;
+
+            if (monto > totalAPagar && deudaRestante == 0)
+            {
+                Excedente = $"{(monto - totalAPagar):N2}";
+                DeudaRestante = "0.00";
+            }
+            else
+            {
+                Excedente = "0.00";
+                DeudaRestante = $"{deudaRestante:N2}";
+            }
+        }
+
+        // ============================================
+        // CONFIRMAR DEPOSITO
+        // ============================================
+
+        [RelayCommand]
+        private async Task ConfirmarDeposito()
+        {
+            if (LocalSeleccionadoDeposito == null)
+            {
+                ErrorMessage = "Seleccione un local primero";
+                await Task.Delay(2000);
+                ErrorMessage = "";
+                return;
+            }
+
+            if (!decimal.TryParse(MontoDeposito.Replace(",", "."), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal monto) || monto <= 0)
+            {
+                ErrorMessage = "Ingrese un monto valido";
+                await Task.Delay(2000);
+                ErrorMessage = "";
+                return;
+            }
+
+            if (!int.TryParse(OperacionesAPagar, out int cantOps) || cantOps == 0)
+            {
+                ErrorMessage = "El monto no alcanza para pagar ninguna operacion";
+                await Task.Delay(2000);
+                ErrorMessage = "";
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+                ErrorMessage = "";
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                await using var transaction = await conn.BeginTransactionAsync();
+
+                try
+                {
+                    var ahora = ObtenerHoraEspana();
+                    decimal totalPagado = 0;
+                    int opsPagadas = 0;
+
+                    decimal montoRestante = monto;
+                    foreach (var op in _operacionesParaPago.OrderBy(o => o.Fecha))
+                    {
+                        if (montoRestante >= op.Importe)
+                        {
+                            var sqlUpdate = @"UPDATE operaciones_pack_alimentos 
+                                            SET estado_envio = 'PAGADO'
+                                            WHERE id_operacion = @idOperacion";
+
+                            await using var cmdUpdate = new NpgsqlCommand(sqlUpdate, conn, transaction);
+                            cmdUpdate.Parameters.AddWithValue("idOperacion", op.IdOperacion);
+                            await cmdUpdate.ExecuteNonQueryAsync();
+
+                            montoRestante -= op.Importe;
+                            totalPagado += op.Importe;
+                            opsPagadas++;
+                        }
+                        else break;
+                    }
+
+                    // Registrar deposito en depositos_pack_alimentos
+                    var idsOperaciones = string.Join(",", _operacionesParaPago
+                        .OrderBy(o => o.Fecha)
+                        .Take(opsPagadas)
+                        .Select(o => o.IdOperacion.ToString()));
+                    
+                    var numerosOperaciones = string.Join(",", OperacionesLocalSeleccionado
+                        .Where(o => o.EstadoPago == "SE PAGARA")
+                        .Select(o => o.NumeroOperacion));
+
+                    decimal excedenteCalc = monto > totalPagado ? monto - totalPagado : 0;
+                    decimal deudaRestanteCalc = _operacionesParaPago.Sum(o => o.Importe) - totalPagado;
+
+                    var sqlDeposito = @"INSERT INTO depositos_pack_alimentos 
+                        (id_local, codigo_local, id_comercio, nombre_comercio,
+                         monto_depositado, monto_aplicado, excedente, deuda_restante,
+                         cantidad_operaciones_pagadas, ids_operaciones_pagadas, numeros_operaciones_pagadas,
+                         fecha_deposito, hora_deposito, observaciones)
+                        VALUES 
+                        (@idLocal, @codigoLocal, @idComercio, @nombreComercio,
+                         @montoDepositado, @montoAplicado, @excedente, @deudaRestante,
+                         @cantidadOps, @idsOps, @numerosOps,
+                         @fecha, @hora, @observaciones)";
+
+                    await using var cmdDeposito = new NpgsqlCommand(sqlDeposito, conn, transaction);
+                    cmdDeposito.Parameters.AddWithValue("idLocal", LocalSeleccionadoDeposito.IdLocal);
+                    cmdDeposito.Parameters.AddWithValue("codigoLocal", LocalSeleccionadoDeposito.CodigoLocal);
+                    cmdDeposito.Parameters.AddWithValue("idComercio", LocalSeleccionadoDeposito.IdComercio);
+                    cmdDeposito.Parameters.AddWithValue("nombreComercio", LocalSeleccionadoDeposito.NombreComercio ?? "");
+                    cmdDeposito.Parameters.AddWithValue("montoDepositado", monto);
+                    cmdDeposito.Parameters.AddWithValue("montoAplicado", totalPagado);
+                    cmdDeposito.Parameters.AddWithValue("excedente", excedenteCalc);
+                    cmdDeposito.Parameters.AddWithValue("deudaRestante", deudaRestanteCalc > 0 ? deudaRestanteCalc : 0);
+                    cmdDeposito.Parameters.AddWithValue("cantidadOps", opsPagadas);
+                    cmdDeposito.Parameters.AddWithValue("idsOps", idsOperaciones);
+                    cmdDeposito.Parameters.AddWithValue("numerosOps", numerosOperaciones);
+                    cmdDeposito.Parameters.AddWithValue("fecha", ahora.Date);
+                    cmdDeposito.Parameters.AddWithValue("hora", ahora.TimeOfDay);
+                    cmdDeposito.Parameters.AddWithValue("observaciones", $"Deposito Pack Alimentos: {opsPagadas} operaciones pagadas");
+
+                    await cmdDeposito.ExecuteNonQueryAsync();
+
+                    await transaction.CommitAsync();
+
+                    var mensaje = $"Deposito registrado: {opsPagadas} operaciones pagadas ({totalPagado:N2} EUR)";
+                    if (montoRestante > 0) mensaje += $". Excedente: {montoRestante:N2} EUR";
+
+                    SuccessMessage = mensaje;
+
+                    MontoDeposito = "";
+                    MostrarPrevisualizacion = false;
+                    LocalSeleccionadoDeposito = null;
+                    OperacionesLocalSeleccionado.Clear();
+                    _operacionesParaPago.Clear();
+
+                    await CargarLocalesConDeudaAsync();
+                    await CargarOperacionesAlimentosAsync();
+
+                    await Task.Delay(3000);
+                    SuccessMessage = "";
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error al procesar deposito: {ex.Message}";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        [RelayCommand]
+        private void CancelarDeposito()
+        {
+            MontoDeposito = "";
+            MostrarPrevisualizacion = false;
+            LocalSeleccionadoDeposito = null;
+            OperacionesLocalSeleccionado.Clear();
+            _operacionesParaPago.Clear();
+        }
+
+        // ============================================
+        // COMANDOS DE BUSQUEDA - TABLA PRINCIPAL
+        // ============================================
+
+        [RelayCommand]
+        private async Task BuscarOperaciones()
+        {
+            MostrarSugerenciasComercio = false;
+            MostrarSugerenciasLocal = false;
+            await CargarOperacionesAlimentosAsync();
+        }
+
+        [RelayCommand]
+        private async Task LimpiarFiltros()
+        {
+            var hoy = ObtenerHoraEspana();
+            FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
+            FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
+            FiltroNumeroOperacion = "";
+            FiltroComercioTexto = "";
+            FiltroLocalTexto = "";
+            FiltroPaisDestino = "Todos";
+            FiltroEstado = "Todos";
+            MostrarSugerenciasComercio = false;
+            MostrarSugerenciasLocal = false;
+            await CargarOperacionesAlimentosAsync();
+        }
+
+        private DateTime? ParsearFecha(string fechaTexto)
+        {
+            if (string.IsNullOrWhiteSpace(fechaTexto)) return null;
+            var partes = fechaTexto.Split('/');
+            if (partes.Length == 3 &&
+                int.TryParse(partes[0], out int dia) &&
+                int.TryParse(partes[1], out int mes) &&
+                int.TryParse(partes[2], out int anio))
+            {
+                try { return new DateTime(anio, mes, dia); }
+                catch { return null; }
+            }
+            return null;
+        }
+
+        // ============================================
+        // CARGA DE OPERACIONES - TABLA PRINCIPAL
+        // ============================================
+
+        private async Task CargarOperacionesAlimentosAsync()
+        {
+            try
+            {
+                IsLoading = true;
+                ErrorMessage = "";
+                OperacionesAlimentos.Clear();
+
+                var fechaDesde = ParsearFecha(FechaDesdeTexto);
+                var fechaHasta = ParsearFecha(FechaHastaTexto);
+
+                int? idComercio = !string.IsNullOrEmpty(FiltroComercioTexto) && _comercioIdMap.ContainsKey(FiltroComercioTexto)
+                    ? _comercioIdMap[FiltroComercioTexto] : null;
+
+                int? idLocal = null;
+                if (!string.IsNullOrEmpty(FiltroLocalTexto))
+                {
+                    var localMatch = _localIdMap.Keys.FirstOrDefault(k => k.Equals(FiltroLocalTexto, StringComparison.OrdinalIgnoreCase));
+                    if (localMatch != null) idLocal = _localIdMap[localMatch];
+                }
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"
+                    SELECT 
+                        o.id_operacion, o.fecha_operacion, o.hora_operacion, o.numero_operacion,
+                        c.nombre_comercio, l.codigo_local, opa.pais_destino, opa.nombre_pack, o.importe_total,
+                        CONCAT(cl.nombre, ' ', cl.apellidos) as cliente,
+                        CONCAT(cb.nombre, ' ', cb.apellido) as beneficiario,
+                        CONCAT_WS(', ', cb.calle, cb.numero, cb.ciudad) as direccion_beneficiario,
+                        opa.estado_envio
+                    FROM operaciones o
+                    INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                    INNER JOIN locales l ON o.id_local = l.id_local
+                    INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                    LEFT JOIN clientes cl ON o.id_cliente = cl.id_cliente
+                    LEFT JOIN clientes_beneficiarios cb ON opa.id_beneficiario = cb.id_beneficiario
+                    WHERE o.modulo = 'PACK_ALIMENTOS'";
+
+                if (fechaDesde.HasValue) sql += " AND o.fecha_operacion >= @fechaDesde";
+                if (fechaHasta.HasValue) sql += " AND o.fecha_operacion <= @fechaHasta";
+                if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion)) sql += " AND o.numero_operacion ILIKE @numOp";
+                if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos") sql += " AND opa.pais_destino = @pais";
+                if (!string.IsNullOrEmpty(FiltroEstado) && FiltroEstado != "Todos") sql += " AND opa.estado_envio = @estado";
+                if (idComercio.HasValue) sql += " AND l.id_comercio = @idComercio";
+                if (idLocal.HasValue) sql += " AND o.id_local = @idLocal";
+
+                sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+
+                if (fechaDesde.HasValue) cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
+                if (fechaHasta.HasValue) cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
+                if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion)) cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
+                if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos") cmd.Parameters.AddWithValue("pais", FiltroPaisDestino);
+                if (!string.IsNullOrEmpty(FiltroEstado) && FiltroEstado != "Todos") cmd.Parameters.AddWithValue("estado", FiltroEstado);
+                if (idComercio.HasValue) cmd.Parameters.AddWithValue("idComercio", idComercio.Value);
+                if (idLocal.HasValue) cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                int index = 0;
+                decimal totalImporte = 0, totalDebido = 0;
+                int pendientes = 0, pagados = 0, enviados = 0, anulados = 0;
+
+                while (await reader.ReadAsync())
+                {
+                    var idOperacion = reader.GetInt32(0);
+                    var fechaOperacion = reader.IsDBNull(1) ? DateTime.Today : reader.GetDateTime(1);
+                    var horaOperacion = reader.IsDBNull(2) ? TimeSpan.Zero : reader.GetTimeSpan(2);
+                    var numOp = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                    var comercio = reader.IsDBNull(4) ? "" : reader.GetString(4);
+                    var codigoLocal = reader.IsDBNull(5) ? "" : reader.GetString(5);
+                    var paisDestino = reader.IsDBNull(6) ? "" : reader.GetString(6);
+                    var descripcion = reader.IsDBNull(7) ? "" : reader.GetString(7);
+                    var importe = reader.IsDBNull(8) ? 0 : reader.GetDecimal(8);
+                    var cliente = reader.IsDBNull(9) ? "" : reader.GetString(9);
+                    var beneficiario = reader.IsDBNull(10) ? "" : reader.GetString(10);
+                    var direccionBeneficiario = reader.IsDBNull(11) ? "" : reader.GetString(11);
+                    var estado = reader.IsDBNull(12) ? "PENDIENTE" : reader.GetString(12);
+
+                    var estadoColor = estado.Trim().ToUpper() switch
+                    {
+                        "PAGADO" => "#17a2b8",
+                        "ENVIADO" => "#28a745",
+                        "ANULADO" => "#dc3545",
+                        _ => "#ffc107"
+                    };
+
+                    OperacionesAlimentos.Add(new BalanceAlimentosItem
+                    {
+                        Hora = horaOperacion.ToString(@"hh\:mm"),
+                        Fecha = fechaOperacion.ToString("dd/MM/yy"),
+                        NumeroOperacionGlobal = idOperacion.ToString(),
+                        NumeroOperacion = numOp,
+                        Comercio = comercio,
+                        CodigoLocal = codigoLocal,
+                        PaisDestino = paisDestino,
+                        Descripcion = descripcion,
+                        Importe = $"{importe:N2} EUR",
+                        ImporteNum = importe,
+                        Cliente = cliente,
+                        Beneficiario = beneficiario,
+                        DireccionBeneficiario = direccionBeneficiario,
+                        Estado = estado.Trim().ToUpper(),
+                        EstadoColor = estadoColor,
+                        BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+                    });
+
+                    totalImporte += importe;
+
+                    switch (estado.Trim().ToUpper())
+                    {
+                        case "PENDIENTE": pendientes++; totalDebido += importe; break;
+                        case "PAGADO": pagados++; break;
+                        case "ENVIADO": enviados++; break;
+                        case "ANULADO": anulados++; break;
+                        default: pendientes++; totalDebido += importe; break;
+                    }
+                    index++;
+                }
+
+                TotalOperacionesAlimentos = index.ToString();
+                TotalImporteAlimentos = $"{totalImporte:N2}";
+                TotalDebidoAlimentos = $"{totalDebido:N2}";
+                TotalPendientes = pendientes.ToString();
+                TotalPagados = pagados.ToString();
+                TotalEnviados = enviados.ToString();
+                TotalAnulados = anulados.ToString();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error al cargar operaciones: {ex.Message}";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        // ============================================
+        // COMANDOS DE NAVEGACION
+        // ============================================
+
+        [RelayCommand]
+        private async Task CambiarPanel(string? panel)
+        {
+            if (string.IsNullOrEmpty(panel)) return;
+
+            EsPanelAlimentos = false; EsPanelBilletes = false; EsPanelViaje = false;
+            TabAlimentosBackground = "White"; TabAlimentosForeground = "#595959";
+            TabBilletesBackground = "White"; TabBilletesForeground = "#595959";
+            TabViajeBackground = "White"; TabViajeForeground = "#595959";
+
+            switch (panel.ToLower())
+            {
+                case "alimentos":
+                    EsPanelAlimentos = true;
+                    TabAlimentosBackground = "#ffd966"; TabAlimentosForeground = "#0b5394";
+                    await CargarLocalesConDeudaAsync();
+                    await CargarOperacionesAlimentosAsync();
+                    break;
+                case "billetes":
+                    EsPanelBilletes = true;
+                    TabBilletesBackground = "#ffd966"; TabBilletesForeground = "#0b5394";
+                    break;
+                case "viaje":
+                    EsPanelViaje = true;
+                    TabViajeBackground = "#ffd966"; TabViajeForeground = "#0b5394";
+                    break;
+            }
+        }
+
+        [RelayCommand]
+        private async Task RefrescarDatos()
+        {
+            LocalSeleccionadoDeposito = null;
+            MontoDeposito = "";
+            MostrarPrevisualizacion = false;
+            await CargarLocalesConDeudaAsync();
+            await CargarOperacionesAlimentosAsync();
+            SuccessMessage = "Datos actualizados";
+            await Task.Delay(2000);
+            SuccessMessage = "";
+        }
+    }
+
+    // ============================================
+    // MODELOS
+    // ============================================
+
+    public class BalanceAlimentosItem
+    {
+        public string Hora { get; set; } = "";
+        public string Fecha { get; set; } = "";
+        public string NumeroOperacionGlobal { get; set; } = "";
+        public string NumeroOperacion { get; set; } = "";
+        public string Comercio { get; set; } = "";
+        public string CodigoLocal { get; set; } = "";
+        public string PaisDestino { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public string Importe { get; set; } = "0.00 EUR";
+        public decimal ImporteNum { get; set; }
+        public string Cliente { get; set; } = "";
+        public string Beneficiario { get; set; } = "";
+        public string DireccionBeneficiario { get; set; } = "";
+        public string Estado { get; set; } = "PENDIENTE";
+        public string EstadoColor { get; set; } = "#ffc107";
+        public string BackgroundColor { get; set; } = "White";
+    }
+
+    public class LocalBalanceItem
+    {
+        public int IdLocal { get; set; }
+        public int IdComercio { get; set; }
+        public string CodigoLocal { get; set; } = "";
+        public string NombreComercio { get; set; } = "";
+        public int TotalOperaciones { get; set; }
+        public decimal TotalDeuda { get; set; }
+        public string DeudaTexto { get; set; } = "0.00 EUR";
+        public string BackgroundColor { get; set; } = "White";
+    }
+
+    public class OperacionParaPago
+    {
+        public int IdOperacion { get; set; }
+        public DateTime Fecha { get; set; }
+        public decimal Importe { get; set; }
+    }
+
+    public partial class OperacionLocalItem : ObservableObject
+    {
+        public int IdOperacion { get; set; }
+        public string Fecha { get; set; } = "";
+        public string Hora { get; set; } = "";
+        public string NumeroOperacion { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public decimal Importe { get; set; }
+        public string ImporteTexto { get; set; } = "0.00 EUR";
+
+        [ObservableProperty]
+        private string _estadoPago = "PENDIENTE";
+
+        [ObservableProperty]
+        private string _estadoPagoColor = "#ffc107";
+
+        [ObservableProperty]
+        private string _backgroundColor = "White";
+    }
+}

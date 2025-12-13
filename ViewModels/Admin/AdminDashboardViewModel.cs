@@ -72,6 +72,7 @@ public partial class AdminDashboardViewModel : ObservableObject
                 "usuarios" => "GESTION DE USUARIOS",
                 "usuarios_allva" => "USUARIOS ALLVA",
                 "divisas" => "CONFIGURACION DE DIVISAS",
+                "balance" => "BALANCE",
                 _ => "PANEL DE ADMINISTRACION"
             };
         }
@@ -81,6 +82,7 @@ public partial class AdminDashboardViewModel : ObservableObject
     public bool MostrarGestionUsuarios => _permisos?.AccesoGestionUsuariosLocales ?? true;
     public bool MostrarUsuariosAllva => _permisos?.AccesoGestionUsuariosAllva ?? false;
     public bool MostrarDivisas => true;
+    public bool MostrarBalance => true;
 
     // ============================================
     // CONSTRUCTORES
@@ -153,6 +155,7 @@ public partial class AdminDashboardViewModel : ObservableObject
                 "usuarios" => new ManageUsersView(),
                 "usuarios_allva" => new ManageAdministradoresAllvaView(),
                 "divisas" => new ManageDivisasView(),
+                "balance" => new BalanceAdminView(),
                 _ => CurrentView
             };
         }
