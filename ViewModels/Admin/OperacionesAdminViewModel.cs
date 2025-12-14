@@ -141,8 +141,12 @@ public partial class OperacionesAdminViewModel : ObservableObject
     [ObservableProperty]
     private string _totalDivisas = "0.00";
 
-    // Colección dinámica de totales por divisa (solo las que tienen valor > 0)
+    // Coleccion dinamica de totales por divisa (solo las que tienen valor > 0)
     public ObservableCollection<TotalDivisaItem> TotalesDivisasVisibles { get; } = new();
+
+    // Mostrar/ocultar popup de desglose de divisas
+    [ObservableProperty]
+    private bool _mostrarDesgloseDivisas = false;
 
     // Resumen Pack Alimentos (4 estados)
     [ObservableProperty]
@@ -163,7 +167,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
     [ObservableProperty]
     private string _totalImporteAlimentosColor = "#dc3545";
 
-    // Selección múltiple
+    // Seleccion multiple
     [ObservableProperty]
     private int _cantidadSeleccionados = 0;
 
@@ -190,7 +194,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
     private string _fechaActualTexto = "";
 
     // ============================================
-    // EXPORTACIÓN
+    // EXPORTACION
     // ============================================
 
     [ObservableProperty]
@@ -205,14 +209,14 @@ public partial class OperacionesAdminViewModel : ObservableObject
     [ObservableProperty]
     private bool _formatoCSV = false;
 
-    // Diccionario para almacenar totales por divisa (para exportación)
+    // Diccionario para almacenar totales por divisa (para exportacion)
     private Dictionary<string, decimal> _totalesPorDivisaExport = new();
 
     public string PanelActualTexto => PanelActual switch
     {
         "divisa" => "Divisas",
         "alimentos" => "Pack Alimentos",
-        "billetes" => "Billetes Avión",
+        "billetes" => "Billetes Avion",
         "viaje" => "Pack Viaje",
         _ => PanelActual
     };
@@ -627,6 +631,12 @@ public partial class OperacionesAdminViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ToggleDesgloseDivisas()
+    {
+        MostrarDesgloseDivisas = !MostrarDesgloseDivisas;
+    }
+
+    [RelayCommand]
     private void CerrarSugerencias()
     {
         MostrarSugerenciasComercio = false;
@@ -809,13 +819,13 @@ public partial class OperacionesAdminViewModel : ObservableObject
     }
 
     // ============================================
-    // EXPORTACIÓN
+    // EXPORTACION
     // ============================================
 
     [RelayCommand]
     private void Exportar()
     {
-        // Mostrar modal de exportación
+        // Mostrar modal de exportacion
         FormatoPDF = true;
         FormatoExcel = false;
         FormatoCSV = false;
@@ -835,7 +845,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
         {
             MostrarModalExportar = false;
 
-            // Determinar extensión y filtro
+            // Determinar extension y filtro
             string extension;
             string filtroNombre;
             string filtroExtension;
@@ -859,14 +869,14 @@ public partial class OperacionesAdminViewModel : ObservableObject
                 filtroExtension = "csv";
             }
 
-            // Mostrar diálogo para elegir ubicación
+            // Mostrar dialogo para elegir ubicacion
             var topLevel = TopLevel.GetTopLevel(App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
                 ? desktop.MainWindow 
                 : null);
 
             if (topLevel == null)
             {
-                ErrorMessage = "No se pudo abrir el diálogo de guardado";
+                ErrorMessage = "No se pudo abrir el dialogo de guardado";
                 return;
             }
 
@@ -875,7 +885,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
             var archivo = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Guardar archivo de exportación",
+                Title = "Guardar archivo de exportacion",
                 SuggestedFileName = nombreSugerido,
                 FileTypeChoices = new[]
                 {
@@ -885,7 +895,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
             if (archivo == null)
             {
-                // Usuario canceló
+                // Usuario cancelo
                 return;
             }
 
@@ -899,7 +909,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
             }
             else
             {
-                // Preparar datos de exportación para Divisas
+                // Preparar datos de exportacion para Divisas
                 var datos = new ExportacionOperacionesService.DatosExportacion
                 {
                     Modulo = PanelActualTexto,
@@ -938,13 +948,13 @@ public partial class OperacionesAdminViewModel : ObservableObject
                     contenido = ExportacionOperacionesService.GenerarCSV(datos);
             }
 
-            // Guardar archivo en la ubicación seleccionada
+            // Guardar archivo en la ubicacion seleccionada
             await using var stream = await archivo.OpenWriteAsync();
             await stream.WriteAsync(contenido);
             
             SuccessMessage = $"Archivo exportado correctamente";
             
-            // Limpiar mensaje después de 4 segundos
+            // Limpiar mensaje despues de 4 segundos
             await Task.Delay(4000);
             SuccessMessage = "";
         }
@@ -960,7 +970,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
     private async Task<byte[]> ExportarAlimentosAsync(string formato)
     {
-        // Usar el mismo servicio de exportación adaptando los datos
+        // Usar el mismo servicio de exportacion adaptando los datos
         var datos = new ExportacionOperacionesService.DatosExportacion
         {
             Modulo = "Pack Alimentos",
@@ -1205,10 +1215,10 @@ public partial class OperacionesAdminViewModel : ObservableObject
         decimal totalDivisas = totalesPorDivisa.Values.Sum();
         TotalDivisas = $"{totalDivisas:N2}";
         
-        // Almacenar para exportación
+        // Almacenar para exportacion
         _totalesPorDivisaExport = new Dictionary<string, decimal>(totalesPorDivisa);
         
-        // Llenar colección dinámica de divisas (solo las que tienen valor > 0)
+        // Llenar coleccion dinamica de divisas (solo las que tienen valor > 0)
         TotalesDivisasVisibles.Clear();
         foreach (var kvp in totalesPorDivisa.OrderByDescending(x => x.Value))
         {
@@ -1527,7 +1537,7 @@ public partial class OperacionAlimentosAdminItem : ObservableObject
     public string BackgroundColor { get; set; } = "White";
     public bool PuedeMarcarEnviado { get; set; } = false;
     
-    // Para selección múltiple
+    // Para seleccion multiple
     [ObservableProperty]
     private bool _estaSeleccionado;
 }

@@ -34,7 +34,7 @@ namespace Allva.Desktop.ViewModels
         private PaisDesignadoFront? _paisSeleccionado;
 
         [ObservableProperty]
-        private bool _vistaSeleccionPais = true;
+        private bool _vistaSeleccionPais = false;
 
         public bool HayPaises => PaisesDisponibles.Count > 0;
         public bool NoHayPaises => PaisesDisponibles.Count == 0 && !EstaCargando;
@@ -119,6 +119,9 @@ namespace Allva.Desktop.ViewModels
 
         [ObservableProperty]
         private bool _esEdicionBeneficiario = false;
+
+        [ObservableProperty]
+        private string _beneficiarioObservaciones = string.Empty;
 
         // Campos para nuevo/editar beneficiario
         [ObservableProperty]
@@ -315,6 +318,9 @@ namespace Allva.Desktop.ViewModels
             _idComercio = 1;
             _idLocal = 1;
             _idUsuario = 1;
+            // Iniciar directamente en búsqueda de cliente
+            OcultarTodasLasVistas();
+            VistaBuscarCliente = true;
             _ = CargarPaisesDisponiblesAsync();
         }
 
@@ -323,6 +329,8 @@ namespace Allva.Desktop.ViewModels
             _idComercio = idComercio;
             _idLocal = idLocal;
             _idUsuario = 0;
+            OcultarTodasLasVistas();
+            VistaBuscarCliente = true;
             _ = CargarPaisesDisponiblesAsync();
         }
 
@@ -335,6 +343,8 @@ namespace Allva.Desktop.ViewModels
             _nombreUsuario = nombreUsuario;
             _numeroUsuario = numeroUsuario;
             _codigoLocal = codigoLocal;
+            OcultarTodasLasVistas();
+            VistaBuscarCliente = true;
             _ = CargarPaisesDisponiblesAsync();
         }
 
@@ -799,6 +809,7 @@ namespace Allva.Desktop.ViewModels
             BeneficiarioPiso = beneficiario.Piso;
             BeneficiarioNumeroDepartamento = beneficiario.NumeroDepartamento;
             BeneficiarioCodigoPostal = beneficiario.CodigoPostal;
+            BeneficiarioObservaciones = beneficiario.Observaciones;
 
             OcultarTodasLasVistas();
             VistaNuevoBeneficiario = true;
@@ -961,6 +972,7 @@ namespace Allva.Desktop.ViewModels
             {
                 MostrarSugerenciasCliente = false;
                 ClientesFiltrados.Clear();
+                ClientesEncontrados.Clear();
                 return;
             }
 
@@ -988,6 +1000,15 @@ namespace Allva.Desktop.ViewModels
         [RelayCommand]
         private async Task BuscarClientesAsync()
         {
+            var termino = BusquedaCliente?.Trim() ?? "";
+            
+            // Si no hay termino de busqueda, no mostrar nada
+            if (string.IsNullOrEmpty(termino))
+            {
+                ClientesEncontrados.Clear();
+                ErrorMessage = "";
+                return;
+            }
             EstaCargando = true;
             ClientesEncontrados.Clear();
             ErrorMessage = string.Empty;
@@ -996,8 +1017,6 @@ namespace Allva.Desktop.ViewModels
             {
                 await using var conn = new NpgsqlConnection(ConnectionString);
                 await conn.OpenAsync();
-
-                var termino = BusquedaCliente?.Trim() ?? "";
                 var usarTermino = !string.IsNullOrEmpty(termino);
 
                 // Filtrar por comercio del usuario actual y clientes activos
@@ -1289,6 +1308,7 @@ namespace Allva.Desktop.ViewModels
             BeneficiarioPiso = string.Empty;
             BeneficiarioNumeroDepartamento = string.Empty;
             BeneficiarioCodigoPostal = string.Empty;
+            BeneficiarioObservaciones = string.Empty;
             ErrorMessage = string.Empty;
         }
 

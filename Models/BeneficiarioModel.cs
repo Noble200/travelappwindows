@@ -37,6 +37,7 @@ public class BeneficiarioModel
     public string Piso { get; set; } = string.Empty;
     public string NumeroDepartamento { get; set; } = string.Empty;
     public string CodigoPostal { get; set; } = string.Empty;
+    public string Observaciones { get; set; } = string.Empty;
     
     // Metadata
     public bool Activo { get; set; } = true;
