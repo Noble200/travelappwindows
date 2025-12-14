@@ -14,10 +14,6 @@ namespace Allva.Desktop.ViewModels.Admin
     {
         private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
 
-        // ============================================
-        // PROPIEDADES DE ESTADO
-        // ============================================
-
         [ObservableProperty]
         private bool _isLoading;
 
@@ -32,10 +28,6 @@ namespace Allva.Desktop.ViewModels.Admin
 
         [ObservableProperty]
         private bool _mostrarFiltros = true;
-
-        // ============================================
-        // TABS
-        // ============================================
 
         [ObservableProperty]
         private bool _esPanelAlimentos = true;
@@ -64,10 +56,6 @@ namespace Allva.Desktop.ViewModels.Admin
         [ObservableProperty]
         private string _tabViajeForeground = "#595959";
 
-        // ============================================
-        // FILTROS - Fechas como texto
-        // ============================================
-
         [ObservableProperty]
         private string _fechaDesdeTexto = "";
 
@@ -83,10 +71,6 @@ namespace Allva.Desktop.ViewModels.Admin
         [ObservableProperty]
         private string _filtroEstado = "Todos";
 
-        // ============================================
-        // AUTOCOMPLETADO - Comercio
-        // ============================================
-
         [ObservableProperty]
         private string _filtroComercioTexto = "";
 
@@ -97,10 +81,6 @@ namespace Allva.Desktop.ViewModels.Admin
 
         private List<ComercioItem> _todosLosComerciosData = new();
         private Dictionary<string, int> _comercioIdMap = new();
-
-        // ============================================
-        // AUTOCOMPLETADO - Local
-        // ============================================
 
         [ObservableProperty]
         private string _filtroLocalTexto = "";
@@ -113,20 +93,12 @@ namespace Allva.Desktop.ViewModels.Admin
         private List<LocalItem> _todosLosLocalesData = new();
         private Dictionary<string, int> _localIdMap = new();
 
-        // ============================================
-        // LISTAS PARA FILTROS
-        // ============================================
-
         public ObservableCollection<string> PaisesDestino { get; } = new() { "Todos" };
 
         public ObservableCollection<string> EstadosDisponibles { get; } = new() 
         { 
             "Todos", "PENDIENTE", "PAGADO", "ENVIADO", "ANULADO" 
         };
-
-        // ============================================
-        // DATOS PACK ALIMENTOS - TABLA PRINCIPAL
-        // ============================================
 
         public ObservableCollection<BalanceAlimentosItem> OperacionesAlimentos { get; } = new();
 
@@ -160,10 +132,6 @@ namespace Allva.Desktop.ViewModels.Admin
         [ObservableProperty]
         private string _totalAnulados = "0";
 
-        // ============================================
-        // RESUMEN POR LOCALES - SECCION NUEVA
-        // ============================================
-
         public ObservableCollection<LocalBalanceItem> LocalesConDeuda { get; } = new();
 
         [ObservableProperty]
@@ -171,10 +139,6 @@ namespace Allva.Desktop.ViewModels.Admin
 
         [ObservableProperty]
         private string _totalDeudaGlobal = "0.00";
-
-        // ============================================
-        // PANEL DE DEPOSITO - SECCION NUEVA
-        // ============================================
 
         [ObservableProperty]
         private string _montoDeposito = "";
@@ -195,18 +159,50 @@ namespace Allva.Desktop.ViewModels.Admin
         private bool _mostrarPrevisualizacion = false;
 
         [ObservableProperty]
+        private bool _mostrarVistaDeposito = false;
+
+        [ObservableProperty]
+        private bool _mostrarVistaHistorial = false;
+
+        [ObservableProperty]
+        private bool _mostrarPopupLocal = false;
+
+        [ObservableProperty]
+        private string _popupLocalCodigo = "";
+
+        [ObservableProperty]
+        private string _popupLocalComercio = "";
+
+        [ObservableProperty]
+        private string _popupLocalDeuda = "0.00 EUR";
+
+        [ObservableProperty]
+        private string _popupLocalBeneficio = "0.00 EUR";
+
+        private int _popupLocalId = 0;
+
+        [ObservableProperty]
         private string _totalPendienteLocalSeleccionado = "0.00";
 
         [ObservableProperty]
         private int _cantidadOpsPendientesLocal = 0;
 
+        [ObservableProperty]
+        private decimal _beneficioDisponibleLocal = 0;
+
+        public string BeneficioDisponibleTexto => BeneficioDisponibleLocal > 0 
+            ? $"{BeneficioDisponibleLocal:N2} EUR" 
+            : "0.00 EUR";
+
+        partial void OnBeneficioDisponibleLocalChanged(decimal value)
+        {
+            OnPropertyChanged(nameof(BeneficioDisponibleTexto));
+        }
+
         public ObservableCollection<OperacionLocalItem> OperacionesLocalSeleccionado { get; } = new();
+        public ObservableCollection<HistorialOperacionItem> HistorialLocalMes { get; } = new();
 
         private List<OperacionParaPago> _operacionesParaPago = new();
-
-        // ============================================
-        // CONSTRUCTOR
-        // ============================================
 
         public BalanceAdminViewModel()
         {
@@ -273,25 +269,61 @@ namespace Allva.Desktop.ViewModels.Admin
             await CargarOperacionesAlimentosAsync();
         }
 
-        // ============================================
-        // TOGGLE FILTROS
-        // ============================================
-
         [RelayCommand]
         private void ToggleFiltros()
         {
             MostrarFiltros = !MostrarFiltros;
         }
 
-        // ============================================
-        // AUTOCOMPLETADO - COMERCIO
-        // ============================================
-
         partial void OnFiltroComercioTextoChanged(string value)
         {
             FiltrarSugerenciasComercio(value);
             FiltroLocalTexto = "";
             SugerenciasLocal.Clear();
+        }
+
+        private bool _isFormattingFechaDesde = false;
+        private bool _isFormattingFechaHasta = false;
+
+        partial void OnFechaDesdeTextoChanged(string value)
+        {
+            if (_isFormattingFechaDesde) return;
+            var formateado = FormatearFechaInput(value);
+            if (formateado != value)
+            {
+                _isFormattingFechaDesde = true;
+                FechaDesdeTexto = formateado;
+                _isFormattingFechaDesde = false;
+            }
+        }
+
+        partial void OnFechaHastaTextoChanged(string value)
+        {
+            if (_isFormattingFechaHasta) return;
+            var formateado = FormatearFechaInput(value);
+            if (formateado != value)
+            {
+                _isFormattingFechaHasta = true;
+                FechaHastaTexto = formateado;
+                _isFormattingFechaHasta = false;
+            }
+        }
+
+        private string FormatearFechaInput(string valor)
+        {
+            if (string.IsNullOrEmpty(valor)) return valor;
+            
+            var soloNumeros = new string(valor.Where(char.IsDigit).ToArray());
+            
+            if (soloNumeros.Length == 0) return "";
+            if (soloNumeros.Length > 8) soloNumeros = soloNumeros.Substring(0, 8);
+            
+            if (soloNumeros.Length <= 2)
+                return soloNumeros;
+            else if (soloNumeros.Length <= 4)
+                return soloNumeros.Substring(0, 2) + "/" + soloNumeros.Substring(2);
+            else
+                return soloNumeros.Substring(0, 2) + "/" + soloNumeros.Substring(2, 2) + "/" + soloNumeros.Substring(4);
         }
 
         private void FiltrarSugerenciasComercio(string texto)
@@ -315,10 +347,6 @@ namespace Allva.Desktop.ViewModels.Admin
             MostrarSugerenciasComercio = false;
         }
 
-        // ============================================
-        // AUTOCOMPLETADO - LOCAL
-        // ============================================
-
         partial void OnFiltroLocalTextoChanged(string value)
         {
             FiltrarSugerenciasLocal(value);
@@ -335,9 +363,8 @@ namespace Allva.Desktop.ViewModels.Admin
 
             var coincidencias = _todosLosLocalesData
                 .Where(l => (idComercioSeleccionado == null || l.IdComercio == idComercioSeleccionado) &&
-                    (l.Codigo.Contains(texto, StringComparison.OrdinalIgnoreCase) || 
-                     l.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase)))
-                .Take(10).Select(l => $"{l.Codigo} - {l.Nombre}");
+                    l.Codigo.Contains(texto, StringComparison.OrdinalIgnoreCase))
+                .Take(10).Select(l => l.Codigo);
 
             foreach (var item in coincidencias) SugerenciasLocal.Add(item);
             MostrarSugerenciasLocal = SugerenciasLocal.Count > 0;
@@ -357,10 +384,6 @@ namespace Allva.Desktop.ViewModels.Admin
             MostrarSugerenciasComercio = false;
             MostrarSugerenciasLocal = false;
         }
-
-        // ============================================
-        // CARGA DE COMERCIOS Y LOCALES
-        // ============================================
 
         private async Task CargarComerciosAsync()
         {
@@ -413,9 +436,8 @@ namespace Allva.Desktop.ViewModels.Admin
                     var codigo = reader.GetString(1);
                     var nombre = reader.GetString(2);
                     var idComercio = reader.GetInt32(3);
-                    var key = $"{codigo} - {nombre}";
                     _todosLosLocalesData.Add(new LocalItem { Id = id, Codigo = codigo, Nombre = nombre, IdComercio = idComercio });
-                    _localIdMap[key] = id;
+                    _localIdMap[codigo] = id;
                 }
             }
             catch { }
@@ -441,10 +463,6 @@ namespace Allva.Desktop.ViewModels.Admin
             catch { }
         }
 
-        // ============================================
-        // CARGA DE LOCALES CON DEUDA - SECCION NUEVA
-        // ============================================
-
         private async Task CargarLocalesConDeudaAsync()
         {
             try
@@ -461,13 +479,14 @@ namespace Allva.Desktop.ViewModels.Admin
                         c.id_comercio,
                         c.nombre_comercio,
                         COUNT(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN 1 END) as total_operaciones,
-                        COALESCE(SUM(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN o.importe_total ELSE 0 END), 0) as total_deuda
+                        COALESCE(SUM(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN o.importe_total ELSE 0 END), 0) as total_deuda,
+                        COALESCE(l.beneficio_acumulado, 0) as beneficio
                     FROM locales l
                     INNER JOIN comercios c ON l.id_comercio = c.id_comercio
                     LEFT JOIN operaciones o ON l.id_local = o.id_local AND o.modulo = 'PACK_ALIMENTOS'
                     LEFT JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
                     WHERE l.activo = true
-                    GROUP BY l.id_local, l.codigo_local, c.id_comercio, c.nombre_comercio
+                    GROUP BY l.id_local, l.codigo_local, c.id_comercio, c.nombre_comercio, l.beneficio_acumulado
                     HAVING COUNT(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN 1 END) > 0
                     ORDER BY total_deuda DESC";
 
@@ -485,6 +504,7 @@ namespace Allva.Desktop.ViewModels.Admin
                     var nombreComercio = reader.GetString(3);
                     var totalOps = reader.GetInt32(4);
                     var deuda = reader.GetDecimal(5);
+                    var beneficio = reader.GetDecimal(6);
 
                     LocalesConDeuda.Add(new LocalBalanceItem
                     {
@@ -495,6 +515,8 @@ namespace Allva.Desktop.ViewModels.Admin
                         TotalOperaciones = totalOps,
                         TotalDeuda = deuda,
                         DeudaTexto = $"{deuda:N2} EUR",
+                        BeneficioAcumulado = beneficio,
+                        BeneficioTexto = $"{beneficio:N2} EUR",
                         BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
                     });
 
@@ -510,10 +532,6 @@ namespace Allva.Desktop.ViewModels.Admin
             }
         }
 
-        // ============================================
-        // SELECCION DE LOCAL PARA DEPOSITO
-        // ============================================
-
         [RelayCommand]
         private async Task SeleccionarLocalDeposito(LocalBalanceItem? local)
         {
@@ -525,7 +543,33 @@ namespace Allva.Desktop.ViewModels.Admin
             TotalPendienteLocalSeleccionado = $"{local.TotalDeuda:N2}";
             CantidadOpsPendientesLocal = local.TotalOperaciones;
 
+            MostrarVistaDeposito = true;
+            MostrarVistaHistorial = false;
+
+            await CargarBeneficioLocalAsync(local.IdLocal);
             await CargarOperacionesParaPagoAsync(local.IdLocal);
+        }
+
+        private async Task CargarBeneficioLocalAsync(int idLocal)
+        {
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = "SELECT COALESCE(beneficio_acumulado, 0) FROM locales WHERE id_local = @idLocal";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("idLocal", idLocal);
+
+                var resultado = await cmd.ExecuteScalarAsync();
+                BeneficioDisponibleLocal = resultado != null && resultado != DBNull.Value 
+                    ? Convert.ToDecimal(resultado) 
+                    : 0;
+            }
+            catch
+            {
+                BeneficioDisponibleLocal = 0;
+            }
         }
 
         private async Task CargarOperacionesParaPagoAsync(int idLocal)
@@ -587,9 +631,219 @@ namespace Allva.Desktop.ViewModels.Admin
             catch { }
         }
 
-        // ============================================
-        // CALCULO DE DEPOSITO
-        // ============================================
+        [RelayCommand]
+        private async Task VerHistorialLocal()
+        {
+            if (LocalSeleccionadoDeposito == null) return;
+            
+            MostrarVistaDeposito = false;
+            MostrarVistaHistorial = true;
+            
+            await CargarHistorialLocalMesAsync(LocalSeleccionadoDeposito.IdLocal);
+        }
+
+        [RelayCommand]
+        private async Task AbrirDetalleLocal(BalanceAlimentosItem? operacion)
+        {
+            if (operacion == null) return;
+
+            // Buscar info del local
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"
+                    SELECT 
+                        l.id_local,
+                        l.codigo_local,
+                        c.nombre_comercio,
+                        COALESCE(SUM(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN o.importe_total ELSE 0 END), 0) as deuda,
+                        COALESCE(l.beneficio_acumulado, 0) as beneficio
+                    FROM locales l
+                    INNER JOIN comercios c ON l.id_comercio = c.id_comercio
+                    LEFT JOIN operaciones o ON l.id_local = o.id_local AND o.modulo = 'PACK_ALIMENTOS'
+                    LEFT JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                    WHERE l.codigo_local = @codigo
+                    GROUP BY l.id_local, l.codigo_local, c.nombre_comercio, l.beneficio_acumulado";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("codigo", operacion.CodigoLocal);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    _popupLocalId = reader.GetInt32(0);
+                    PopupLocalCodigo = reader.GetString(1);
+                    PopupLocalComercio = reader.GetString(2);
+                    var deuda = reader.GetDecimal(3);
+                    var beneficio = reader.GetDecimal(4);
+                    PopupLocalDeuda = $"{deuda:N2} EUR";
+                    PopupLocalBeneficio = $"{beneficio:N2} EUR";
+                }
+
+                await reader.CloseAsync();
+                await CargarHistorialLocalMesAsync(_popupLocalId);
+                MostrarPopupLocal = true;
+            }
+            catch { }
+        }
+
+        [RelayCommand]
+        private void CerrarPopupLocal()
+        {
+            MostrarPopupLocal = false;
+            HistorialLocalMes.Clear();
+        }
+
+        [RelayCommand]
+        private void VolverVistaDeposito()
+        {
+            MostrarVistaHistorial = false;
+            MostrarVistaDeposito = true;
+        }
+
+        private async Task CargarHistorialLocalMesAsync(int idLocal)
+        {
+            try
+            {
+                HistorialLocalMes.Clear();
+                var hoy = ObtenerHoraEspana();
+                var hace30Dias = hoy.AddDays(-30);
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"
+                    SELECT o.id_operacion, o.fecha_operacion, o.hora_operacion, o.numero_operacion, 
+                           o.importe_total, opa.estado_envio
+                    FROM operaciones o
+                    INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                    WHERE o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS'
+                      AND o.fecha_operacion >= @fechaDesde
+                    ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("idLocal", idLocal);
+                cmd.Parameters.AddWithValue("fechaDesde", hace30Dias.Date);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+                int index = 0;
+
+                while (await reader.ReadAsync())
+                {
+                    var idOp = reader.GetInt32(0);
+                    var fecha = reader.IsDBNull(1) ? DateTime.Today : reader.GetDateTime(1);
+                    var hora = reader.IsDBNull(2) ? TimeSpan.Zero : reader.GetTimeSpan(2);
+                    var numOp = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                    var importe = reader.IsDBNull(4) ? 0 : reader.GetDecimal(4);
+                    var estado = reader.IsDBNull(5) ? "PENDIENTE" : reader.GetString(5).Trim().ToUpper();
+
+                    var estadoColor = estado switch
+                    {
+                        "PAGADO" => "#17a2b8",
+                        "ENVIADO" => "#28a745",
+                        "ANULADO" => "#dc3545",
+                        _ => "#ffc107"
+                    };
+
+                    HistorialLocalMes.Add(new HistorialOperacionItem
+                    {
+                        IdOperacion = idOp,
+                        Fecha = fecha.ToString("dd/MM/yy"),
+                        Hora = hora.ToString(@"hh\:mm"),
+                        NumeroOperacion = numOp,
+                        Importe = importe,
+                        ImporteTexto = $"{importe:N2} EUR",
+                        Estado = estado,
+                        EstadoColor = estadoColor,
+                        BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+                    });
+                    index++;
+                }
+            }
+            catch { }
+        }
+
+        [RelayCommand]
+        private async Task AnularOperacion(int idOperacion)
+        {
+            try
+            {
+                IsLoading = true;
+
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var sql = @"UPDATE operaciones_pack_alimentos 
+                            SET estado_envio = 'PENDIENTE' 
+                            WHERE id_operacion = @idOperacion AND estado_envio = 'PAGADO'";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("idOperacion", idOperacion);
+                var affected = await cmd.ExecuteNonQueryAsync();
+
+                if (affected > 0)
+                {
+                    SuccessMessage = "Pago anulado correctamente. La operacion volvio a estado PENDIENTE";
+                    
+                    await CargarLocalesConDeudaAsync();
+                    await CargarOperacionesAlimentosAsync();
+                    
+                    // Actualizar popup si está abierto
+                    if (MostrarPopupLocal && _popupLocalId > 0)
+                    {
+                        await CargarHistorialLocalMesAsync(_popupLocalId);
+                        // Actualizar deuda del local en popup
+                        await using var conn2 = new NpgsqlConnection(ConnectionString);
+                        await conn2.OpenAsync();
+                        var sqlDeuda = @"SELECT COALESCE(SUM(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN o.importe_total ELSE 0 END), 0)
+                                        FROM operaciones o
+                                        INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                                        WHERE o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS'";
+                        await using var cmdDeuda = new NpgsqlCommand(sqlDeuda, conn2);
+                        cmdDeuda.Parameters.AddWithValue("idLocal", _popupLocalId);
+                        var deuda = await cmdDeuda.ExecuteScalarAsync();
+                        if (deuda != null && deuda != DBNull.Value)
+                            PopupLocalDeuda = $"{Convert.ToDecimal(deuda):N2} EUR";
+                    }
+                    
+                    if (LocalSeleccionadoDeposito != null)
+                    {
+                        var idLocalActual = LocalSeleccionadoDeposito.IdLocal;
+                        await CargarHistorialLocalMesAsync(idLocalActual);
+                        await CargarOperacionesParaPagoAsync(idLocalActual);
+                        
+                        var localActualizado = LocalesConDeuda.FirstOrDefault(l => l.IdLocal == idLocalActual);
+                        if (localActualizado != null)
+                        {
+                            LocalSeleccionadoDeposito = localActualizado;
+                            TotalPendienteLocalSeleccionado = $"{localActualizado.TotalDeuda:N2}";
+                            CantidadOpsPendientesLocal = localActualizado.TotalOperaciones;
+                        }
+                    }
+                    
+                    await Task.Delay(2500);
+                    SuccessMessage = "";
+                }
+                else
+                {
+                    ErrorMessage = "No se pudo anular la operacion";
+                    await Task.Delay(2000);
+                    ErrorMessage = "";
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error: {ex.Message}";
+                await Task.Delay(2000);
+                ErrorMessage = "";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
 
         partial void OnMontoDepositoChanged(string value)
         {
@@ -606,7 +860,6 @@ namespace Allva.Desktop.ViewModels.Admin
                 Excedente = "0.00";
                 DeudaRestante = TotalPendienteLocalSeleccionado;
                 
-                // Resetear colores
                 int idx = 0;
                 foreach (var op in OperacionesLocalSeleccionado)
                 {
@@ -630,7 +883,6 @@ namespace Allva.Desktop.ViewModels.Admin
             decimal totalAPagar = 0;
             int count = 0;
 
-            // Resetear y marcar las que se van a pagar
             int index = 0;
             foreach (var opLocal in OperacionesLocalSeleccionado)
             {
@@ -659,21 +911,17 @@ namespace Allva.Desktop.ViewModels.Admin
             decimal totalPendiente = _operacionesParaPago.Sum(o => o.Importe);
             decimal deudaRestante = totalPendiente - totalAPagar;
 
-            if (monto > totalAPagar && deudaRestante == 0)
+            decimal excedenteCalculado = monto - totalAPagar;
+            if (excedenteCalculado > 0)
             {
-                Excedente = $"{(monto - totalAPagar):N2}";
-                DeudaRestante = "0.00";
+                Excedente = $"{excedenteCalculado:N2}";
             }
             else
             {
                 Excedente = "0.00";
-                DeudaRestante = $"{deudaRestante:N2}";
             }
+            DeudaRestante = $"{deudaRestante:N2}";
         }
-
-        // ============================================
-        // CONFIRMAR DEPOSITO
-        // ============================================
 
         [RelayCommand]
         private async Task ConfirmarDeposito()
@@ -738,7 +986,6 @@ namespace Allva.Desktop.ViewModels.Admin
                         else break;
                     }
 
-                    // Registrar deposito en depositos_pack_alimentos
                     var idsOperaciones = string.Join(",", _operacionesParaPago
                         .OrderBy(o => o.Fecha)
                         .Take(opsPagadas)
@@ -780,10 +1027,21 @@ namespace Allva.Desktop.ViewModels.Admin
 
                     await cmdDeposito.ExecuteNonQueryAsync();
 
+                    if (excedenteCalc > 0)
+                    {
+                        var sqlBeneficio = @"UPDATE locales 
+                                            SET beneficio_acumulado = COALESCE(beneficio_acumulado, 0) + @excedente 
+                                            WHERE id_local = @idLocal";
+                        await using var cmdBeneficio = new NpgsqlCommand(sqlBeneficio, conn, transaction);
+                        cmdBeneficio.Parameters.AddWithValue("excedente", excedenteCalc);
+                        cmdBeneficio.Parameters.AddWithValue("idLocal", LocalSeleccionadoDeposito.IdLocal);
+                        await cmdBeneficio.ExecuteNonQueryAsync();
+                    }
+
                     await transaction.CommitAsync();
 
                     var mensaje = $"Deposito registrado: {opsPagadas} operaciones pagadas ({totalPagado:N2} EUR)";
-                    if (montoRestante > 0) mensaje += $". Excedente: {montoRestante:N2} EUR";
+                    if (excedenteCalc > 0) mensaje += $". Beneficio acumulado: {excedenteCalc:N2} EUR";
 
                     SuccessMessage = mensaje;
 
@@ -792,6 +1050,8 @@ namespace Allva.Desktop.ViewModels.Admin
                     LocalSeleccionadoDeposito = null;
                     OperacionesLocalSeleccionado.Clear();
                     _operacionesParaPago.Clear();
+                    MostrarVistaDeposito = false;
+                    MostrarVistaHistorial = false;
 
                     await CargarLocalesConDeudaAsync();
                     await CargarOperacionesAlimentosAsync();
@@ -823,11 +1083,9 @@ namespace Allva.Desktop.ViewModels.Admin
             LocalSeleccionadoDeposito = null;
             OperacionesLocalSeleccionado.Clear();
             _operacionesParaPago.Clear();
+            MostrarVistaDeposito = false;
+            MostrarVistaHistorial = false;
         }
-
-        // ============================================
-        // COMANDOS DE BUSQUEDA - TABLA PRINCIPAL
-        // ============================================
 
         [RelayCommand]
         private async Task BuscarOperaciones()
@@ -867,10 +1125,6 @@ namespace Allva.Desktop.ViewModels.Admin
             }
             return null;
         }
-
-        // ============================================
-        // CARGA DE OPERACIONES - TABLA PRINCIPAL
-        // ============================================
 
         private async Task CargarOperacionesAlimentosAsync()
         {
@@ -1013,10 +1267,6 @@ namespace Allva.Desktop.ViewModels.Admin
             }
         }
 
-        // ============================================
-        // COMANDOS DE NAVEGACION
-        // ============================================
-
         [RelayCommand]
         private async Task CambiarPanel(string? panel)
         {
@@ -1052,6 +1302,8 @@ namespace Allva.Desktop.ViewModels.Admin
             LocalSeleccionadoDeposito = null;
             MontoDeposito = "";
             MostrarPrevisualizacion = false;
+            MostrarVistaDeposito = false;
+            MostrarVistaHistorial = false;
             await CargarLocalesConDeudaAsync();
             await CargarOperacionesAlimentosAsync();
             SuccessMessage = "Datos actualizados";
@@ -1059,10 +1311,6 @@ namespace Allva.Desktop.ViewModels.Admin
             SuccessMessage = "";
         }
     }
-
-    // ============================================
-    // MODELOS
-    // ============================================
 
     public class BalanceAlimentosItem
     {
@@ -1093,6 +1341,9 @@ namespace Allva.Desktop.ViewModels.Admin
         public int TotalOperaciones { get; set; }
         public decimal TotalDeuda { get; set; }
         public string DeudaTexto { get; set; } = "0.00 EUR";
+        public decimal BeneficioAcumulado { get; set; }
+        public string BeneficioTexto { get; set; } = "0.00 EUR";
+        public bool TieneBeneficio => BeneficioAcumulado > 0;
         public string BackgroundColor { get; set; } = "White";
     }
 
@@ -1121,5 +1372,19 @@ namespace Allva.Desktop.ViewModels.Admin
 
         [ObservableProperty]
         private string _backgroundColor = "White";
+    }
+
+    public class HistorialOperacionItem
+    {
+        public int IdOperacion { get; set; }
+        public string Fecha { get; set; } = "";
+        public string Hora { get; set; } = "";
+        public string NumeroOperacion { get; set; } = "";
+        public decimal Importe { get; set; }
+        public string ImporteTexto { get; set; } = "0.00 EUR";
+        public string Estado { get; set; } = "";
+        public string EstadoColor { get; set; } = "#ffc107";
+        public bool PuedeAnular => Estado == "PAGADO";
+        public string BackgroundColor { get; set; } = "White";
     }
 }

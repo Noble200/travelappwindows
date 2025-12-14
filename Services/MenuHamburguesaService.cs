@@ -30,17 +30,6 @@ namespace Allva.Desktop.Services
         /// </summary>
         private void RegistrarPanelesDisponibles()
         {
-            // Panel de Operaciones (BackOffice) - NUEVO
-            RegistrarItem(new MenuHamburguesaItem
-            {
-                Id = "operaciones_admin",
-                Titulo = "Operaciones",
-                Descripcion = "Ver todas las operaciones de todos los comercios",
-                Orden = 1,
-                Habilitado = true,
-                TipoVista = typeof(OperacionesAdminView)
-            });
-
             // Panel de Packs de Alimentos
             RegistrarItem(new MenuHamburguesaItem
             {

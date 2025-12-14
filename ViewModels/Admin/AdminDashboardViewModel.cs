@@ -71,7 +71,8 @@ public partial class AdminDashboardViewModel : ObservableObject
                 "comercios" => "GESTION DE COMERCIOS",
                 "usuarios" => "GESTION DE USUARIOS",
                 "usuarios_allva" => "USUARIOS ALLVA",
-                "divisas" => "CONFIGURACION DE DIVISAS",
+                "divisas" => "COMISIONES",
+                "operaciones" => "OPERACIONES",
                 "balance" => "BALANCE",
                 _ => "PANEL DE ADMINISTRACION"
             };
@@ -154,7 +155,8 @@ public partial class AdminDashboardViewModel : ObservableObject
                 "comercios" => new ManageComerciosView(),
                 "usuarios" => new ManageUsersView(),
                 "usuarios_allva" => new ManageAdministradoresAllvaView(),
-                "divisas" => new ManageDivisasView(),
+                "divisas" => new ComisionesView(),
+                "operaciones" => new OperacionesAdminView(),
                 "balance" => new BalanceAdminView(),
                 _ => CurrentView
             };

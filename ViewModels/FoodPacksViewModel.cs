@@ -1630,7 +1630,36 @@ namespace Allva.Desktop.ViewModels
 
                     var idOperacion = (long)(await cmdOp.ExecuteScalarAsync() ?? 0);
 
-                    // 3. Insertar detalle de pack alimentos
+                    // 3. Verificar si hay beneficio acumulado para este local
+                    decimal beneficioDisponible = 0;
+                    var sqlBeneficio = "SELECT COALESCE(beneficio_acumulado, 0) FROM locales WHERE id_local = @idLocal";
+                    await using var cmdBeneficio = new NpgsqlCommand(sqlBeneficio, conn, transaction);
+                    cmdBeneficio.Parameters.AddWithValue("@idLocal", _idLocal);
+                    var resultBeneficio = await cmdBeneficio.ExecuteScalarAsync();
+                    if (resultBeneficio != null && resultBeneficio != DBNull.Value)
+                        beneficioDisponible = Convert.ToDecimal(resultBeneficio);
+
+                    // Determinar estado inicial basado en beneficio
+                    string estadoEnvio = "PENDIENTE";
+                    decimal beneficioUsado = 0;
+
+                    if (beneficioDisponible >= TotalCompra)
+                    {
+                        // El beneficio cubre todo el costo - marcar como PAGADO
+                        estadoEnvio = "PAGADO";
+                        beneficioUsado = TotalCompra;
+                        
+                        // Descontar beneficio usado
+                        var sqlDescontar = @"UPDATE locales 
+                                            SET beneficio_acumulado = beneficio_acumulado - @beneficioUsado 
+                                            WHERE id_local = @idLocal";
+                        await using var cmdDescontar = new NpgsqlCommand(sqlDescontar, conn, transaction);
+                        cmdDescontar.Parameters.AddWithValue("@beneficioUsado", beneficioUsado);
+                        cmdDescontar.Parameters.AddWithValue("@idLocal", _idLocal);
+                        await cmdDescontar.ExecuteNonQueryAsync();
+                    }
+
+                    // 4. Insertar detalle de pack alimentos
                     var queryDetalle = @"
                         INSERT INTO operaciones_pack_alimentos (
                             id_operacion, id_beneficiario, nombre_pack, descripcion_pack,
@@ -1640,13 +1669,16 @@ namespace Allva.Desktop.ViewModels
                         VALUES (
                             @id_operacion, @id_beneficiario, @nombre_pack, @descripcion_pack,
                             @pais_destino, @ciudad_destino, @precio_pack,
-                            'PENDIENTE', @observaciones
+                            @estado_envio, @observaciones
                         )";
 
                     var observaciones = $"Beneficiario: {BeneficiarioSeleccionado.NombreCompleto} | " +
-                                       $"Doc: {BeneficiarioSeleccionado.DocumentoCompleto} | " +
-                                       $"Dir: {BeneficiarioSeleccionado.DireccionCompleta} | " +
-                                       $"Tel: {BeneficiarioSeleccionado.Telefono}";
+                                    $"Doc: {BeneficiarioSeleccionado.DocumentoCompleto} | " +
+                                    $"Dir: {BeneficiarioSeleccionado.DireccionCompleta} | " +
+                                    $"Tel: {BeneficiarioSeleccionado.Telefono}";
+
+                    if (beneficioUsado > 0)
+                        observaciones += $" | PAGADO CON BENEFICIO: {beneficioUsado:N2} EUR";
 
                     await using var cmdDetalle = new NpgsqlCommand(queryDetalle, conn, transaction);
                     cmdDetalle.Parameters.AddWithValue("@id_operacion", idOperacion);
@@ -1656,13 +1688,20 @@ namespace Allva.Desktop.ViewModels
                     cmdDetalle.Parameters.AddWithValue("@pais_destino", BeneficiarioSeleccionado.Pais);
                     cmdDetalle.Parameters.AddWithValue("@ciudad_destino", BeneficiarioSeleccionado.Ciudad);
                     cmdDetalle.Parameters.AddWithValue("@precio_pack", TotalCompra);
+                    cmdDetalle.Parameters.AddWithValue("@estado_envio", estadoEnvio);
                     cmdDetalle.Parameters.AddWithValue("@observaciones", observaciones);
 
                     await cmdDetalle.ExecuteNonQueryAsync();
 
                     await transaction.CommitAsync();
 
-                    MostrarMensaje($"Compra finalizada correctamente. Operacion: {NumeroOperacion}", false);
+                    // Mensaje según el estado
+                    var mensajeFinal = beneficioUsado > 0
+                        ? $"Compra finalizada y PAGADA con beneficio. Operacion: {NumeroOperacion}"
+                        : $"Compra finalizada correctamente. Operacion: {NumeroOperacion}";
+
+                    MostrarMensaje(mensajeFinal, false);
+
                     
                     // Esperar un momento y luego ir a la pantalla de selección de países
                     await Task.Delay(2000);
