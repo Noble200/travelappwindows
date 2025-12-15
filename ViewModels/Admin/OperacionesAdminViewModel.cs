@@ -1319,87 +1319,99 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
         TotalOperaciones = index.ToString();
         TotalEuros = $"{totalEuros:N2}";
-        
-        // Calcular total de divisas (suma de todas las cantidades en divisa original)
-        decimal totalDivisas = totalesPorDivisa.Values.Sum();
-        TotalDivisas = $"{totalDivisas:N2}";
-        
-        // Almacenar para exportacion
+
+        // Almacenar para exportacion (totales de operaciones del periodo)
         _totalesPorDivisaExport = new Dictionary<string, decimal>(totalesPorDivisa);
-        
-        // Llenar coleccion dinamica de divisas (solo las que tienen valor > 0)
-        TotalesDivisasVisibles.Clear();
-        foreach (var kvp in totalesPorDivisa.OrderByDescending(x => x.Value))
-        {
-            if (kvp.Value > 0)
-            {
-                TotalesDivisasVisibles.Add(new TotalDivisaItem
-                {
-                    Codigo = kvp.Key,
-                    Total = kvp.Value.ToString("N2"),
-                    Color = TotalDivisaItem.ObtenerColor(kvp.Key)
-                });
-            }
-        }
+
+        // NOTA: TotalDivisas y TotalesDivisasVisibles se llenan en CargarDesgloseDivisasAsync
+        // con el stock actual del local (ENTRADA - SALIDA), no con las operaciones del periodo
     }
 
     // ============================================
-    // DESGLOSE DE DIVISAS DEL LOCAL
+    // DESGLOSE DE DIVISAS DEL LOCAL (Stock actual)
     // ============================================
 
     private async Task CargarDesgloseDivisasAsync(int? idLocal)
     {
         DesgloseDivisas.Clear();
-
-        if (!idLocal.HasValue)
-        {
-            return;
-        }
+        TotalesDivisasVisibles.Clear();
 
         try
         {
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
 
-            // Obtener el stock actual de divisas del local
-            // Considerando las compras y los depositos en banco
-            var sql = @"SELECT 
-                            ld.codigo_divisa,
-                            ld.cantidad_disponible,
-                            COALESCE(depositos.total_depositado, 0) as depositado
-                        FROM local_divisas ld
-                        LEFT JOIN (
-                            SELECT 
-                                o.id_local,
-                                od.divisa_origen as codigo_divisa,
-                                SUM(od.cantidad_origen) as total_depositado
-                            FROM operaciones o
-                            INNER JOIN operaciones_divisas od ON o.id_operacion = od.id_operacion
-                            WHERE o.tipo_operacion = 'DEPOSITO_BANCO'
-                            GROUP BY o.id_local, od.divisa_origen
-                        ) depositos ON ld.id_local = depositos.id_local AND ld.codigo_divisa = depositos.codigo_divisa
-                        WHERE ld.id_local = @idLocal
-                        ORDER BY ld.codigo_divisa";
+            // Obtener el stock actual de divisas usando balance_divisas
+            // ENTRADA = compra de divisas (entra al local)
+            // SALIDA = deposito al banco (sale del local)
+            // Stock actual = ENTRADA - SALIDA
+            string sql;
+
+            if (idLocal.HasValue)
+            {
+                // Si hay un local seleccionado, mostrar solo sus divisas
+                sql = @"SELECT
+                            codigo_divisa,
+                            SUM(CASE WHEN tipo_movimiento = 'ENTRADA' THEN cantidad_recibida ELSE 0 END) -
+                            SUM(CASE WHEN tipo_movimiento = 'SALIDA' THEN cantidad_recibida ELSE 0 END) as saldo
+                        FROM balance_divisas
+                        WHERE id_local = @idLocal
+                        GROUP BY codigo_divisa
+                        HAVING SUM(CASE WHEN tipo_movimiento = 'ENTRADA' THEN cantidad_recibida ELSE 0 END) -
+                               SUM(CASE WHEN tipo_movimiento = 'SALIDA' THEN cantidad_recibida ELSE 0 END) > 0
+                        ORDER BY saldo DESC";
+            }
+            else
+            {
+                // Si no hay local seleccionado, mostrar el stock de TODOS los locales combinado
+                sql = @"SELECT
+                            codigo_divisa,
+                            SUM(CASE WHEN tipo_movimiento = 'ENTRADA' THEN cantidad_recibida ELSE 0 END) -
+                            SUM(CASE WHEN tipo_movimiento = 'SALIDA' THEN cantidad_recibida ELSE 0 END) as saldo
+                        FROM balance_divisas
+                        GROUP BY codigo_divisa
+                        HAVING SUM(CASE WHEN tipo_movimiento = 'ENTRADA' THEN cantidad_recibida ELSE 0 END) -
+                               SUM(CASE WHEN tipo_movimiento = 'SALIDA' THEN cantidad_recibida ELSE 0 END) > 0
+                        ORDER BY saldo DESC";
+            }
 
             await using var cmd = new NpgsqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
+            if (idLocal.HasValue)
+            {
+                cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
+            }
 
             await using var reader = await cmd.ExecuteReaderAsync();
+
+            decimal totalDivisasStock = 0;
 
             while (await reader.ReadAsync())
             {
                 var codigo = reader.GetString(0);
-                var disponible = reader.GetDecimal(1);
-                var depositado = reader.GetDecimal(2);
+                var saldo = reader.GetDecimal(1);
 
+                // Agregar al desglose
                 DesgloseDivisas.Add(new DivisaDesglose
                 {
                     CodigoDivisa = codigo,
-                    CantidadDisponible = disponible,
-                    CantidadDepositada = depositado,
-                    CantidadTotal = disponible + depositado
+                    CantidadDisponible = saldo,
+                    CantidadDepositada = 0,
+                    CantidadTotal = saldo
                 });
+
+                // Agregar a la coleccion visible de totales por divisa
+                TotalesDivisasVisibles.Add(new TotalDivisaItem
+                {
+                    Codigo = codigo,
+                    Total = saldo.ToString("N2"),
+                    Color = TotalDivisaItem.ObtenerColor(codigo)
+                });
+
+                totalDivisasStock += saldo;
             }
+
+            // Actualizar el total de divisas con el stock actual
+            TotalDivisas = $"{totalDivisasStock:N2}";
         }
         catch (Exception ex)
         {

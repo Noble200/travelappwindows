@@ -61,50 +61,6 @@ namespace Allva.Desktop.ViewModels
         [ObservableProperty]
         private PackAlimentoFront? _packSeleccionado;
 
-
-        // ============================================
-        // PROPIEDADES OBSERVABLES - BUSQUEDA DE PACKS
-        // ============================================
-
-        [ObservableProperty]
-        private string _busquedaPack = string.Empty;
-
-        [ObservableProperty]
-        private ObservableCollection<PackAlimentoFront> _packsFiltrados = new();
-
-        partial void OnBusquedaPackChanged(string value)
-        {
-            FiltrarPacks();
-        }
-
-        private void FiltrarPacks()
-        {
-            PacksFiltrados.Clear();
-            var filtro = BusquedaPack?.ToLower()?.Trim() ?? "";
-
-            foreach (var pack in PacksDisponibles)
-            {
-                // Marcar si coincide con la busqueda
-                pack.CoincideConBusqueda = !string.IsNullOrEmpty(filtro) &&
-                    pack.NombrePack.ToLower().Contains(filtro);
-
-                PacksFiltrados.Add(pack);
-            }
-
-            // Si hay filtro, ordenar poniendo coincidencias primero
-            if (!string.IsNullOrEmpty(filtro))
-            {
-                var ordenados = PacksFiltrados.OrderByDescending(p => p.CoincideConBusqueda).ToList();
-                PacksFiltrados.Clear();
-                foreach (var pack in ordenados)
-                {
-                    PacksFiltrados.Add(pack);
-                }
-            }
-        }
-
-        public bool HayPacksFiltrados => PacksFiltrados.Count > 0;
-
         // ============================================
         // PROPIEDADES OBSERVABLES - CARRITO
         // ============================================
@@ -605,7 +561,6 @@ namespace Allva.Desktop.ViewModels
 
                 OnPropertyChanged(nameof(HayPaises));
                 OnPropertyChanged(nameof(NoHayPaises));
-                OnPropertyChanged(nameof(PaisesConPacks));
 
                 if (!PaisesDisponibles.Any())
                     MostrarMensaje("No hay paises con packs disponibles", true);
@@ -1193,7 +1148,7 @@ namespace Allva.Desktop.ViewModels
             OnPropertyChanged(nameof(TituloFormularioCliente));
         }
         [RelayCommand]
-        private void IrANuevoBeneficiarioDesdeEditar()
+        private async Task IrANuevoBeneficiarioDesdeEditarAsync()
         {
             // Ir a crear beneficiario pero recordar volver a editar cliente
             EsEdicionBeneficiario = false;
@@ -1214,20 +1169,6 @@ namespace Allva.Desktop.ViewModels
             ActualizarPropiedadesBeneficiario();
 
             MostrarMensaje($"Beneficiario: {beneficiario.NombreCompleto}", false);
-
-            // Cargar los packs del país del beneficiario
-            var paisBeneficiario = PaisesDisponibles.FirstOrDefault(p =>
-                p.NombrePais.Equals(beneficiario.Pais, StringComparison.OrdinalIgnoreCase));
-
-            if (paisBeneficiario != null)
-            {
-                PaisSeleccionado = paisBeneficiario;
-                await CargarPacksPorPaisAsync(paisBeneficiario.IdPais);
-            }
-
-            // Limpiar búsqueda y carrito previo
-            BusquedaPack = string.Empty;
-            VaciarCarrito();
 
             // Ir a la pantalla de seleccion de pack
             OcultarTodasLasVistas();
@@ -1455,9 +1396,8 @@ namespace Allva.Desktop.ViewModels
         [RelayCommand]
         private void VolverASeleccionBeneficiario()
         {
-            // Volver a editar cliente (donde están los beneficiarios)
             OcultarTodasLasVistas();
-            VistaEditarCliente = true;
+            VistaSeleccionBeneficiario = true;
         }
 
         [RelayCommand]
@@ -1579,40 +1519,10 @@ namespace Allva.Desktop.ViewModels
                 if (packDisponible != null)
                     packDisponible.EstaEnCarrito = false;
             }
-
+            
             PacksEnCarrito.Clear();
             ActualizarPropiedadesCarrito();
             MostrarMensaje("Carrito vaciado", false);
-        }
-
-        [RelayCommand]
-        private void ToggleSeleccionPack(PackAlimentoFront? pack)
-        {
-            if (pack == null) return;
-
-            if (pack.EstaEnCarrito)
-            {
-                // Quitar del carrito
-                pack.EstaEnCarrito = false;
-                var packEnCarrito = PacksEnCarrito.FirstOrDefault(p => p.IdPack == pack.IdPack);
-                if (packEnCarrito != null)
-                    PacksEnCarrito.Remove(packEnCarrito);
-            }
-            else
-            {
-                // Agregar al carrito
-                pack.EstaEnCarrito = true;
-                if (!PacksEnCarrito.Any(p => p.IdPack == pack.IdPack))
-                    PacksEnCarrito.Add(pack);
-            }
-
-            ActualizarPropiedadesCarrito();
-        }
-
-        [RelayCommand]
-        private void FiltrarPacksManual()
-        {
-            FiltrarPacks();
         }
 
         [RelayCommand]
@@ -2353,9 +2263,19 @@ namespace Allva.Desktop.ViewModels
                 ActualizarPropiedadesBeneficiario();
                 LimpiarFormularioBeneficiario();
 
-                // Volver a la pantalla de editar cliente para ver el nuevo beneficiario
-                OcultarTodasLasVistas();
-                VistaEditarCliente = true;
+                // Volver a la vista desde donde vino
+                if (_vinoDesdeSeleccionPais)
+                {
+                    // Si vino desde selección de país, volver ahí
+                    OcultarTodasLasVistas();
+                    VistaSeleccionPais = true;
+                }
+                else
+                {
+                    // Si vino desde vista principal (dentro de un país), volver a la vista principal (NO cambiar de vista)
+                    OcultarTodasLasVistas();
+                    VistaPrincipal = true;
+                }
             }
             catch (Exception ex)
             {
@@ -2735,53 +2655,6 @@ namespace Allva.Desktop.ViewModels
         }
 
         // ============================================
-        // COMANDOS - NUEVO FLUJO SELECCION DE PACKS
-        // ============================================
-
-        [RelayCommand]
-        private void VolverAEditarCliente()
-        {
-            OcultarTodasLasVistas();
-            VistaEditarCliente = true;
-        }
-
-        [RelayCommand]
-        private void SeleccionarPackYConfirmar(PackAlimentoFront? pack)
-        {
-            if (pack == null) return;
-
-            if (ClienteSeleccionado == null)
-            {
-                MostrarMensaje("Debe seleccionar un cliente antes", true);
-                return;
-            }
-
-            if (BeneficiarioSeleccionado == null)
-            {
-                MostrarMensaje("Debe seleccionar un beneficiario antes", true);
-                return;
-            }
-
-            // Establecer el pack seleccionado
-            PackSeleccionado = pack;
-
-            // Limpiar el carrito y agregar solo este pack
-            PacksEnCarrito.Clear();
-            pack.EstaEnCarrito = true;
-            PacksEnCarrito.Add(pack);
-
-            // Calcular total
-            TotalCompra = pack.PrecioTotal;
-            DivisaCompra = pack.Divisa ?? "EUR";
-            OnPropertyChanged(nameof(TotalCompraFormateado));
-            ActualizarPropiedadesCarrito();
-
-            // Ir al resumen antes de confirmar (VistaResumenCarrito)
-            OcultarTodasLasVistas();
-            VistaResumenCarrito = true;
-        }
-
-        // ============================================
         // METODOS AUXILIARES
         // ============================================
 
@@ -2861,21 +2734,6 @@ namespace Allva.Desktop.ViewModels
                 }
             }
         }
-        // Estado de busqueda
-        private bool _coincideConBusqueda;
-        public bool CoincideConBusqueda
-        {
-            get => _coincideConBusqueda;
-            set
-            {
-                if (_coincideConBusqueda != value)
-                {
-                    _coincideConBusqueda = value;
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CoincideConBusqueda)));
-                }
-            }
-        }
-
 
         public ObservableCollection<PackAlimentoProductoFront> Productos { get; set; } = new();
         public ObservableCollection<PackAlimentoImagenFront> ImagenesAdicionales { get; set; } = new();
