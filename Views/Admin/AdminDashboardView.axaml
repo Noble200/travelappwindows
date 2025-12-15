@@ -124,7 +124,7 @@
                                 IsVisible="{Binding MostrarDivisas}"
                                 Margin="12,2"
                                 CornerRadius="8">
-                            <TextBlock Text="Comisiones" Classes="admin-menu-text"/>
+                            <TextBlock Text="Margen Beneficios" Classes="admin-menu-text"/>
                         </Button>
 
                         <!-- Operaciones -->
