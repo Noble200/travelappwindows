@@ -134,7 +134,10 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     
     [ObservableProperty]
     private string totalImporteAlimentos = "0.00";
-    
+
+    [ObservableProperty]
+    private string totalImporteAlimentosColor = "#28a745";
+
     public ObservableCollection<OperacionItem> Operaciones { get; } = new();
     public ObservableCollection<OperacionPackAlimentoBalanceItem> OperacionesAlimentos { get; } = new();
     public ObservableCollection<DivisaLocal> DivisasDelLocal { get; } = new();
@@ -404,48 +407,65 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacionAlimentos}%");
             
             await using var reader = await cmd.ExecuteReaderAsync();
-            
+
             int index = 0;
-            decimal totalImporte = 0;
+            decimal totalPendiente = 0;
             int pendientes = 0, enviados = 0, anulados = 0;
-            
+
             while (await reader.ReadAsync())
             {
                 var fechaOp = reader.IsDBNull(2) ? DateTime.Today : reader.GetDateTime(2);
                 var horaOp = reader.IsDBNull(3) ? TimeSpan.Zero : reader.GetTimeSpan(3);
                 var estadoEnvio = reader.IsDBNull(13) ? "PENDIENTE" : reader.GetString(13);
-                
+
                 // Usuario: nombre completo
                 var usuarioNombre = reader.IsDBNull(4) ? "" : reader.GetString(4);
                 var usuarioApellido = reader.IsDBNull(5) ? "" : reader.GetString(5);
                 var nombreUsuarioCompleto = $"{usuarioNombre} {usuarioApellido}".Trim();
-                
+
                 // Cliente: primer nombre y primer apellido
                 var clienteNombre = reader.IsDBNull(6) ? "" : reader.GetString(6);
                 var clienteApellido = reader.IsDBNull(7) ? "" : reader.GetString(7);
                 var primerNombreCliente = clienteNombre.Split(' ').FirstOrDefault() ?? "";
                 var primerApellidoCliente = clienteApellido.Split(' ').FirstOrDefault() ?? "";
                 var nombreClienteCompleto = $"{primerNombreCliente} {primerApellidoCliente}".Trim();
-                
+
                 // Beneficiario: primer nombre y primer apellido
                 var benefNombre = reader.IsDBNull(14) ? "" : reader.GetString(14);
                 var benefApellido = reader.IsDBNull(15) ? "" : reader.GetString(15);
                 var primerNombreBenef = benefNombre.Split(' ').FirstOrDefault() ?? "";
                 var primerApellidoBenef = benefApellido.Split(' ').FirstOrDefault() ?? "";
                 var nombreBenefCompleto = $"{primerNombreBenef} {primerApellidoBenef}".Trim();
-                
+
                 var importe = reader.IsDBNull(8) ? 0 : reader.GetDecimal(8);
-                totalImporte += importe;
-                
-                // Contar por estado
+
+                // Contar por estado y calcular importes
+                // Solo PENDIENTE suma a la deuda (igual que en Operaciones)
                 switch (estadoEnvio.ToUpper())
                 {
-                    case "PENDIENTE": pendientes++; break;
-                    case "ENVIADO": enviados++; break;
-                    case "ANULADO": anulados++; break;
-                    default: pendientes++; break;
+                    case "PENDIENTE":
+                        pendientes++;
+                        totalPendiente += importe; // Pendientes suman a la deuda
+                        break;
+                    case "PAGADO":
+                        // Pagado no suma a deuda, ya esta saldado
+                        break;
+                    case "ENVIADO":
+                        enviados++;
+                        break;
+                    case "ANULADO":
+                        anulados++;
+                        break;
+                    default:
+                        // Estados desconocidos no suman a deuda
+                        break;
                 }
-                
+
+                // Formato del importe - solo numero en azul (sin signo)
+                string importeFormateado = $"{importe:N2}";
+                // Color siempre azul para todos los importes
+                string importeColor = "#0b5394";
+
                 var item = new OperacionPackAlimentoBalanceItem
                 {
                     IdOperacion = reader.GetInt64(0),
@@ -455,6 +475,8 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                     NombreUsuario = nombreUsuarioCompleto,
                     NombreCliente = nombreClienteCompleto,
                     Importe = importe,
+                    ImporteFormateado = importeFormateado,
+                    ImporteColor = importeColor,
                     Moneda = reader.IsDBNull(9) ? "EUR" : reader.GetString(9),
                     Descripcion = reader.IsDBNull(10) ? "Pack Alimentos" : reader.GetString(10),
                     PaisDestino = reader.IsDBNull(11) ? "" : reader.GetString(11),
@@ -466,16 +488,35 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                     BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5",
                     FechaHoraOrden = fechaOp.Add(horaOp)
                 };
-                
+
                 OperacionesAlimentos.Add(item);
                 index++;
             }
-            
+
             // Actualizar resumen
             TotalPendientes = pendientes;
             TotalEnviados = enviados;
             TotalAnulados = anulados;
-            TotalImporteAlimentos = $"{totalImporte:N2}";
+
+            // El balance es: -totalPendiente (pendientes son deuda)
+            // Si no hay pendientes = 0, si hay pendientes = negativo
+            var balance = -totalPendiente;
+
+            if (balance < 0)
+            {
+                TotalImporteAlimentos = balance.ToString("N2");
+                TotalImporteAlimentosColor = "#dc3545"; // Rojo para negativo (deuda pendiente)
+            }
+            else if (balance > 0)
+            {
+                TotalImporteAlimentos = $"+{balance:N2}";
+                TotalImporteAlimentosColor = "#28a745"; // Verde para positivo (beneficio)
+            }
+            else
+            {
+                TotalImporteAlimentos = "0.00";
+                TotalImporteAlimentosColor = "#28a745"; // Verde para neutral/saldado
+            }
         }
         catch (Exception ex)
         {
@@ -995,6 +1036,13 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         if (!string.IsNullOrEmpty(codigoDivisa))
         {
             DivisaDepositoSeleccionada = codigoDivisa;
+
+            // Siempre actualizar la cantidad con el valor actual de la divisa
+            var divisa = DivisasDelLocal.FirstOrDefault(d => d.Codigo == codigoDivisa);
+            if (divisa != null)
+            {
+                CantidadDivisaDeposito = divisa.Cantidad.ToString("0.##", CultureInfo.InvariantCulture);
+            }
         }
     }
     
@@ -1430,12 +1478,12 @@ public class OperacionPackAlimentoBalanceItem
     public string PaisDestino { get; set; } = "";
     public string CiudadDestino { get; set; } = "";
     public decimal Importe { get; set; }
+    public string ImporteFormateado { get; set; } = "0.00";
+    public string ImporteColor { get; set; } = "#444444";
     public string Moneda { get; set; } = "EUR";
     public string EstadoEnvio { get; set; } = "PENDIENTE";
     public string EstadoTexto { get; set; } = "";
     public string EstadoColor { get; set; } = "#ffc107";
     public string BackgroundColor { get; set; } = "White";
     public DateTime FechaHoraOrden { get; set; } = DateTime.MinValue;
-    public bool EsClickeable { get; set; } = true;
-    public TextDecorationCollection? TextoSubrayado { get; set; } = TextDecorationCollection.Parse("Underline");
 }

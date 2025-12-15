@@ -231,6 +231,41 @@ namespace Allva.Desktop.ViewModels
         private bool _vistaConfirmacionCompra = false;
 
         // ============================================
+        // PROPIEDADES - MODAL IMPRIMIR CATALOGO
+        // ============================================
+
+        [ObservableProperty]
+        private bool _mostrarModalImprimirCatalogo = false;
+
+        [ObservableProperty]
+        private string _busquedaPaisImpresion = string.Empty;
+
+        [ObservableProperty]
+        private PaisDesignadoFront? _paisSeleccionadoImpresion;
+
+        [ObservableProperty]
+        private ObservableCollection<PaisDesignadoFront> _paisesFiltradosImpresion = new();
+
+        partial void OnBusquedaPaisImpresionChanged(string value)
+        {
+            FiltrarPaisesImpresion();
+        }
+
+        private void FiltrarPaisesImpresion()
+        {
+            PaisesFiltradosImpresion.Clear();
+            var filtro = BusquedaPaisImpresion?.ToLower() ?? "";
+
+            foreach (var pais in PaisesDisponibles)
+            {
+                if (string.IsNullOrEmpty(filtro) || pais.NombrePais.ToLower().Contains(filtro))
+                {
+                    PaisesFiltradosImpresion.Add(pais);
+                }
+            }
+        }
+
+        // ============================================
         // CAMPOS NUEVO/EDITAR CLIENTE
         // ============================================
 
@@ -289,6 +324,7 @@ namespace Allva.Desktop.ViewModels
         private int _idLocal = 0;
         private int _idUsuario = 0;
         private string _codigoLocal = string.Empty;
+        private string _nombreComercio = string.Empty;
         private string _nombreUsuario = string.Empty;
         private string _numeroUsuario = string.Empty;
 
@@ -560,6 +596,225 @@ namespace Allva.Desktop.ViewModels
 
             OcultarTodasLasVistas();
             VistaSeleccionPais = true;
+        }
+
+        // ============================================
+        // COMANDOS - IMPRIMIR CATALOGO
+        // ============================================
+
+        [RelayCommand]
+        private void AbrirModalImprimirCatalogo()
+        {
+            BusquedaPaisImpresion = string.Empty;
+            PaisSeleccionadoImpresion = null;
+            FiltrarPaisesImpresion();
+            MostrarModalImprimirCatalogo = true;
+        }
+
+        [RelayCommand]
+        private void CerrarModalImprimirCatalogo()
+        {
+            MostrarModalImprimirCatalogo = false;
+            PaisSeleccionadoImpresion = null;
+            BusquedaPaisImpresion = string.Empty;
+        }
+
+        [RelayCommand]
+        private void SeleccionarPaisImpresion(PaisDesignadoFront? pais)
+        {
+            if (pais == null) return;
+
+            // Deseleccionar el anterior
+            if (PaisSeleccionadoImpresion != null)
+            {
+                PaisSeleccionadoImpresion.EsSeleccionadoImpresion = false;
+            }
+
+            // Seleccionar el nuevo
+            pais.EsSeleccionadoImpresion = true;
+            PaisSeleccionadoImpresion = pais;
+
+            // Refrescar la lista para actualizar la UI
+            OnPropertyChanged(nameof(PaisesFiltradosImpresion));
+        }
+
+        [RelayCommand]
+        private async Task GenerarCatalogoPdfAsync()
+        {
+            if (PaisSeleccionadoImpresion == null)
+            {
+                MostrarMensaje("Debe seleccionar un pais", true);
+                return;
+            }
+
+            EstaCargando = true;
+            MostrarModalImprimirCatalogo = false;
+
+            try
+            {
+                // Cargar los packs del pais seleccionado con todos sus detalles
+                var datosCatalogo = await CargarDatosCatalogoAsync(PaisSeleccionadoImpresion);
+
+                if (datosCatalogo.Packs.Count == 0)
+                {
+                    MostrarMensaje("No hay packs disponibles para este pais", true);
+                    return;
+                }
+
+                // Generar PDF
+                var pdfBytes = Services.CatalogoPacksPdfService.GenerarPdf(datosCatalogo);
+                var rutaArchivo = Services.CatalogoPacksPdfService.GuardarPdf(pdfBytes, datosCatalogo.NombrePais);
+
+                MostrarMensaje($"Catalogo generado: {rutaArchivo}", false);
+
+                // Abrir el archivo PDF
+                try
+                {
+                    var psi = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = rutaArchivo,
+                        UseShellExecute = true
+                    };
+                    System.Diagnostics.Process.Start(psi);
+                }
+                catch
+                {
+                    // Si no se puede abrir automaticamente, solo mostrar mensaje
+                }
+            }
+            catch (Exception ex)
+            {
+                MostrarMensaje($"Error al generar catalogo: {ex.Message}", true);
+            }
+            finally
+            {
+                EstaCargando = false;
+                PaisSeleccionadoImpresion = null;
+            }
+        }
+
+        private async Task<Services.CatalogoPacksPdfService.DatosCatalogo> CargarDatosCatalogoAsync(PaisDesignadoFront pais)
+        {
+            var catalogo = new Services.CatalogoPacksPdfService.DatosCatalogo
+            {
+                NombrePais = pais.NombrePais,
+                CodigoPais = pais.CodigoIso ?? "",
+                BanderaPais = pais.BanderaImagen,
+                FechaGeneracion = DateTime.Now.ToString("dd/MM/yyyy HH:mm"),
+                CodigoLocal = _codigoLocal,
+                NombreComercio = _nombreComercio
+            };
+
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            // Obtener packs del pais
+            var queryPacks = @"
+                SELECT DISTINCT pa.id_pack, pa.nombre_pack, pa.descripcion,
+                       pa.imagen_poster,
+                       COALESCE(pap.precio, pap_global.precio, 0) as precio,
+                       COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa
+                FROM packs_alimentos pa
+                LEFT JOIN pack_alimentos_asignacion_comercios paac
+                    ON pa.id_pack = paac.id_pack AND paac.id_comercio = @idComercio AND paac.activo = true
+                LEFT JOIN pack_alimentos_asignacion_global paag
+                    ON pa.id_pack = paag.id_pack AND paag.activo = true
+                LEFT JOIN pack_alimentos_precios pap
+                    ON pa.id_pack = pap.id_pack AND pap.id_precio = paac.id_precio AND pap.activo = true
+                LEFT JOIN pack_alimentos_precios pap_global
+                    ON pa.id_pack = pap_global.id_pack AND pap_global.id_precio = paag.id_precio AND pap_global.activo = true
+                WHERE pa.activo = true
+                  AND pa.id_pais = @idPais
+                  AND (paac.id_asignacion IS NOT NULL OR paag.id_asignacion IS NOT NULL)
+                ORDER BY pa.nombre_pack";
+
+            await using var cmdPacks = new NpgsqlCommand(queryPacks, conn);
+            cmdPacks.Parameters.AddWithValue("@idComercio", _idComercio > 0 ? _idComercio : 1);
+            cmdPacks.Parameters.AddWithValue("@idPais", pais.IdPais);
+
+            await using var readerPacks = await cmdPacks.ExecuteReaderAsync();
+
+            var packs = new List<(int IdPack, string Nombre, string Descripcion, byte[]? Imagen, decimal Precio, string Divisa)>();
+
+            while (await readerPacks.ReadAsync())
+            {
+                packs.Add((
+                    readerPacks.GetInt32(0),
+                    readerPacks.GetString(1),
+                    readerPacks.IsDBNull(2) ? "" : readerPacks.GetString(2),
+                    readerPacks.IsDBNull(3) ? null : (byte[])readerPacks[3],
+                    readerPacks.GetDecimal(4),
+                    readerPacks.GetString(5)
+                ));
+            }
+
+            await readerPacks.CloseAsync();
+
+            // Para cada pack, cargar productos e imagenes
+            foreach (var pack in packs)
+            {
+                var packCatalogo = new Services.CatalogoPacksPdfService.PackCatalogo
+                {
+                    NombrePack = pack.Nombre,
+                    Descripcion = pack.Descripcion,
+                    Precio = pack.Precio,
+                    Divisa = pack.Divisa,
+                    ImagenPoster = pack.Imagen
+                };
+
+                // Cargar productos
+                var queryProductos = @"
+                    SELECT nombre_producto, descripcion, cantidad, unidad_medida, imagen
+                    FROM pack_alimentos_productos
+                    WHERE id_pack = @idPack
+                    ORDER BY orden, id_producto";
+
+                await using var cmdProductos = new NpgsqlCommand(queryProductos, conn);
+                cmdProductos.Parameters.AddWithValue("@idPack", pack.IdPack);
+
+                await using var readerProductos = await cmdProductos.ExecuteReaderAsync();
+
+                while (await readerProductos.ReadAsync())
+                {
+                    packCatalogo.Productos.Add(new Services.CatalogoPacksPdfService.ProductoCatalogo
+                    {
+                        Nombre = readerProductos.GetString(0),
+                        Descripcion = readerProductos.IsDBNull(1) ? "" : readerProductos.GetString(1),
+                        Cantidad = readerProductos.GetInt32(2),
+                        UnidadMedida = readerProductos.IsDBNull(3) ? "unidad" : readerProductos.GetString(3),
+                        Imagen = readerProductos.IsDBNull(4) ? null : (byte[])readerProductos[4]
+                    });
+                }
+
+                await readerProductos.CloseAsync();
+
+                // Cargar imagenes adicionales
+                var queryImagenes = @"
+                    SELECT imagen_contenido
+                    FROM pack_alimentos_imagenes
+                    WHERE id_pack = @idPack
+                    ORDER BY orden, id_imagen
+                    LIMIT 4";
+
+                await using var cmdImagenes = new NpgsqlCommand(queryImagenes, conn);
+                cmdImagenes.Parameters.AddWithValue("@idPack", pack.IdPack);
+
+                await using var readerImagenes = await cmdImagenes.ExecuteReaderAsync();
+
+                while (await readerImagenes.ReadAsync())
+                {
+                    if (!readerImagenes.IsDBNull(0))
+                    {
+                        packCatalogo.ImagenesAdicionales.Add((byte[])readerImagenes[0]);
+                    }
+                }
+
+                await readerImagenes.CloseAsync();
+
+                catalogo.Packs.Add(packCatalogo);
+            }
+
+            return catalogo;
         }
 
         // ============================================
@@ -2291,7 +2546,7 @@ namespace Allva.Desktop.ViewModels
     // MODELOS AUXILIARES
     // ============================================
 
-    public class PaisDesignadoFront
+    public class PaisDesignadoFront : INotifyPropertyChanged
     {
         public int IdPais { get; set; }
         public string NombrePais { get; set; } = string.Empty;
@@ -2299,9 +2554,26 @@ namespace Allva.Desktop.ViewModels
         public byte[]? BanderaImagen { get; set; }
 
         public bool TieneBandera => BanderaImagen != null && BanderaImagen.Length > 0;
-        public string NombreConCodigo => !string.IsNullOrEmpty(CodigoIso) 
-            ? $"{NombrePais} ({CodigoIso})" 
+        public string NombreConCodigo => !string.IsNullOrEmpty(CodigoIso)
+            ? $"{NombrePais} ({CodigoIso})"
             : NombrePais;
+
+        // Para seleccion en modal de impresion
+        private bool _esSeleccionadoImpresion;
+        public bool EsSeleccionadoImpresion
+        {
+            get => _esSeleccionadoImpresion;
+            set
+            {
+                if (_esSeleccionadoImpresion != value)
+                {
+                    _esSeleccionadoImpresion = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EsSeleccionadoImpresion)));
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 
     public class PackAlimentoFront : INotifyPropertyChanged

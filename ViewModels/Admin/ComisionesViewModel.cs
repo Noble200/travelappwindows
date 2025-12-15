@@ -960,10 +960,19 @@ public partial class ComisionesViewModel : ObservableObject
         if (ComercioSeleccionado == null) return;
         await using var conn = new NpgsqlConnection(ConnectionString);
         await conn.OpenAsync();
-        await using var cmd = new NpgsqlCommand("UPDATE comercios SET porcentaje_comision_divisas = @margen WHERE id_comercio = @id", conn);
-        cmd.Parameters.AddWithValue("margen", nuevoMargen);
-        cmd.Parameters.AddWithValue("id", ComercioSeleccionado.IdComercio);
-        await cmd.ExecuteNonQueryAsync();
+        // Actualizar comercio
+        await using (var cmd = new NpgsqlCommand("UPDATE comercios SET porcentaje_comision_divisas = @margen WHERE id_comercio = @id", conn))
+        {
+            cmd.Parameters.AddWithValue("margen", nuevoMargen);
+            cmd.Parameters.AddWithValue("id", ComercioSeleccionado.IdComercio);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        // Resetear comisiones de los locales del comercio para que hereden del comercio
+        await using (var cmdLocales = new NpgsqlCommand("UPDATE locales SET comision_divisas = 0 WHERE id_comercio = @id", conn))
+        {
+            cmdLocales.Parameters.AddWithValue("id", ComercioSeleccionado.IdComercio);
+            await cmdLocales.ExecuteNonQueryAsync();
+        }
     }
 
     private async Task GuardarMargenLocalAsync(decimal nuevoMargen)
@@ -1066,11 +1075,20 @@ public partial class ComisionesViewModel : ObservableObject
                 case "COMERCIO":
                     if (ComercioAlimentosSeleccionado != null)
                     {
-                        await using var cmd = new NpgsqlCommand("UPDATE comercios SET comision_local_alimentos=@l, comision_allva_alimentos=@a WHERE id_comercio=@id", conn);
-                        cmd.Parameters.AddWithValue("l", comL); cmd.Parameters.AddWithValue("a", comA);
-                        cmd.Parameters.AddWithValue("id", ComercioAlimentosSeleccionado.IdComercio);
-                        await cmd.ExecuteNonQueryAsync();
-                        MostrarMensaje("Comisiones del comercio actualizadas");
+                        // Actualizar comercio
+                        await using (var cmd = new NpgsqlCommand("UPDATE comercios SET comision_local_alimentos=@l, comision_allva_alimentos=@a WHERE id_comercio=@id", conn))
+                        {
+                            cmd.Parameters.AddWithValue("l", comL); cmd.Parameters.AddWithValue("a", comA);
+                            cmd.Parameters.AddWithValue("id", ComercioAlimentosSeleccionado.IdComercio);
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                        // Resetear comisiones de los locales del comercio para que hereden del comercio
+                        await using (var cmdLocales = new NpgsqlCommand("UPDATE locales SET comision_local_alimentos=0, comision_allva_alimentos=0 WHERE id_comercio=@id", conn))
+                        {
+                            cmdLocales.Parameters.AddWithValue("id", ComercioAlimentosSeleccionado.IdComercio);
+                            await cmdLocales.ExecuteNonQueryAsync();
+                        }
+                        MostrarMensaje("Comisiones del comercio y sus locales actualizadas");
                     }
                     break;
 

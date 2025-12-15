@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using Npgsql;
 using Allva.Desktop.Services;
 using Allva.Desktop.Views;
+using Allva.Desktop.Views.MenuHamburguesa;
 
 namespace Allva.Desktop.ViewModels;
 
@@ -474,6 +475,150 @@ public partial class OperacionesViewModel : ObservableObject
         MostrarFiltros = !MostrarFiltros;
     }
 
+    [RelayCommand]
+    private async Task AnularOperacionAsync(OperacionPackAlimentoItem? operacion)
+    {
+        if (operacion == null || !operacion.EsPendiente)
+            return;
+
+        try
+        {
+            Window? mainWindow = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                mainWindow = desktop.MainWindow;
+            }
+
+            if (mainWindow == null)
+                return;
+
+            var ventanaConfirmacion = new Views.ConfirmacionAnulacionView(
+                operacion.NumeroOperacion,
+                $"{operacion.Fecha} {operacion.Hora}",
+                operacion.NombreCliente,
+                operacion.NombreBeneficiario,
+                operacion.PaisDestino,
+                operacion.Descripcion,
+                operacion.ImporteFormateado
+            );
+
+            await ventanaConfirmacion.ShowDialog(mainWindow);
+
+            if (ventanaConfirmacion.Confirmado)
+            {
+                await AnularOperacionEnBDAsync(operacion);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error: {ex.Message}";
+            await Task.Delay(3000);
+            ErrorMessage = "";
+        }
+    }
+
+    private async Task AnularOperacionEnBDAsync(OperacionPackAlimentoItem operacion)
+    {
+        try
+        {
+            IsLoading = true;
+
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var query = @"UPDATE operaciones_pack_alimentos
+                          SET estado_envio = 'ANULADO'
+                          WHERE id_operacion = @idOperacion";
+
+            await using var cmd = new NpgsqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@idOperacion", operacion.IdOperacion);
+
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+            if (rowsAffected > 0)
+            {
+                await CargarOperacionesAsync();
+
+                SuccessMessage = $"Operación {operacion.NumeroOperacion} anulada correctamente";
+                await Task.Delay(3000);
+                SuccessMessage = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al anular: {ex.Message}";
+            await Task.Delay(3000);
+            ErrorMessage = "";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task VerDetalleOperacionAsync(OperacionPackAlimentoItem? operacion)
+    {
+        if (operacion == null || string.IsNullOrEmpty(operacion.NumeroOperacion))
+            return;
+
+        try
+        {
+            Window? mainWindow = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                mainWindow = desktop.MainWindow;
+            }
+
+            if (mainWindow == null)
+                return;
+
+            var dialog = new DetalleOperacionPackAlimentosView(
+                operacion.NumeroOperacion,
+                _codigoLocal,
+                _nombreUsuario,
+                _idUsuario);
+
+            await dialog.ShowDialog(mainWindow);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al abrir detalle: {ex.Message}";
+            await Task.Delay(3000);
+            ErrorMessage = "";
+        }
+    }
+
+    [RelayCommand]
+    private async Task VerDetalleOperacionDivisaAsync(OperacionDetalleItem? operacion)
+    {
+        if (operacion == null || string.IsNullOrEmpty(operacion.NumeroOperacion) || operacion.NumeroOperacion == "-")
+            return;
+
+        try
+        {
+            Window? mainWindow = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                mainWindow = desktop.MainWindow;
+            }
+
+            if (mainWindow == null)
+                return;
+
+            var vm = new DetalleOperacionDivisaViewModel(operacion.NumeroOperacion, _codigoLocal);
+            var dialog = new DetalleOperacionDivisaView(vm);
+
+            await dialog.ShowDialog(mainWindow);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error al abrir detalle: {ex.Message}";
+            await Task.Delay(3000);
+            ErrorMessage = "";
+        }
+    }
+
     private void ActualizarResumen()
     {
         if (PanelActual == "alimentos")
@@ -483,26 +628,30 @@ public partial class OperacionesViewModel : ObservableObject
             TotalPagados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "PAGADO").ToString();
             TotalEnviados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "ENVIADO").ToString();
             TotalAnulados = OperacionesAlimentos.Count(o => o.EstadoEnvio.ToUpper() == "ANULADO").ToString();
-            
-            // Calcular total como negativo (deuda del local)
-            var totalImporte = OperacionesAlimentos.Sum(o => o.Importe);
-            var totalNegativo = -totalImporte;
-            
+
+            // Solo contar operaciones PENDIENTES para el total de euros (deuda del local hacia Allva)
+            var totalPendientePago = OperacionesAlimentos
+                .Where(o => o.EstadoEnvio.ToUpper() == "PENDIENTE")
+                .Sum(o => o.Importe);
+
+            // El total pendiente es negativo (deuda), si no hay pendientes es 0 o positivo (beneficio)
+            var balance = -totalPendientePago;
+
             // Formato con signo
-            if (totalNegativo < 0)
+            if (balance < 0)
             {
-                TotalImporteAlimentos = totalNegativo.ToString("N2");
-                TotalImporteAlimentosColor = "#dc3545"; // Rojo para negativo
+                TotalImporteAlimentos = balance.ToString("N2");
+                TotalImporteAlimentosColor = "#dc3545"; // Rojo para negativo (deuda pendiente)
             }
-            else if (totalNegativo > 0)
+            else if (balance > 0)
             {
-                TotalImporteAlimentos = $"+{totalNegativo:N2}";
-                TotalImporteAlimentosColor = "#28a745"; // Verde para positivo
+                TotalImporteAlimentos = $"+{balance:N2}";
+                TotalImporteAlimentosColor = "#28a745"; // Verde para positivo (beneficio)
             }
             else
             {
                 TotalImporteAlimentos = "0.00";
-                TotalImporteAlimentosColor = "#0b5394"; // Azul para neutral
+                TotalImporteAlimentosColor = "#28a745"; // Verde para neutral/saldado
             }
         }
         else
@@ -976,6 +1125,9 @@ public class OperacionDetalleItem
     public string NumeroDocumento { get; set; } = "";
     public string BackgroundColor { get; set; } = "White";
     public DateTime FechaHoraOrden { get; set; } = DateTime.MinValue;
+
+    // Propiedad para saber si el numero de operacion es clickeable (solo operaciones de divisa, no depositos/traspasos)
+    public bool EsClickeable => !string.IsNullOrEmpty(NumeroOperacion) && NumeroOperacion != "-";
 }
 
 public class OperacionPackAlimentoItem
@@ -998,4 +1150,8 @@ public class OperacionPackAlimentoItem
     public DateTime FechaHoraOrden { get; set; }
 
     public string ImporteFormateado => $"{Importe:N2} {Moneda}";
+
+    // Propiedades para anulacion
+    public bool EsPendiente => EstadoEnvio.ToUpper() == "PENDIENTE";
+    public Avalonia.Input.StandardCursorType CursorEstado => EsPendiente ? Avalonia.Input.StandardCursorType.Hand : Avalonia.Input.StandardCursorType.Arrow;
 }

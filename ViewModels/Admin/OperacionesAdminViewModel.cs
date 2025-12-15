@@ -35,6 +35,9 @@ public partial class OperacionesAdminViewModel : ObservableObject
     [ObservableProperty]
     private string _filtroNumeroOperacion = "";
 
+    [ObservableProperty]
+    private string _filtroNumeroOperacionGlobal = "";
+
     // Filtros con autocompletado - Comercio
     [ObservableProperty]
     private string _filtroComercioTexto = "";
@@ -93,6 +96,59 @@ public partial class OperacionesAdminViewModel : ObservableObject
     // Mapeo de comercio/local a ID
     private readonly Dictionary<string, int> _comercioIdMap = new();
     private readonly Dictionary<string, int> _localIdMap = new();
+
+    // Mapeo de nombres de divisas a codigos
+    private static readonly Dictionary<string, string> NombresDivisas = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "DOLAR", "USD" }, { "DOLARES", "USD" }, { "DÓLAR", "USD" }, { "DÓLARES", "USD" },
+        { "LIBRA", "GBP" }, { "LIBRAS", "GBP" },
+        { "FRANCO", "CHF" }, { "FRANCOS", "CHF" },
+        { "YEN", "JPY" }, { "YENES", "JPY" },
+        { "PESO", "MXN" }, { "PESOS", "MXN" },
+        { "REAL", "BRL" }, { "REALES", "BRL" },
+        { "YUAN", "CNY" }, { "YUANES", "CNY" },
+        { "RUPIA", "INR" }, { "RUPIAS", "INR" },
+        { "CORONA", "SEK" }, { "CORONAS", "SEK" },
+        { "EURO", "EUR" }, { "EUROS", "EUR" },
+        { "DOLAR CANADIENSE", "CAD" }, { "CANADIENSE", "CAD" },
+        { "DOLAR AUSTRALIANO", "AUD" }, { "AUSTRALIANO", "AUD" },
+        { "PESO ARGENTINO", "ARS" }, { "ARGENTINO", "ARS" },
+        { "PESO CHILENO", "CLP" }, { "CHILENO", "CLP" },
+        { "WON", "KRW" },
+        { "DOLAR SINGAPUR", "SGD" }, { "SINGAPUR", "SGD" },
+        { "DOLAR HONG KONG", "HKD" }, { "HONG KONG", "HKD" },
+        { "CORONA NORUEGA", "NOK" }, { "NORUEGA", "NOK" },
+        { "CORONA SUECA", "SEK" }, { "SUECA", "SEK" },
+        { "CORONA DANESA", "DKK" }, { "DANESA", "DKK" },
+        { "DOLAR NEOZELANDES", "NZD" }, { "NEOZELANDES", "NZD" },
+        { "RAND", "ZAR" },
+    };
+
+    // Mapeo inverso: codigo a nombre principal (para mostrar en sugerencias)
+    private static readonly Dictionary<string, string> CodigoANombre = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "USD", "Dolar" },
+        { "EUR", "Euro" },
+        { "GBP", "Libra" },
+        { "CHF", "Franco Suizo" },
+        { "JPY", "Yen" },
+        { "MXN", "Peso Mexicano" },
+        { "BRL", "Real" },
+        { "CNY", "Yuan" },
+        { "INR", "Rupia" },
+        { "CAD", "Dolar Canadiense" },
+        { "AUD", "Dolar Australiano" },
+        { "ARS", "Peso Argentino" },
+        { "CLP", "Peso Chileno" },
+        { "KRW", "Won" },
+        { "SGD", "Dolar Singapur" },
+        { "HKD", "Dolar Hong Kong" },
+        { "NOK", "Corona Noruega" },
+        { "SEK", "Corona Sueca" },
+        { "DKK", "Corona Danesa" },
+        { "NZD", "Dolar Neozelandes" },
+        { "ZAR", "Rand" },
+    };
 
     // ============================================
     // PANEL ACTUAL
@@ -286,6 +342,34 @@ public partial class OperacionesAdminViewModel : ObservableObject
     }
 
     // ============================================
+    // CONVERSION DE NOMBRES DE DIVISAS
+    // ============================================
+
+    private string ObtenerCodigoDivisa(string texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return texto;
+
+        var textoLimpio = texto.Trim();
+
+        // Si tiene formato "Nombre (CODIGO)", extraer el codigo
+        if (textoLimpio.Contains("(") && textoLimpio.EndsWith(")"))
+        {
+            var inicio = textoLimpio.LastIndexOf('(');
+            var codigo = textoLimpio.Substring(inicio + 1, textoLimpio.Length - inicio - 2);
+            return codigo;
+        }
+
+        // Buscar si es un nombre de divisa conocido
+        if (NombresDivisas.TryGetValue(textoLimpio, out var codigoEncontrado))
+        {
+            return codigoEncontrado;
+        }
+
+        // Si no es un nombre conocido, devolver el texto tal cual (puede ser el codigo)
+        return textoLimpio;
+    }
+
+    // ============================================
     // AUTOCOMPLETADO - COMERCIO
     // ============================================
 
@@ -397,13 +481,26 @@ public partial class OperacionesAdminViewModel : ObservableObject
             return;
         }
 
-        var coincidencias = _todasLasDivisasData
-            .Where(d => d.Contains(texto, StringComparison.OrdinalIgnoreCase))
-            .Take(10);
+        var textoLower = texto.ToLower();
+        var sugerenciasAgregadas = new HashSet<string>();
 
-        foreach (var item in coincidencias)
+        // Buscar por codigo de divisa existente en la base de datos
+        foreach (var codigo in _todasLasDivisasData)
         {
-            SugerenciasDivisa.Add(item);
+            // Obtener el nombre correspondiente al codigo
+            var nombre = CodigoANombre.GetValueOrDefault(codigo, codigo);
+            var displayText = $"{nombre} ({codigo})";
+
+            // Buscar por codigo o por nombre
+            if (codigo.ToLower().Contains(textoLower) ||
+                nombre.ToLower().Contains(textoLower))
+            {
+                if (sugerenciasAgregadas.Add(displayText))
+                {
+                    SugerenciasDivisa.Add(displayText);
+                    if (SugerenciasDivisa.Count >= 10) break;
+                }
+            }
         }
 
         MostrarSugerenciasDivisa = SugerenciasDivisa.Count > 0;
@@ -616,9 +713,10 @@ public partial class OperacionesAdminViewModel : ObservableObject
         FiltroLocalTexto = "";
         FiltroDivisaTexto = "";
         FiltroNumeroOperacion = "";
+        FiltroNumeroOperacionGlobal = "";
         FiltroPaisDestino = "Todos";
         FiltroEstadoAlimentos = "Todos";
-        
+
         MostrarSugerenciasComercio = false;
         MostrarSugerenciasLocal = false;
         MostrarSugerenciasDivisa = false;
@@ -1136,8 +1234,14 @@ public partial class OperacionesAdminViewModel : ObservableObject
             sql += " AND o.id_local = @idLocal";
         if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
             sql += " AND o.numero_operacion ILIKE @numOp";
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal))
+            sql += " AND o.id_operacion::text ILIKE @numOpGlobal";
         if (!string.IsNullOrWhiteSpace(FiltroDivisaTexto))
+        {
+            // Buscar por nombre de divisa o por codigo
+            var codigoDivisa = ObtenerCodigoDivisa(FiltroDivisaTexto);
             sql += " AND od.divisa_origen ILIKE @divisa";
+        }
 
         sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
 
@@ -1153,8 +1257,13 @@ public partial class OperacionesAdminViewModel : ObservableObject
             cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
         if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
             cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal))
+            cmd.Parameters.AddWithValue("numOpGlobal", $"%{FiltroNumeroOperacionGlobal}%");
         if (!string.IsNullOrWhiteSpace(FiltroDivisaTexto))
-            cmd.Parameters.AddWithValue("divisa", $"%{FiltroDivisaTexto}%");
+        {
+            var codigoDivisa = ObtenerCodigoDivisa(FiltroDivisaTexto);
+            cmd.Parameters.AddWithValue("divisa", $"%{codigoDivisa}%");
+        }
 
         await using var reader = await cmd.ExecuteReaderAsync();
 
@@ -1340,6 +1449,8 @@ public partial class OperacionesAdminViewModel : ObservableObject
             sql += " AND o.id_local = @idLocal";
         if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
             sql += " AND o.numero_operacion ILIKE @numOp";
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal))
+            sql += " AND o.id_operacion::text ILIKE @numOpGlobal";
         if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
             sql += " AND opa.pais_destino = @pais";
         if (!string.IsNullOrEmpty(FiltroEstadoAlimentos) && FiltroEstadoAlimentos != "Todos")
@@ -1359,6 +1470,8 @@ public partial class OperacionesAdminViewModel : ObservableObject
             cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
         if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion))
             cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
+        if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal))
+            cmd.Parameters.AddWithValue("numOpGlobal", $"%{FiltroNumeroOperacionGlobal}%");
         if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
             cmd.Parameters.AddWithValue("pais", FiltroPaisDestino);
         if (!string.IsNullOrEmpty(FiltroEstadoAlimentos) && FiltroEstadoAlimentos != "Todos")
@@ -1368,7 +1481,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
         int index = 0;
         int pendientes = 0, pagados = 0, enviados = 0, anulados = 0;
-        decimal totalImporte = 0;
+        decimal importePendientes = 0; // Solo pendientes cuentan para el importe total
 
         while (await reader.ReadAsync())
         {
@@ -1385,7 +1498,8 @@ public partial class OperacionesAdminViewModel : ObservableObject
             var estado = reader.IsDBNull(10) ? "PENDIENTE" : reader.GetString(10);
             var importe = reader.IsDBNull(11) ? 0 : reader.GetDecimal(11);
 
-            var estadoColor = estado.Trim().ToUpper() switch
+            var estadoUpper = estado.Trim().ToUpper();
+            var estadoColor = estadoUpper switch
             {
                 "PAGADO" => "#17a2b8",
                 "ENVIADO" => "#28a745",
@@ -1394,7 +1508,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
             };
 
             // Determinar si se puede cambiar a Enviado (solo si esta en PAGADO)
-            var puedeEnviar = estado.ToUpper() == "PAGADO";
+            var puedeEnviar = estadoUpper == "PAGADO";
 
             OperacionesAlimentos.Add(new OperacionAlimentosAdminItem
             {
@@ -1408,7 +1522,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
                 PaisDestino = paisDestino,
                 NombreCliente = cliente,
                 NombreBeneficiario = beneficiario,
-                EstadoTexto = estado.Trim().ToUpper(),
+                EstadoTexto = estadoUpper,
                 EstadoColor = estadoColor,
                 Importe = $"{importe:N2} EUR",
                 ImporteNum = importe,
@@ -1416,16 +1530,28 @@ public partial class OperacionesAdminViewModel : ObservableObject
                 PuedeMarcarEnviado = puedeEnviar
             });
 
-            // Contar por estado
-            switch (estado.Trim().ToUpper())
+            // Contar por estado y calcular importe
+            switch (estadoUpper)
             {
-                case "PENDIENTE": pendientes++; break;
-                case "PAGADO": pagados++; break;
-                case "ENVIADO": enviados++; break;
-                case "ANULADO": anulados++; break;
+                case "PENDIENTE":
+                    pendientes++;
+                    // Solo las pendientes de pago cuentan para el importe total
+                    importePendientes += importe;
+                    break;
+                case "PAGADO":
+                    pagados++;
+                    // Pagado ya no cuenta para el importe (ya fue pagado)
+                    break;
+                case "ENVIADO":
+                    enviados++;
+                    // Enviado ya no cuenta para el importe
+                    break;
+                case "ANULADO":
+                    anulados++;
+                    // Anulado ya no cuenta para el importe
+                    break;
             }
 
-            totalImporte += importe;
             index++;
         }
 
@@ -1434,23 +1560,17 @@ public partial class OperacionesAdminViewModel : ObservableObject
         TotalPagados = pagados.ToString();
         TotalEnviados = enviados.ToString();
         TotalAnulados = anulados.ToString();
-        
-        // Total como negativo (deuda del local)
-        var totalNegativo = -totalImporte;
-        if (totalNegativo < 0)
+
+        // Importe total = solo las operaciones pendientes (deuda pendiente de pago)
+        if (importePendientes > 0)
         {
-            TotalImporteAlimentos = totalNegativo.ToString("N2");
-            TotalImporteAlimentosColor = "#dc3545"; // Rojo
-        }
-        else if (totalNegativo > 0)
-        {
-            TotalImporteAlimentos = $"+{totalNegativo:N2}";
-            TotalImporteAlimentosColor = "#28a745"; // Verde
+            TotalImporteAlimentos = $"-{importePendientes:N2}";
+            TotalImporteAlimentosColor = "#dc3545"; // Rojo (hay deuda pendiente)
         }
         else
         {
             TotalImporteAlimentos = "0.00";
-            TotalImporteAlimentosColor = "#0b5394"; // Azul
+            TotalImporteAlimentosColor = "#28a745"; // Verde (sin deuda)
         }
     }
 

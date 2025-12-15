@@ -52,10 +52,16 @@ namespace Allva.Desktop.ViewModels
         private bool _cargando;
         
         public bool IsLoading => Cargando;
-        
+
+        /// <summary>
+        /// Muestra el overlay de carga solo si NO hay actualización en progreso
+        /// </summary>
+        public bool MostrarOverlayCarga => Cargando && !MostrarMensajeActualizacion;
+
         partial void OnCargandoChanged(bool value)
         {
             OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(MostrarOverlayCarga));
         }
 
         [ObservableProperty]
@@ -75,7 +81,13 @@ namespace Allva.Desktop.ViewModels
         public bool MostrarMensajeActualizacion
         {
             get => _mostrarMensajeActualizacion;
-            set => SetProperty(ref _mostrarMensajeActualizacion, value);
+            set
+            {
+                if (SetProperty(ref _mostrarMensajeActualizacion, value))
+                {
+                    OnPropertyChanged(nameof(MostrarOverlayCarga));
+                }
+            }
         }
 
         [ObservableProperty]
@@ -196,12 +208,14 @@ namespace Allva.Desktop.ViewModels
                     MostrarError(resultadoUsuario.MensajeError);
                 }
             }
-            catch (NpgsqlException)
+            catch (NpgsqlException ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error NpgsqlException: {ex.Message}");
                 MostrarError("No se pudo conectar con el servidor. Verifica tu conexion a internet e intenta nuevamente.");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error Exception: {ex.Message}\n{ex.StackTrace}");
                 MostrarError("Ocurrio un error inesperado. Por favor, intenta nuevamente.");
             }
             finally
@@ -269,7 +283,7 @@ namespace Allva.Desktop.ViewModels
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Usuario o contrasena incorrectos. Verifica tus credenciales de administrador."
+                        MensajeError = "Usuario de administrador no encontrado. Verifica tu numero de usuario."
                     };
                 }
 
@@ -288,7 +302,7 @@ namespace Allva.Desktop.ViewModels
                     return new ResultadoAutenticacion
                     {
                         Exitoso = false,
-                        MensajeError = "Usuario o contrasena incorrectos. Verifica tus credenciales de administrador."
+                        MensajeError = "Contrasena incorrecta. Verifica tu contrasena e intenta nuevamente."
                     };
                 }
 
@@ -425,14 +439,42 @@ namespace Allva.Desktop.ViewModels
         }
 
         private async Task<ResultadoAutenticacion> VerificarAccesoFloater(
-            NpgsqlConnection connection, 
-            int idUsuario, 
-            string nombre, 
-            string apellidos, 
+            NpgsqlConnection connection,
+            int idUsuario,
+            string nombre,
+            string apellidos,
             string codigoLocal)
         {
+            // Primero verificar si el codigo de oficina existe en el sistema
+            var queryExisteLocal = @"
+                SELECT id_local, nombre_local, activo
+                FROM locales
+                WHERE codigo_local = @CodigoLocal";
+
+            using (var cmdExiste = new NpgsqlCommand(queryExisteLocal, connection))
+            {
+                cmdExiste.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
+                using (var readerExiste = await cmdExiste.ExecuteReaderAsync())
+                {
+                    if (!await readerExiste.ReadAsync())
+                    {
+                        return new ResultadoAutenticacion
+                        {
+                            Exitoso = false,
+                            MensajeError = $"El codigo de oficina '{codigoLocal}' no existe. Verifica el codigo e intenta nuevamente."
+                        };
+                    }
+                }
+            }
+
+            // Ahora verificar si el usuario tiene acceso a ese local
+            int idLocal;
+            string nombreLocal;
+            bool localActivo;
+            int idComercioLocal;
+
             var queryFloater = @"
-                SELECT 
+                SELECT
                     l.id_local,
                     l.codigo_local,
                     l.nombre_local,
@@ -443,33 +485,62 @@ namespace Allva.Desktop.ViewModels
                 WHERE ul.id_usuario = @IdUsuario
                 AND l.codigo_local = @CodigoLocal";
 
-            using var cmdFloater = new NpgsqlCommand(queryFloater, connection);
-            cmdFloater.Parameters.AddWithValue("@IdUsuario", idUsuario);
-            cmdFloater.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
-
-            using var reader = await cmdFloater.ExecuteReaderAsync();
-
-            if (!await reader.ReadAsync())
+            using (var cmdFloater = new NpgsqlCommand(queryFloater, connection))
             {
-                return new ResultadoAutenticacion
-                {
-                    Exitoso = false,
-                    MensajeError = $"No tienes acceso al local '{codigoLocal}'. Verifica el codigo o contacta a tu administrador."
-                };
-            }
+                cmdFloater.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                cmdFloater.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
 
-            var idLocal = reader.GetInt32(0);
-            var nombreLocal = reader.GetString(2);
-            var localActivo = reader.GetBoolean(3);
-            var idComercioLocal = reader.GetInt32(4);
+                using (var reader = await cmdFloater.ExecuteReaderAsync())
+                {
+                    if (!await reader.ReadAsync())
+                    {
+                        return new ResultadoAutenticacion
+                        {
+                            Exitoso = false,
+                            MensajeError = $"No tienes permiso para acceder a la oficina '{codigoLocal}'. Contacta a tu administrador."
+                        };
+                    }
+
+                    idLocal = reader.GetInt32(0);
+                    nombreLocal = reader.GetString(2);
+                    localActivo = reader.GetBoolean(3);
+                    idComercioLocal = reader.GetInt32(4);
+                }
+            }
 
             if (!localActivo)
             {
                 return new ResultadoAutenticacion
                 {
                     Exitoso = false,
-                    MensajeError = $"El local '{codigoLocal}' esta temporalmente inactivo. Contacta a tu administrador."
+                    MensajeError = $"La oficina '{codigoLocal}' esta temporalmente inactiva. Contacta a tu administrador."
                 };
+            }
+
+            // Verificar que el comercio este activo
+            var queryComercio = @"
+                SELECT activo, nombre_comercio
+                FROM comercios
+                WHERE id_comercio = @IdComercio";
+
+            using (var cmdComercio = new NpgsqlCommand(queryComercio, connection))
+            {
+                cmdComercio.Parameters.AddWithValue("@IdComercio", idComercioLocal);
+                using (var readerComercio = await cmdComercio.ExecuteReaderAsync())
+                {
+                    if (await readerComercio.ReadAsync())
+                    {
+                        var comercioActivo = readerComercio.GetBoolean(0);
+                        if (!comercioActivo)
+                        {
+                            return new ResultadoAutenticacion
+                            {
+                                Exitoso = false,
+                                MensajeError = "El comercio asociado a esta oficina esta temporalmente suspendido. Contacta a soporte."
+                            };
+                        }
+                    }
+                }
             }
 
             return new ResultadoAutenticacion
@@ -487,10 +558,10 @@ namespace Allva.Desktop.ViewModels
         }
 
         private async Task<ResultadoAutenticacion> VerificarAccesoUsuarioNormal(
-            NpgsqlConnection connection, 
-            int idUsuario, 
-            string nombre, 
-            string apellidos, 
+            NpgsqlConnection connection,
+            int idUsuario,
+            string nombre,
+            string apellidos,
             string codigoLocal,
             int? idLocalUsuario)
         {
@@ -499,12 +570,40 @@ namespace Allva.Desktop.ViewModels
                 return new ResultadoAutenticacion
                 {
                     Exitoso = false,
-                    MensajeError = "No tienes un local asignado. Contacta a tu administrador para que te asigne uno."
+                    MensajeError = "No tienes una oficina asignada. Contacta a tu administrador para que te asigne una."
                 };
             }
 
+            // Primero verificar si el codigo de oficina existe en el sistema
+            var queryExisteLocal = @"
+                SELECT id_local, nombre_local, activo
+                FROM locales
+                WHERE codigo_local = @CodigoLocal";
+
+            using (var cmdExiste = new NpgsqlCommand(queryExisteLocal, connection))
+            {
+                cmdExiste.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
+                using (var readerExiste = await cmdExiste.ExecuteReaderAsync())
+                {
+                    if (!await readerExiste.ReadAsync())
+                    {
+                        return new ResultadoAutenticacion
+                        {
+                            Exitoso = false,
+                            MensajeError = $"El codigo de oficina '{codigoLocal}' no existe. Verifica el codigo e intenta nuevamente."
+                        };
+                    }
+                }
+            }
+
+            // Verificar si el usuario tiene acceso a ese local especifico
+            int idLocal;
+            string nombreLocal;
+            bool localActivo;
+            int idComercioLocal;
+
             var queryLocal = @"
-                SELECT 
+                SELECT
                     l.id_local,
                     l.codigo_local,
                     l.nombre_local,
@@ -514,33 +613,62 @@ namespace Allva.Desktop.ViewModels
                 WHERE l.id_local = @IdLocal
                 AND l.codigo_local = @CodigoLocal";
 
-            using var cmdLocal = new NpgsqlCommand(queryLocal, connection);
-            cmdLocal.Parameters.AddWithValue("@IdLocal", idLocalUsuario.Value);
-            cmdLocal.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
-
-            using var reader = await cmdLocal.ExecuteReaderAsync();
-
-            if (!await reader.ReadAsync())
+            using (var cmdLocal = new NpgsqlCommand(queryLocal, connection))
             {
-                return new ResultadoAutenticacion
-                {
-                    Exitoso = false,
-                    MensajeError = $"El codigo '{codigoLocal}' no corresponde a tu local asignado. Verifica e intenta nuevamente."
-                };
-            }
+                cmdLocal.Parameters.AddWithValue("@IdLocal", idLocalUsuario.Value);
+                cmdLocal.Parameters.AddWithValue("@CodigoLocal", codigoLocal);
 
-            var idLocal = reader.GetInt32(0);
-            var nombreLocal = reader.GetString(2);
-            var localActivo = reader.GetBoolean(3);
-            var idComercioLocal = reader.GetInt32(4);
+                using (var reader = await cmdLocal.ExecuteReaderAsync())
+                {
+                    if (!await reader.ReadAsync())
+                    {
+                        return new ResultadoAutenticacion
+                        {
+                            Exitoso = false,
+                            MensajeError = $"No tienes permiso para acceder a la oficina '{codigoLocal}'. Solo puedes acceder a tu oficina asignada."
+                        };
+                    }
+
+                    idLocal = reader.GetInt32(0);
+                    nombreLocal = reader.GetString(2);
+                    localActivo = reader.GetBoolean(3);
+                    idComercioLocal = reader.GetInt32(4);
+                }
+            }
 
             if (!localActivo)
             {
                 return new ResultadoAutenticacion
                 {
                     Exitoso = false,
-                    MensajeError = $"El local '{codigoLocal}' esta temporalmente inactivo. Contacta a tu administrador."
+                    MensajeError = $"La oficina '{codigoLocal}' esta temporalmente inactiva. Contacta a tu administrador."
                 };
+            }
+
+            // Verificar que el comercio este activo
+            var queryComercio = @"
+                SELECT activo, nombre_comercio
+                FROM comercios
+                WHERE id_comercio = @IdComercio";
+
+            using (var cmdComercio = new NpgsqlCommand(queryComercio, connection))
+            {
+                cmdComercio.Parameters.AddWithValue("@IdComercio", idComercioLocal);
+                using (var readerComercio = await cmdComercio.ExecuteReaderAsync())
+                {
+                    if (await readerComercio.ReadAsync())
+                    {
+                        var comercioActivo = readerComercio.GetBoolean(0);
+                        if (!comercioActivo)
+                        {
+                            return new ResultadoAutenticacion
+                            {
+                                Exitoso = false,
+                                MensajeError = "El comercio asociado a esta oficina esta temporalmente suspendido. Contacta a soporte."
+                            };
+                        }
+                    }
+                }
             }
 
             return new ResultadoAutenticacion

@@ -73,7 +73,7 @@ public partial class AdminDashboardViewModel : ObservableObject
                 "usuarios_allva" => "USUARIOS ALLVA",
                 "divisas" => "COMISIONES",
                 "operaciones" => "OPERACIONES",
-                "balance" => "BALANCE",
+                "balance" => "BALANCE DE CUENTAS",
                 _ => "PANEL DE ADMINISTRACION"
             };
         }
