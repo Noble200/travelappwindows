@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +25,13 @@ namespace Allva.Desktop.ViewModels
         private const string ConnectionString = "Host=switchyard.proxy.rlwy.net;Port=55839;Database=railway;Username=postgres;Password=ysTQxChOYSWUuAPzmYQokqrjpYnKSGbk;";
 
         // ============================================
+        // PROPIEDADES OBSERVABLES - COMISIONES
+        // ============================================
+
+        private decimal _comisionLocalActual = 0;
+        private decimal _comisionAllvaActual = 0;
+
+        // ============================================
         // PROPIEDADES OBSERVABLES - PAISES
         // ============================================
 
@@ -34,7 +42,10 @@ namespace Allva.Desktop.ViewModels
         private PaisDesignadoFront? _paisSeleccionado;
 
         [ObservableProperty]
-        private bool _vistaSeleccionPais = false;
+        private bool _vistaSeleccionPais = true;
+
+        // Variable para rastrear desde dónde se abrió la búsqueda de cliente
+        private bool _vinoDesdeSeleccionPais = false;
 
         public bool HayPaises => PaisesDisponibles.Count > 0;
         public bool NoHayPaises => PaisesDisponibles.Count == 0 && !EstaCargando;
@@ -49,6 +60,22 @@ namespace Allva.Desktop.ViewModels
 
         [ObservableProperty]
         private PackAlimentoFront? _packSeleccionado;
+
+        // ============================================
+        // PROPIEDADES OBSERVABLES - CARRITO
+        // ============================================
+
+        [ObservableProperty]
+        private ObservableCollection<PackAlimentoFront> _packsEnCarrito = new();
+
+        [ObservableProperty]
+        private bool _vistaResumenCarrito = false;
+
+        public bool HayPacksEnCarrito => PacksEnCarrito.Count > 0;
+        public int CantidadPacksEnCarrito => PacksEnCarrito.Count;
+        public decimal TotalCarrito => PacksEnCarrito.Sum(p => p.PrecioTotal);
+        public string TotalCarritoFormateado => $"{TotalCarrito:N2} EUR";
+        public string ResumenCarrito => $"{CantidadPacksEnCarrito} pack(s) - {TotalCarritoFormateado}";
 
         [ObservableProperty]
         private bool _estaCargando;
@@ -299,7 +326,7 @@ namespace Allva.Desktop.ViewModels
         public string TotalCompraFormateado => $"{TotalCompra:N2} {DivisaCompra}";
 
         public string ResumenPack => PackSeleccionado != null
-            ? $"{PackSeleccionado.NombrePack} - {PackSeleccionado.PrecioFormateado}"
+            ? $"{PackSeleccionado.NombrePack} - {PackSeleccionado.PrecioTotalFormateado}"
             : "";
 
         public string ResumenBeneficiario => BeneficiarioSeleccionado != null
@@ -318,10 +345,10 @@ namespace Allva.Desktop.ViewModels
             _idComercio = 1;
             _idLocal = 1;
             _idUsuario = 1;
-            // Iniciar directamente en búsqueda de cliente
+            // Iniciar en seleccion de pais con buscador de clientes
             OcultarTodasLasVistas();
-            VistaBuscarCliente = true;
-            _ = CargarPaisesDisponiblesAsync();
+            VistaSeleccionPais = true;
+            _ = InicializarAsync();
         }
 
         public FoodPacksViewModel(int idComercio, int idLocal)
@@ -330,8 +357,8 @@ namespace Allva.Desktop.ViewModels
             _idLocal = idLocal;
             _idUsuario = 0;
             OcultarTodasLasVistas();
-            VistaBuscarCliente = true;
-            _ = CargarPaisesDisponiblesAsync();
+            VistaSeleccionPais = true;
+            _ = InicializarAsync();
         }
 
         public FoodPacksViewModel(int idComercio, int idLocal, int idUsuario, 
@@ -344,8 +371,8 @@ namespace Allva.Desktop.ViewModels
             _numeroUsuario = numeroUsuario;
             _codigoLocal = codigoLocal;
             OcultarTodasLasVistas();
-            VistaBuscarCliente = true;
-            _ = CargarPaisesDisponiblesAsync();
+            VistaSeleccionPais = true;
+            _ = InicializarAsync();
         }
 
         public void SetSesionData(int idLocal, int idComercio, int idUsuario, 
@@ -357,6 +384,96 @@ namespace Allva.Desktop.ViewModels
             _nombreUsuario = nombreUsuario;
             _numeroUsuario = numeroUsuario;
             _codigoLocal = codigoLocal;
+        }
+
+        // ============================================
+        // INICIALIZACION
+        // ============================================
+
+        private async Task InicializarAsync()
+        {
+            await CargarComisionesAsync();
+            await CargarPaisesDisponiblesAsync();
+        }
+
+        // ============================================
+        // METODOS - CARGA DE COMISIONES
+        // ============================================
+
+        private async Task CargarComisionesAsync()
+        {
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                // Primero intentar comisiones del local
+                var sqlLocal = @"SELECT COALESCE(comision_local_alimentos, 0), COALESCE(comision_allva_alimentos, 0) 
+                                 FROM locales WHERE id_local = @idLocal";
+                await using (var cmd = new NpgsqlCommand(sqlLocal, conn))
+                {
+                    cmd.Parameters.AddWithValue("@idLocal", _idLocal);
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        var comLocal = reader.GetDecimal(0);
+                        var comAllva = reader.GetDecimal(1);
+                        if (comLocal > 0 || comAllva > 0)
+                        {
+                            _comisionLocalActual = comLocal;
+                            _comisionAllvaActual = comAllva;
+                            return;
+                        }
+                    }
+                }
+
+                // Si no hay comisiones del local, intentar del comercio
+                var sqlComercio = @"SELECT COALESCE(comision_local_alimentos, 0), COALESCE(comision_allva_alimentos, 0) 
+                                    FROM comercios WHERE id_comercio = @idComercio";
+                await using (var cmd = new NpgsqlCommand(sqlComercio, conn))
+                {
+                    cmd.Parameters.AddWithValue("@idComercio", _idComercio);
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        var comLocal = reader.GetDecimal(0);
+                        var comAllva = reader.GetDecimal(1);
+                        if (comLocal > 0 || comAllva > 0)
+                        {
+                            _comisionLocalActual = comLocal;
+                            _comisionAllvaActual = comAllva;
+                            return;
+                        }
+                    }
+                }
+
+                // Si no hay comisiones del comercio, usar globales
+                var sqlGlobalLocal = "SELECT valor_decimal FROM configuracion_sistema WHERE clave = 'comision_local_alimentos_global' LIMIT 1";
+                await using (var cmd = new NpgsqlCommand(sqlGlobalLocal, conn))
+                {
+                    var result = await cmd.ExecuteScalarAsync();
+                    if (result != null && result != DBNull.Value)
+                        _comisionLocalActual = Convert.ToDecimal(result);
+                    else
+                        _comisionLocalActual = 2.00m;
+                }
+
+                var sqlGlobalAllva = "SELECT valor_decimal FROM configuracion_sistema WHERE clave = 'comision_allva_alimentos_global' LIMIT 1";
+                await using (var cmd = new NpgsqlCommand(sqlGlobalAllva, conn))
+                {
+                    var result = await cmd.ExecuteScalarAsync();
+                    if (result != null && result != DBNull.Value)
+                        _comisionAllvaActual = Convert.ToDecimal(result);
+                    else
+                        _comisionAllvaActual = 3.00m;
+                }
+            }
+            catch
+            {
+                // Valores por defecto si hay error
+                _comisionLocalActual = 2.00m;
+                _comisionAllvaActual = 3.00m;
+            }
         }
 
         // ============================================
@@ -463,7 +580,8 @@ namespace Allva.Desktop.ViewModels
                     SELECT DISTINCT pa.id_pack, pa.nombre_pack, pa.descripcion, 
                            pa.imagen_poster, pa.imagen_poster_nombre,
                            COALESCE(pap.precio, pap_global.precio, 0) as precio,
-                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa
+                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa,
+                           (SELECT COUNT(*) FROM pack_alimentos_productos WHERE id_pack = pa.id_pack) as cantidad_productos
                     FROM packs_alimentos pa
                     LEFT JOIN pack_alimentos_asignacion_comercios paac 
                         ON pa.id_pack = paac.id_pack AND paac.id_comercio = @idComercio AND paac.activo = true
@@ -494,7 +612,10 @@ namespace Allva.Desktop.ViewModels
                         ImagenPoster = reader.IsDBNull(3) ? null : (byte[])reader[3],
                         ImagenPosterNombre = reader.IsDBNull(4) ? null : reader.GetString(4),
                         Precio = reader.GetDecimal(5),
-                        Divisa = reader.GetString(6)
+                        Divisa = reader.GetString(6),
+                        CantidadProductosDB = reader.GetInt32(7),
+                        ComisionLocal = _comisionLocalActual,
+                        ComisionAllva = _comisionAllvaActual
                     };
 
                     PacksDisponibles.Add(pack);
@@ -530,7 +651,8 @@ namespace Allva.Desktop.ViewModels
                     SELECT DISTINCT pa.id_pack, pa.nombre_pack, pa.descripcion, 
                            pa.imagen_poster, pa.imagen_poster_nombre,
                            COALESCE(pap.precio, pap_global.precio, 0) as precio,
-                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa
+                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa,
+                           (SELECT COUNT(*) FROM pack_alimentos_productos WHERE id_pack = pa.id_pack) as cantidad_productos
                     FROM packs_alimentos pa
                     LEFT JOIN pack_alimentos_asignacion_comercios paac 
                         ON pa.id_pack = paac.id_pack AND paac.id_comercio = @idComercio AND paac.activo = true
@@ -559,7 +681,10 @@ namespace Allva.Desktop.ViewModels
                         ImagenPoster = reader.IsDBNull(3) ? null : (byte[])reader[3],
                         ImagenPosterNombre = reader.IsDBNull(4) ? null : reader.GetString(4),
                         Precio = reader.GetDecimal(5),
-                        Divisa = reader.GetString(6)
+                        Divisa = reader.GetString(6),
+                        CantidadProductosDB = reader.GetInt32(7),
+                        ComisionLocal = _comisionLocalActual,
+                        ComisionAllva = _comisionAllvaActual
                     };
 
                     PacksDisponibles.Add(pack);
@@ -679,7 +804,8 @@ namespace Allva.Desktop.ViewModels
                         NumeroDepartamento = reader.IsDBNull(16) ? "" : reader.GetString(16),
                         CodigoPostal = reader.IsDBNull(17) ? "" : reader.GetString(17),
                         Activo = reader.GetBoolean(18),
-                        FechaCreacion = reader.GetDateTime(19)
+                        FechaCreacion = reader.GetDateTime(19),
+                        Observaciones = ""
                     };
 
                     BeneficiariosCliente.Add(beneficiario);
@@ -709,14 +835,26 @@ namespace Allva.Desktop.ViewModels
             VistaNuevoBeneficiario = false;
             VistaSeleccionPack = false;
             VistaConfirmacionCompra = false;
+            VistaResumenCarrito = false;
         }
 
         [RelayCommand]
-        private void IrABuscarCliente()
+        private async Task IrABuscarClienteAsync()
         {
+            // Guardar desde dónde viene (si está en selección de país o en vista principal)
+            _vinoDesdeSeleccionPais = VistaSeleccionPais;
+
+            // Cerrar sugerencias
+            MostrarSugerenciasCliente = false;
+
             OcultarTodasLasVistas();
             VistaBuscarCliente = true;
-            BuscarClientesAsync().ConfigureAwait(false);
+
+            // Si hay término de búsqueda, buscar
+            if (!string.IsNullOrWhiteSpace(BusquedaCliente))
+            {
+                await BuscarClientesAsync();
+            }
         }
 
         [RelayCommand]
@@ -844,7 +982,8 @@ namespace Allva.Desktop.ViewModels
                 return;
             }
 
-            TotalCompra = PackSeleccionado.Precio;
+            // El total incluye las comisiones
+            TotalCompra = PackSeleccionado.PrecioTotal;
             DivisaCompra = PackSeleccionado.Divisa;
 
             OnPropertyChanged(nameof(TotalCompraFormateado));
@@ -940,9 +1079,111 @@ namespace Allva.Desktop.ViewModels
                 return;
             }
 
-            PackSeleccionado = pack;
+            // Agregar al carrito
+            AgregarAlCarrito(pack);
+        }
+
+        [RelayCommand]
+        private void AgregarAlCarrito(PackAlimentoFront? pack)
+        {
+            if (pack == null) return;
+
+            // Verificar si ya está en el carrito
+            if (PacksEnCarrito.Any(p => p.IdPack == pack.IdPack))
+            {
+                MostrarMensaje("Este pack ya está en el carrito", true);
+                return;
+            }
+
+            pack.EstaEnCarrito = true;
+            PacksEnCarrito.Add(pack);
+            ActualizarPropiedadesCarrito();
+            MostrarMensaje($"Pack agregado al carrito: {pack.NombrePack}", false);
             CerrarDetallePack();
-            IrAConfirmacion();
+        }
+
+        [RelayCommand]
+        private void QuitarDelCarrito(PackAlimentoFront? pack)
+        {
+            if (pack == null) return;
+
+            var packEnCarrito = PacksEnCarrito.FirstOrDefault(p => p.IdPack == pack.IdPack);
+            if (packEnCarrito != null)
+            {
+                packEnCarrito.EstaEnCarrito = false;
+                PacksEnCarrito.Remove(packEnCarrito);
+                
+                // También desmarcar en PacksDisponibles
+                var packDisponible = PacksDisponibles.FirstOrDefault(p => p.IdPack == pack.IdPack);
+                if (packDisponible != null)
+                    packDisponible.EstaEnCarrito = false;
+                    
+                ActualizarPropiedadesCarrito();
+                MostrarMensaje($"Pack eliminado del carrito", false);
+            }
+        }
+
+        [RelayCommand]
+        private void VaciarCarrito()
+        {
+            // Desmarcar todos los packs
+            foreach (var pack in PacksEnCarrito)
+            {
+                pack.EstaEnCarrito = false;
+                var packDisponible = PacksDisponibles.FirstOrDefault(p => p.IdPack == pack.IdPack);
+                if (packDisponible != null)
+                    packDisponible.EstaEnCarrito = false;
+            }
+            
+            PacksEnCarrito.Clear();
+            ActualizarPropiedadesCarrito();
+            MostrarMensaje("Carrito vaciado", false);
+        }
+
+        [RelayCommand]
+        private void IrAResumenCarrito()
+        {
+            if (!HayPacksEnCarrito)
+            {
+                MostrarMensaje("El carrito está vacío", true);
+                return;
+            }
+
+            if (ClienteSeleccionado == null)
+            {
+                MostrarMensaje("Debe seleccionar un cliente", true);
+                return;
+            }
+
+            if (BeneficiarioSeleccionado == null)
+            {
+                MostrarMensaje("Debe seleccionar un beneficiario", true);
+                return;
+            }
+
+            // Calcular total
+            TotalCompra = TotalCarrito;
+            DivisaCompra = "EUR";
+            OnPropertyChanged(nameof(TotalCompraFormateado));
+
+            OcultarTodasLasVistas();
+            VistaResumenCarrito = true;
+        }
+
+        [RelayCommand]
+        private void VolverDesdeResumen()
+        {
+            OcultarTodasLasVistas();
+            VistaPrincipal = true;
+        }
+
+        private void ActualizarPropiedadesCarrito()
+        {
+            OnPropertyChanged(nameof(HayPacksEnCarrito));
+            OnPropertyChanged(nameof(CantidadPacksEnCarrito));
+            OnPropertyChanged(nameof(TotalCarrito));
+            OnPropertyChanged(nameof(TotalCarritoFormateado));
+            OnPropertyChanged(nameof(ResumenCarrito));
         }
 
         [RelayCommand]
@@ -976,7 +1217,57 @@ namespace Allva.Desktop.ViewModels
                 return;
             }
 
-            FiltrarClientesParaSugerencias(value);
+            // Buscar automáticamente cuando hay al menos 2 caracteres
+            _ = BuscarYFiltrarClientesAsync(value);
+        }
+
+        private async Task BuscarYFiltrarClientesAsync(string termino)
+        {
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var query = @"
+                    SELECT id_cliente, nombre, apellidos, telefono, documento_tipo, documento_numero
+                    FROM clientes
+                    WHERE activo = true 
+                      AND id_comercio_registro = @id_comercio
+                      AND (LOWER(nombre || ' ' || apellidos) LIKE LOWER(@termino) 
+                           OR LOWER(documento_numero) LIKE LOWER(@termino) 
+                           OR telefono LIKE @termino)
+                    ORDER BY nombre, apellidos
+                    LIMIT 10";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@id_comercio", _idComercio);
+                cmd.Parameters.AddWithValue("@termino", $"%{termino}%");
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                ClientesFiltrados.Clear();
+
+                while (await reader.ReadAsync())
+                {
+                    var cliente = new ClienteModel
+                    {
+                        IdCliente = reader.GetInt32(0),
+                        Nombre = reader.GetString(1),
+                        Apellido = reader.GetString(2),
+                        Telefono = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                        TipoDocumento = reader.IsDBNull(4) ? "DNI" : reader.GetString(4),
+                        NumeroDocumento = reader.IsDBNull(5) ? "" : reader.GetString(5)
+                    };
+
+                    ClientesFiltrados.Add(cliente);
+                }
+
+                MostrarSugerenciasCliente = ClientesFiltrados.Any();
+            }
+            catch
+            {
+                MostrarSugerenciasCliente = false;
+            }
         }
 
         private void FiltrarClientesParaSugerencias(string termino)
@@ -1087,16 +1378,61 @@ namespace Allva.Desktop.ViewModels
         }
 
         [RelayCommand]
-        private void SeleccionarClienteSugerido(ClienteModel? cliente)
+        private async Task SeleccionarClienteSugeridoAsync(ClienteModel? cliente)
         {
             if (cliente == null) return;
 
             ClienteSeleccionado = cliente;
-            BusquedaCliente = cliente.NombreCompleto;
+
+            // Limpiar campo de búsqueda
+            BusquedaCliente = string.Empty;
             MostrarSugerenciasCliente = false;
             ClientesFiltrados.Clear();
 
             ActualizarPropiedadesCliente();
+            
+            // Cargar beneficiarios del cliente
+            await CargarBeneficiariosClienteAsync();
+            
+            // Si tiene beneficiarios, seleccionar el primero automáticamente
+            if (BeneficiariosCliente.Count == 1)
+            {
+                BeneficiarioSeleccionado = BeneficiariosCliente.First();
+                ActualizarPropiedadesBeneficiario();
+                MostrarMensaje($"Cliente y beneficiario seleccionados", false);
+            }
+            else if (BeneficiariosCliente.Count == 0)
+            {
+                MostrarMensaje("Cliente seleccionado. Debe agregar un beneficiario.", false);
+            }
+            else
+            {
+                MostrarMensaje($"Cliente seleccionado. Tiene {BeneficiariosCliente.Count} beneficiarios.", false);
+            }
+        }
+
+        [RelayCommand]
+        private async Task BuscarClientesManualAsync()
+        {
+            if (string.IsNullOrWhiteSpace(BusquedaCliente))
+            {
+                ErrorMessage = "Ingrese un término de búsqueda";
+                return;
+            }
+            ErrorMessage = string.Empty;
+            await BuscarClientesAsync();
+        }
+
+        [RelayCommand]
+        private async Task SeleccionarClienteDesdeListaAsync(ClienteModel? cliente)
+        {
+            if (cliente == null) return;
+
+            ClienteSeleccionado = cliente;
+            ActualizarPropiedadesCliente();
+
+            MostrarMensaje($"Cliente seleccionado: {cliente.NombreCompleto}", false);
+            await IrASeleccionBeneficiarioAsync();
         }
 
         [RelayCommand]
@@ -1321,7 +1657,20 @@ namespace Allva.Desktop.ViewModels
             ActualizarPropiedadesBeneficiario();
 
             MostrarMensaje($"Beneficiario: {beneficiario.NombreCompleto}", false);
-            IrASeleccionPack();
+
+            // Volver a la vista desde donde vino
+            if (_vinoDesdeSeleccionPais)
+            {
+                // Si vino desde selección de país, volver ahí
+                OcultarTodasLasVistas();
+                VistaSeleccionPais = true;
+            }
+            else
+            {
+                // Si vino desde vista principal (dentro de un país), volver a la vista principal (NO cambiar de vista)
+                OcultarTodasLasVistas();
+                VistaPrincipal = true;
+            }
         }
 
         [RelayCommand]
@@ -1407,6 +1756,7 @@ namespace Allva.Desktop.ViewModels
                             piso = @piso,
                             numero_departamento = @numero_departamento,
                             codigo_postal = @codigo_postal,
+                            observaciones = @observaciones,
                             fecha_modificacion = CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid'
                         WHERE id_beneficiario = @id_beneficiario AND id_comercio = @id_comercio";
 
@@ -1425,6 +1775,7 @@ namespace Allva.Desktop.ViewModels
                     cmdUpdate.Parameters.AddWithValue("@piso", BeneficiarioPiso?.Trim() ?? "");
                     cmdUpdate.Parameters.AddWithValue("@numero_departamento", BeneficiarioNumeroDepartamento?.Trim() ?? "");
                     cmdUpdate.Parameters.AddWithValue("@codigo_postal", BeneficiarioCodigoPostal?.Trim() ?? "");
+                    cmdUpdate.Parameters.AddWithValue("@observaciones", BeneficiarioObservaciones?.Trim() ?? "");
                     cmdUpdate.Parameters.AddWithValue("@id_beneficiario", BeneficiarioEditando.IdBeneficiario);
                     cmdUpdate.Parameters.AddWithValue("@id_comercio", _idComercio);
 
@@ -1445,6 +1796,7 @@ namespace Allva.Desktop.ViewModels
                     BeneficiarioEditando.Piso = BeneficiarioPiso?.Trim() ?? "";
                     BeneficiarioEditando.NumeroDepartamento = BeneficiarioNumeroDepartamento?.Trim() ?? "";
                     BeneficiarioEditando.CodigoPostal = BeneficiarioCodigoPostal?.Trim() ?? "";
+                    BeneficiarioEditando.Observaciones = BeneficiarioObservaciones?.Trim() ?? "";
 
                     BeneficiarioSeleccionado = BeneficiarioEditando;
                     MostrarMensaje("Beneficiario actualizado correctamente", false);
@@ -1458,14 +1810,14 @@ namespace Allva.Desktop.ViewModels
                             nombre, segundo_nombre, apellido, segundo_apellido,
                             tipo_documento, numero_documento, telefono,
                             pais, ciudad, calle, numero, piso, numero_departamento, codigo_postal,
-                            activo, fecha_creacion
+                            observaciones, activo, fecha_creacion
                         )
                         VALUES (
                             @id_cliente, @id_comercio, @id_local,
                             @nombre, @segundo_nombre, @apellido, @segundo_apellido,
                             @tipo_documento, @numero_documento, @telefono,
                             @pais, @ciudad, @calle, @numero, @piso, @numero_departamento, @codigo_postal,
-                            true, CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid'
+                            @observaciones, true, CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Madrid'
                         )
                         RETURNING id_beneficiario";
 
@@ -1487,6 +1839,7 @@ namespace Allva.Desktop.ViewModels
                     cmd.Parameters.AddWithValue("@piso", BeneficiarioPiso?.Trim() ?? "");
                     cmd.Parameters.AddWithValue("@numero_departamento", BeneficiarioNumeroDepartamento?.Trim() ?? "");
                     cmd.Parameters.AddWithValue("@codigo_postal", BeneficiarioCodigoPostal?.Trim() ?? "");
+                    cmd.Parameters.AddWithValue("@observaciones", BeneficiarioObservaciones?.Trim() ?? "");
 
                     var idBeneficiario = (int)(await cmd.ExecuteScalarAsync() ?? 0);
 
@@ -1511,7 +1864,8 @@ namespace Allva.Desktop.ViewModels
                             Numero = BeneficiarioNumero.Trim(),
                             Piso = BeneficiarioPiso?.Trim() ?? "",
                             NumeroDepartamento = BeneficiarioNumeroDepartamento?.Trim() ?? "",
-                            CodigoPostal = BeneficiarioCodigoPostal?.Trim() ?? ""
+                            CodigoPostal = BeneficiarioCodigoPostal?.Trim() ?? "",
+                            Observaciones = BeneficiarioObservaciones?.Trim() ?? ""
                         };
 
                         BeneficiariosCliente.Add(nuevoBeneficiario);
@@ -1524,8 +1878,19 @@ namespace Allva.Desktop.ViewModels
                 ActualizarPropiedadesBeneficiario();
                 LimpiarFormularioBeneficiario();
 
-                // Ir a seleccion de pack
-                IrASeleccionPack();
+                // Volver a la vista desde donde vino
+                if (_vinoDesdeSeleccionPais)
+                {
+                    // Si vino desde selección de país, volver ahí
+                    OcultarTodasLasVistas();
+                    VistaSeleccionPais = true;
+                }
+                else
+                {
+                    // Si vino desde vista principal (dentro de un país), volver a la vista principal (NO cambiar de vista)
+                    OcultarTodasLasVistas();
+                    VistaPrincipal = true;
+                }
             }
             catch (Exception ex)
             {
@@ -1588,7 +1953,7 @@ namespace Allva.Desktop.ViewModels
         [RelayCommand]
         private async Task FinalizarCompraAsync()
         {
-            if (ClienteSeleccionado == null || PackSeleccionado == null || BeneficiarioSeleccionado == null)
+            if (ClienteSeleccionado == null || !HayPacksEnCarrito || BeneficiarioSeleccionado == null)
             {
                 MostrarMensaje("Datos incompletos para la compra", true);
                 return;
@@ -1679,7 +2044,7 @@ namespace Allva.Desktop.ViewModels
                         await cmdDescontar.ExecuteNonQueryAsync();
                     }
 
-                    // 4. Insertar detalle de pack alimentos
+                    // 4. Insertar detalles de cada pack en el carrito
                     var queryDetalle = @"
                         INSERT INTO operaciones_pack_alimentos (
                             id_operacion, id_beneficiario, nombre_pack, descripcion_pack,
@@ -1692,64 +2057,48 @@ namespace Allva.Desktop.ViewModels
                             @estado_envio, @observaciones
                         )";
 
-                    var observaciones = $"Beneficiario: {BeneficiarioSeleccionado.NombreCompleto} | " +
-                                    $"Doc: {BeneficiarioSeleccionado.DocumentoCompleto} | " +
-                                    $"Dir: {BeneficiarioSeleccionado.DireccionCompleta} | " +
-                                    $"Tel: {BeneficiarioSeleccionado.Telefono}";
+                    // Insertar cada pack del carrito
+                    foreach (var pack in PacksEnCarrito)
+                    {
+                        var observaciones = $"Beneficiario: {BeneficiarioSeleccionado.NombreCompleto} | " +
+                                        $"Doc: {BeneficiarioSeleccionado.DocumentoCompleto} | " +
+                                        $"Dir: {BeneficiarioSeleccionado.DireccionCompleta} | " +
+                                        $"Tel: {BeneficiarioSeleccionado.Telefono}" +
+                                        $" | Comision Local: {pack.ComisionLocal:N2} EUR" +
+                                        $" | Comision Allva: {pack.ComisionAllva:N2} EUR";
 
-                    if (beneficioUsado > 0)
-                        observaciones += $" | PAGADO CON BENEFICIO: {beneficioUsado:N2} EUR";
+                        if (!string.IsNullOrEmpty(BeneficiarioSeleccionado.Observaciones))
+                            observaciones += $" | Obs: {BeneficiarioSeleccionado.Observaciones}";
 
-                    await using var cmdDetalle = new NpgsqlCommand(queryDetalle, conn, transaction);
-                    cmdDetalle.Parameters.AddWithValue("@id_operacion", idOperacion);
-                    cmdDetalle.Parameters.AddWithValue("@id_beneficiario", BeneficiarioSeleccionado.IdBeneficiario);
-                    cmdDetalle.Parameters.AddWithValue("@nombre_pack", PackSeleccionado.NombrePack);
-                    cmdDetalle.Parameters.AddWithValue("@descripcion_pack", PackSeleccionado.Descripcion ?? "");
-                    cmdDetalle.Parameters.AddWithValue("@pais_destino", BeneficiarioSeleccionado.Pais);
-                    cmdDetalle.Parameters.AddWithValue("@ciudad_destino", BeneficiarioSeleccionado.Ciudad);
-                    cmdDetalle.Parameters.AddWithValue("@precio_pack", TotalCompra);
-                    cmdDetalle.Parameters.AddWithValue("@estado_envio", estadoEnvio);
-                    cmdDetalle.Parameters.AddWithValue("@observaciones", observaciones);
+                        if (beneficioUsado > 0)
+                            observaciones += $" | PAGADO CON BENEFICIO: {beneficioUsado:N2} EUR";
 
-                    await cmdDetalle.ExecuteNonQueryAsync();
+                        await using var cmdDetalle = new NpgsqlCommand(queryDetalle, conn, transaction);
+                        cmdDetalle.Parameters.AddWithValue("@id_operacion", idOperacion);
+                        cmdDetalle.Parameters.AddWithValue("@id_beneficiario", BeneficiarioSeleccionado.IdBeneficiario);
+                        cmdDetalle.Parameters.AddWithValue("@nombre_pack", pack.NombrePack);
+                        cmdDetalle.Parameters.AddWithValue("@descripcion_pack", pack.Descripcion ?? "");
+                        cmdDetalle.Parameters.AddWithValue("@pais_destino", BeneficiarioSeleccionado.Pais);
+                        cmdDetalle.Parameters.AddWithValue("@ciudad_destino", BeneficiarioSeleccionado.Ciudad);
+                        cmdDetalle.Parameters.AddWithValue("@precio_pack", pack.PrecioTotal);
+                        cmdDetalle.Parameters.AddWithValue("@estado_envio", estadoEnvio);
+                        cmdDetalle.Parameters.AddWithValue("@observaciones", observaciones);
+
+                        await cmdDetalle.ExecuteNonQueryAsync();
+                    }
 
                     await transaction.CommitAsync();
 
-                    // Mensaje según el estado
+                    // Mensaje segun el estado
                     var mensajeFinal = beneficioUsado > 0
                         ? $"Compra finalizada y PAGADA con beneficio. Operacion: {NumeroOperacion}"
                         : $"Compra finalizada correctamente. Operacion: {NumeroOperacion}";
 
                     MostrarMensaje(mensajeFinal, false);
 
-                    
-                    // Esperar un momento y luego ir a la pantalla de selección de países
-                    await Task.Delay(2000);
-                    
-                    // Limpiar datos y volver a selección de países
-                    ClienteSeleccionado = null;
-                    BeneficiarioSeleccionado = null;
-                    BeneficiarioEditando = null;
-                    PackSeleccionado = null;
-                    PaisSeleccionado = null;
-                    NumeroOperacion = string.Empty;
-                    TotalCompra = 0;
-                    BeneficiariosCliente.Clear();
-                    PacksDisponibles.Clear();
-                    
-                    LimpiarFormularioBeneficiario();
-                    LimpiarFormularioCliente();
-                    BusquedaCliente = string.Empty;
-                    
-                    ActualizarPropiedadesCliente();
-                    ActualizarPropiedadesBeneficiario();
-                    OnPropertyChanged(nameof(PaisSeleccionadoNombre));
-                    
+                    // Ir a pantalla de confirmación final
                     OcultarTodasLasVistas();
-                    VistaSeleccionPais = true;
-                    
-                    // Recargar países
-                    await CargarPaisesDisponiblesAsync();
+                    VistaConfirmacionCompra = true;
                 }
                 catch
                 {
@@ -1856,8 +2205,8 @@ namespace Allva.Desktop.ViewModels
                         .Select(p => $"{p.NombreProducto} ({p.CantidadConUnidad})")
                         .ToArray() ?? Array.Empty<string>(),
 
-                    // Totales
-                    PrecioPack = TotalCompra,
+                    // Totales (incluyendo comisiones)
+                    PrecioPack = PackSeleccionado.Precio,
                     Total = TotalCompra,
                     Moneda = DivisaCompra,
                     MetodoPago = "EFECTIVO"
@@ -1900,6 +2249,7 @@ namespace Allva.Desktop.ViewModels
             TotalCompra = 0;
             BeneficiariosCliente.Clear();
             PacksDisponibles.Clear();
+            PacksEnCarrito.Clear();
             
             LimpiarFormularioBeneficiario();
             LimpiarFormularioCliente();
@@ -1907,6 +2257,7 @@ namespace Allva.Desktop.ViewModels
             
             ActualizarPropiedadesCliente();
             ActualizarPropiedadesBeneficiario();
+            ActualizarPropiedadesCarrito();
             OnPropertyChanged(nameof(PaisSeleccionadoNombre));
             
             OcultarTodasLasVistas();
@@ -1953,7 +2304,7 @@ namespace Allva.Desktop.ViewModels
             : NombrePais;
     }
 
-    public class PackAlimentoFront
+    public class PackAlimentoFront : INotifyPropertyChanged
     {
         public int IdPack { get; set; }
         public string NombrePack { get; set; } = string.Empty;
@@ -1962,14 +2313,42 @@ namespace Allva.Desktop.ViewModels
         public string? ImagenPosterNombre { get; set; }
         public decimal Precio { get; set; }
         public string Divisa { get; set; } = "EUR";
+        
+        // Comisiones
+        public decimal ComisionLocal { get; set; } = 0;
+        public decimal ComisionAllva { get; set; } = 0;
+
+        // Estado en carrito
+        private bool _estaEnCarrito;
+        public bool EstaEnCarrito
+        {
+            get => _estaEnCarrito;
+            set
+            {
+                if (_estaEnCarrito != value)
+                {
+                    _estaEnCarrito = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EstaEnCarrito)));
+                }
+            }
+        }
 
         public ObservableCollection<PackAlimentoProductoFront> Productos { get; set; } = new();
         public ObservableCollection<PackAlimentoImagenFront> ImagenesAdicionales { get; set; } = new();
 
+        // Precio base (sin comisiones)
         public string PrecioFormateado => $"{Precio:N2} {Divisa}";
-        public int CantidadProductos => Productos.Count;
+        
+        // Precio total (con comisiones)
+        public decimal PrecioTotal => Precio + ComisionLocal + ComisionAllva;
+        public string PrecioTotalFormateado => $"{PrecioTotal:N2} {Divisa}";
+        
+        public int CantidadProductosDB { get; set; } = 0;
+        public int CantidadProductos => CantidadProductosDB > 0 ? CantidadProductosDB : Productos.Count;
         public bool TieneImagen => ImagenPoster != null && ImagenPoster.Length > 0;
         public bool TieneImagenesAdicionales => ImagenesAdicionales.Count > 0;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 
     public class PackAlimentoProductoFront
