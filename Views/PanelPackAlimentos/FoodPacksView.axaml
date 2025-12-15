@@ -97,6 +97,156 @@
                        FontSize="14"/>
         </Border>
 
+        <!-- MODAL: SELECCIONAR PAIS PARA IMPRIMIR CATALOGO -->
+        <Border IsVisible="{Binding MostrarModalImprimirCatalogo}"
+                Background="#CC000000"
+                ZIndex="1001">
+            <Border Background="White"
+                    CornerRadius="12"
+                    MaxWidth="500"
+                    MaxHeight="600"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="24">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <!-- Header -->
+                    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+                        <TextBlock Text="Imprimir Catalogo de Packs"
+                                   FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="#0b5394"/>
+                        <TextBlock Text="Seleccione el pais del cual desea generar el catalogo PDF"
+                                   FontSize="13"
+                                   Foreground="#666666"/>
+                    </StackPanel>
+
+                    <!-- Buscador -->
+                    <TextBox Grid.Row="1"
+                             Watermark="Buscar pais..."
+                             Text="{Binding BusquedaPaisImpresion}"
+                             Margin="0,0,0,12"/>
+
+                    <!-- Lista de paises -->
+                    <Border Grid.Row="2"
+                            BorderBrush="#E0E0E0"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Margin="0,0,0,16">
+                        <ScrollViewer MaxHeight="350">
+                            <ItemsControl ItemsSource="{Binding PaisesFiltradosImpresion}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Background="Transparent"
+                                                BorderThickness="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                Padding="0"
+                                                Command="{Binding $parent[UserControl].((vm:FoodPacksViewModel)DataContext).SeleccionarPaisImpresionCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Grid>
+                                                <!-- Fondo cuando NO esta seleccionado -->
+                                                <Border Padding="12,10"
+                                                        Background="White"
+                                                        IsVisible="{Binding !EsSeleccionadoImpresion}">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                                        <!-- Bandera -->
+                                                        <Border Grid.Column="0"
+                                                                Width="40"
+                                                                Height="28"
+                                                                CornerRadius="4"
+                                                                ClipToBounds="True"
+                                                                Margin="0,0,12,0"
+                                                                Background="#F0F0F0">
+                                                            <Panel>
+                                                                <Image Source="{Binding BanderaImagen, Converter={StaticResource ByteArrayToImage}}"
+                                                                       Stretch="Uniform"
+                                                                       IsVisible="{Binding TieneBandera}"/>
+                                                            </Panel>
+                                                        </Border>
+
+                                                        <!-- Nombre pais -->
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding NombrePais}"
+                                                                   FontSize="14"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="#333333"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!-- Fondo cuando SI esta seleccionado -->
+                                                <Border Padding="12,10"
+                                                        Background="#E8F5E9"
+                                                        IsVisible="{Binding EsSeleccionadoImpresion}">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                                        <!-- Bandera -->
+                                                        <Border Grid.Column="0"
+                                                                Width="40"
+                                                                Height="28"
+                                                                CornerRadius="4"
+                                                                ClipToBounds="True"
+                                                                Margin="0,0,12,0"
+                                                                Background="#F0F0F0">
+                                                            <Panel>
+                                                                <Image Source="{Binding BanderaImagen, Converter={StaticResource ByteArrayToImage}}"
+                                                                       Stretch="Uniform"
+                                                                       IsVisible="{Binding TieneBandera}"/>
+                                                            </Panel>
+                                                        </Border>
+
+                                                        <!-- Nombre pais -->
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding NombrePais}"
+                                                                   FontSize="14"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#2E7D32"
+                                                                   VerticalAlignment="Center"/>
+
+                                                        <!-- Indicador seleccionado -->
+                                                        <Border Grid.Column="2"
+                                                                Width="20"
+                                                                Height="20"
+                                                                CornerRadius="10"
+                                                                Background="#28a745">
+                                                            <TextBlock Text="✓"
+                                                                       FontSize="12"
+                                                                       Foreground="White"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Botones -->
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+                        <Button Content="Cancelar"
+                                Background="#6c757d"
+                                Foreground="White"
+                                CornerRadius="6"
+                                Padding="24,12"
+                                FontWeight="SemiBold"
+                                Command="{Binding CerrarModalImprimirCatalogoCommand}"/>
+
+                        <Button Content="Generar PDF"
+                                Background="#28a745"
+                                Foreground="White"
+                                CornerRadius="6"
+                                Padding="24,12"
+                                FontWeight="SemiBold"
+                                IsEnabled="{Binding PaisSeleccionadoImpresion, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                Command="{Binding GenerarCatalogoPdfCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
+
         <!-- LOADING OVERLAY -->
         <Border IsVisible="{Binding EstaCargando}"
                 Background="#80FFFFFF"
@@ -341,13 +491,24 @@
                                 <Button Content="Buscar"
                                         Classes="btn-primary"
                                         Command="{Binding IrABuscarClienteCommand}"/>
-                                
-                                <Button Content="Nuevo Cliente" 
+
+                                <Button Content="Nuevo Cliente"
                                         Classes="btn-outline"
                                         Command="{Binding IrANuevoClienteCommand}"/>
+
+                                <Border Width="1" Background="#E0E0E0" Margin="8,0"/>
+
+                                <Button Content="Imprimir Catalogo"
+                                        Background="#28a745"
+                                        Foreground="White"
+                                        CornerRadius="6"
+                                        Padding="16,10"
+                                        FontWeight="SemiBold"
+                                        Command="{Binding AbrirModalImprimirCatalogoCommand}"
+                                        ToolTip.Tip="Generar PDF con todos los packs de un pais"/>
                             </StackPanel>
                         </StackPanel>
-                        
+
                         <!-- Cliente seleccionado -->
                         <Border Grid.Row="1" 
                                 IsVisible="{Binding TieneClienteSeleccionado}"

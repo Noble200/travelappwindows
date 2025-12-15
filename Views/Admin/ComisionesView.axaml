@@ -455,54 +455,54 @@
                 <!-- HEADER: Comisiones Globales Pack Alimentos -->
                 <Border Grid.Row="0" Classes="card-highlight" Margin="0,0,0,20">
                     <Grid ColumnDefinitions="*,Auto">
-                        
+
                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                             <TextBlock Text="Comisiones Globales - Pack de Alimentos" Classes="section-title"/>
-                            
+
                             <!-- Visualizacion: Local + Allva = Total -->
                             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Comision Local" FontSize="12" Foreground="#666666"/>
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" Height="36">
                                         <TextBlock Text="{Binding ComisionLocalAlimentosGlobalTexto}" Classes="value-large"/>
-                                        <TextBlock Text=" EUR" FontSize="16" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                                        <TextBlock Text=" EUR" FontSize="16" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" Text="+" FontSize="24" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Center" Margin="20,15,20,0"/>
+                                <TextBlock Grid.Column="1" Text="+" FontSize="24" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Center" Margin="15,15,15,0"/>
                                 <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Comision Allva" FontSize="12" Foreground="#666666"/>
-                                    <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Tasa de Uso" FontSize="12" Foreground="#666666"/>
+                                    <StackPanel Orientation="Horizontal" Height="36">
                                         <TextBlock Text="{Binding ComisionAllvaAlimentosGlobalTexto}" Classes="value-large"/>
-                                        <TextBlock Text=" EUR" FontSize="16" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                                        <TextBlock Text=" EUR" FontSize="16" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Grid.Column="3" Text="=" FontSize="24" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Center" Margin="20,15,20,0"/>
+                                <TextBlock Grid.Column="3" Text="=" FontSize="24" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Center" Margin="15,15,15,0"/>
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Text="Total" FontSize="12" Foreground="#666666"/>
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" Height="36">
                                         <TextBlock Text="{Binding ComisionTotalAlimentosGlobalTexto}" Classes="value-large" Foreground="#2E7D32"/>
-                                        <TextBlock Text=" EUR" FontSize="16" FontWeight="Bold" Foreground="#2E7D32" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                                        <TextBlock Text=" EUR" FontSize="16" FontWeight="Bold" Foreground="#2E7D32" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
-                            
-                            <TextBlock Text="Estos valores fijos se suman al precio base del pack de alimentos" 
+
+                            <TextBlock Text="Estos valores fijos se suman al precio base del pack de alimentos"
                                        Classes="label"
                                        Margin="0,12,0,0"/>
                         </StackPanel>
-                        
-                        <StackPanel Grid.Column="1" 
-                                    Orientation="Horizontal" 
+
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
                                     Spacing="12"
                                     VerticalAlignment="Center">
-                            <Button Content="Editar Comisiones Globales" 
+                            <Button Content="Editar Comisiones Globales"
                                     Classes="btn-primary"
                                     Command="{Binding EditarComisionAlimentosGlobalCommand}"/>
-                            <Button Content="Aplicar a Todos" 
+                            <Button Content="Aplicar a Todos"
                                     Classes="btn-secondary"
                                     Command="{Binding AplicarComisionAlimentosGlobalATodosCommand}"/>
                         </StackPanel>
-                        
+
                     </Grid>
                 </Border>
                 
@@ -568,7 +568,7 @@
                                                                 <TextBlock Text="{Binding ComisionLocalTexto}" FontWeight="SemiBold" Foreground="#0b5394" FontSize="13"/>
                                                             </StackPanel>
                                                             <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                                                <TextBlock Text="Allva" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
+                                                                <TextBlock Text="Tasa" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
                                                                 <TextBlock Text="{Binding ComisionAllvaTexto}" FontWeight="SemiBold" Foreground="#0b5394" FontSize="13"/>
                                                             </StackPanel>
                                                             <StackPanel Grid.Column="3" Margin="0,0,12,0">
@@ -591,7 +591,7 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </ScrollViewer>
-                                
+
                                 <!-- Lista de Locales Pack Alimentos -->
                                 <ScrollViewer IsVisible="{Binding EsVistaLocalesAlimentos}">
                                     <ItemsControl ItemsSource="{Binding LocalesAlimentosFiltrados}">
@@ -607,29 +607,23 @@
                                                     <Border Classes="list-item">
                                                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                                                             <StackPanel Grid.Column="0">
-                                                                <TextBlock Text="{Binding NombreLocal}" 
+                                                                <TextBlock Text="{Binding CodigoLocal}"
                                                                            FontWeight="SemiBold"
-                                                                           FontSize="14"/>
-                                                                <TextBlock FontSize="12" Foreground="#888888">
-                                                                    <TextBlock.Text>
-                                                                        <MultiBinding StringFormat="{}{0} - {1}">
-                                                                            <Binding Path="CodigoLocal"/>
-                                                                            <Binding Path="NombreComercio"/>
-                                                                        </MultiBinding>
-                                                                    </TextBlock.Text>
-                                                                </TextBlock>
+                                                                           FontSize="16"/>
+                                                                <TextBlock Text="{Binding NombreComercio}"
+                                                                           FontSize="12" Foreground="#888888"/>
                                                             </StackPanel>
-                                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                            <StackPanel Grid.Column="1" Margin="0,0,10,0" MinWidth="70">
                                                                 <TextBlock Text="Local" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding ComisionLocalTexto}" FontWeight="SemiBold" Foreground="#0b5394" FontSize="13"/>
+                                                                <TextBlock Text="{Binding ComisionLocalTexto}" FontWeight="SemiBold" Foreground="#0b5394" FontSize="13" HorizontalAlignment="Center"/>
                                                             </StackPanel>
-                                                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                                                <TextBlock Text="Allva" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding ComisionAllvaTexto}" FontWeight="SemiBold" Foreground="#0b5394" FontSize="13"/>
+                                                            <StackPanel Grid.Column="2" Margin="0,0,10,0" MinWidth="70">
+                                                                <TextBlock Text="Tasa" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding ComisionAllvaTexto}" FontWeight="SemiBold" Foreground="#0b5394" FontSize="13" HorizontalAlignment="Center"/>
                                                             </StackPanel>
-                                                            <StackPanel Grid.Column="3" Margin="0,0,12,0">
+                                                            <StackPanel Grid.Column="3" Margin="0,0,12,0" MinWidth="85">
                                                                 <TextBlock Text="Total" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding ComisionTotalTexto}" FontWeight="Bold" Foreground="#2E7D32" FontSize="13"/>
+                                                                <TextBlock Text="{Binding ComisionTotalTexto}" FontWeight="Bold" Foreground="#2E7D32" FontSize="13" HorizontalAlignment="Center"/>
                                                             </StackPanel>
                                                             <Border Grid.Column="4"
                                                                     Background="#E3F2FD"
@@ -675,10 +669,10 @@
                                 </StackPanel>
                                 
                                 <StackPanel>
-                                    <TextBlock Text="Comision de Allva (EUR)" Classes="label"/>
+                                    <TextBlock Text="Tasa de Uso (EUR)" Classes="label"/>
                                     <TextBox Text="{Binding NuevaComisionAllvaTexto}"
                                              Watermark="Ej: 3.00"/>
-                                    <TextBlock Text="Lo que gana Allva por cada operacion" FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
+                                    <TextBlock Text="Tasa de uso de Allva por cada operacion" FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
                                 </StackPanel>
                                 
                                 <Border Background="#E8F5E9" CornerRadius="6" Padding="12">

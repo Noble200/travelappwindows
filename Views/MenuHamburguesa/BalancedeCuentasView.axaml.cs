@@ -19,8 +19,9 @@ public partial class BalancedeCuentasView : UserControl
     {
         InitializeComponent();
         DataContext = new BalancedeCuentasViewModel();
+        ConfigurarFormatoFechas();
     }
-    
+
     public BalancedeCuentasView(int idComercio, int idLocal, string codigoLocal)
     {
         InitializeComponent();
@@ -30,8 +31,9 @@ public partial class BalancedeCuentasView : UserControl
         var vm = new BalancedeCuentasViewModel(idComercio, idLocal, codigoLocal);
         vm.OnVolverAInicio += VolverADashboard;
         DataContext = vm;
+        ConfigurarFormatoFechas();
     }
-    
+
     public BalancedeCuentasView(int idComercio, int idLocal, string codigoLocal, int idUsuario, string nombreUsuario)
     {
         InitializeComponent();
@@ -43,6 +45,46 @@ public partial class BalancedeCuentasView : UserControl
         var vm = new BalancedeCuentasViewModel(idComercio, idLocal, codigoLocal, idUsuario, nombreUsuario);
         vm.OnVolverAInicio += VolverADashboard;
         DataContext = vm;
+        ConfigurarFormatoFechas();
+    }
+
+    private void ConfigurarFormatoFechas()
+    {
+        var txtFechaDesde = this.FindControl<TextBox>("TxtFechaDesde");
+        var txtFechaHasta = this.FindControl<TextBox>("TxtFechaHasta");
+
+        if (txtFechaDesde != null)
+            txtFechaDesde.AddHandler(TextInputEvent, FormatearFechaInput, RoutingStrategies.Tunnel);
+        if (txtFechaHasta != null)
+            txtFechaHasta.AddHandler(TextInputEvent, FormatearFechaInput, RoutingStrategies.Tunnel);
+    }
+
+    private void FormatearFechaInput(object? sender, TextInputEventArgs e)
+    {
+        if (sender is not TextBox textBox) return;
+
+        var textoActual = textBox.Text ?? "";
+        var textoNuevo = e.Text ?? "";
+
+        // Solo permitir numeros
+        if (!string.IsNullOrEmpty(textoNuevo) && !char.IsDigit(textoNuevo[0]))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // Agregar / automaticamente
+        var posicion = textBox.CaretIndex;
+        var longitudActual = textoActual.Replace("/", "").Length;
+
+        if (longitudActual == 2 || longitudActual == 4)
+        {
+            if (posicion == textoActual.Length && !textoActual.EndsWith("/"))
+            {
+                textBox.Text = textoActual + "/";
+                textBox.CaretIndex = textBox.Text.Length;
+            }
+        }
     }
 
     private void VolverADashboard()
@@ -54,50 +96,6 @@ public partial class BalancedeCuentasView : UserControl
         if (mainDashboard != null)
         {
             mainDashboard.IrAUltimasNoticias();
-        }
-    }
-
-    private async void OnFilaOperacionClick(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is Border border && border.DataContext is OperacionItem operacion)
-        {
-            if (operacion.EsClickeable && !string.IsNullOrEmpty(operacion.NumeroOperacion))
-            {
-                var mainWindow = this.GetVisualAncestors()
-                    .OfType<Window>()
-                    .FirstOrDefault();
-
-                if (mainWindow != null)
-                {
-                    // Usar constructor existente de DetalleOperacionDivisaView
-                    var vm = new DetalleOperacionDivisaViewModel(operacion.NumeroOperacion, _codigoLocal);
-                    var dialog = new DetalleOperacionDivisaView(vm);
-                    await dialog.ShowDialog(mainWindow);
-                }
-            }
-        }
-    }
-
-    private async void OnFilaPackAlimentosClick(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is Border border && border.DataContext is OperacionPackAlimentoBalanceItem operacion)
-        {
-            if (!string.IsNullOrEmpty(operacion.NumeroOperacion))
-            {
-                var mainWindow = this.GetVisualAncestors()
-                    .OfType<Window>()
-                    .FirstOrDefault();
-
-                if (mainWindow != null)
-                {
-                    var dialog = new DetalleOperacionPackAlimentosView(
-                        operacion.NumeroOperacion, 
-                        _codigoLocal, 
-                        _nombreUsuario, 
-                        _idUsuario);
-                    await dialog.ShowDialog(mainWindow);
-                }
-            }
         }
     }
 }

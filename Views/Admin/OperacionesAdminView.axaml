@@ -281,24 +281,37 @@
                                             FontSize="12"
                                             FontWeight="SemiBold"
                                             Foreground="#333333"/>
-                                    <TextBox Text="{Binding FechaDesdeTexto}" 
+                                    <TextBox Name="TxtFechaDesde"
+                                            Text="{Binding FechaDesdeTexto}"
                                             Classes="filter-input"
                                             Watermark="dd/mm/aaaa"
                                             MaxLength="10"/>
                                 </StackPanel>
-                                
+
                                 <!-- Fecha Hasta -->
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="Fecha Hasta"
                                             FontSize="12"
                                             FontWeight="SemiBold"
                                             Foreground="#333333"/>
-                                    <TextBox Text="{Binding FechaHastaTexto}" 
+                                    <TextBox Name="TxtFechaHasta"
+                                            Text="{Binding FechaHastaTexto}"
                                             Classes="filter-input"
                                             Watermark="dd/mm/aaaa"
                                             MaxLength="10"/>
                                 </StackPanel>
                                 
+                                <!-- N Oper Global -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="N Oper Global"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="#333333"/>
+                                    <TextBox Classes="filter-input"
+                                            Watermark="ID global..."
+                                            Text="{Binding FiltroNumeroOperacionGlobal}"/>
+                                </StackPanel>
+
                                 <!-- N Operacion -->
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="N Operacion"
@@ -324,9 +337,9 @@
                                                 FontWeight="SemiBold"
                                                 Foreground="#333333"/>
                                         <Panel>
-                                            <TextBox Text="{Binding FiltroDivisaTexto}" 
+                                            <TextBox Text="{Binding FiltroDivisaTexto}"
                                                      Classes="filter-input"
-                                                     Watermark="USD, EUR, GBP..."/>
+                                                     Watermark="Dolar, Libra, Franco..."/>
                                             <Popup IsOpen="{Binding MostrarSugerenciasDivisa}"
                                                    Placement="Bottom"
                                                    IsLightDismissEnabled="True">
@@ -501,10 +514,10 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="70"/>
                                             <ColumnDefinition Width="45"/>
-                                            <ColumnDefinition Width="45"/>
+                                            <ColumnDefinition Width="55"/>
                                             <ColumnDefinition Width="70"/>
-                                            <ColumnDefinition Width="85"/>
                                             <ColumnDefinition Width="*" MinWidth="100"/>
+                                            <ColumnDefinition Width="70"/>
                                             <ColumnDefinition Width="50"/>
                                             <ColumnDefinition Width="80"/>
                                             <ColumnDefinition Width="80"/>
@@ -512,23 +525,23 @@
                                             <ColumnDefinition Width="65"/>
                                             <ColumnDefinition Width="95"/>
                                         </Grid.ColumnDefinitions>
-                                        
-                                        <TextBlock Grid.Column="0" Text="Fecha" 
+
+                                        <TextBlock Grid.Column="0" Text="Fecha"
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="4,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="Hora" 
+                                        <TextBlock Grid.Column="1" Text="Hora"
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="4,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="ID" 
+                                        <TextBlock Grid.Column="2" Text="N oper global"
+                                                   Foreground="White" FontWeight="SemiBold" FontSize="10"
+                                                   Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="N Oper."
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="4,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="3" Text="N Oper." 
+                                        <TextBlock Grid.Column="4" Text="Comercio"
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="4,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="4" Text="Local" 
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="12"
-                                                   Padding="4,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="5" Text="Comercio" 
+                                        <TextBlock Grid.Column="5" Text="Local"
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="4,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="6" Text="Divisa" 
@@ -562,10 +575,10 @@
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="70"/>
                                                             <ColumnDefinition Width="45"/>
-                                                            <ColumnDefinition Width="45"/>
+                                                            <ColumnDefinition Width="55"/>
                                                             <ColumnDefinition Width="70"/>
-                                                            <ColumnDefinition Width="85"/>
                                                             <ColumnDefinition Width="*" MinWidth="100"/>
+                                                            <ColumnDefinition Width="70"/>
                                                             <ColumnDefinition Width="50"/>
                                                             <ColumnDefinition Width="80"/>
                                                             <ColumnDefinition Width="80"/>
@@ -573,26 +586,25 @@
                                                             <ColumnDefinition Width="65"/>
                                                             <ColumnDefinition Width="95"/>
                                                         </Grid.ColumnDefinitions>
-                                                        
-                                                        <TextBlock Grid.Column="0" Text="{Binding Fecha}" 
+
+                                                        <TextBlock Grid.Column="0" Text="{Binding Fecha}"
                                                                    FontSize="12" Foreground="#444444"
                                                                    Padding="4,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Hora}" 
+                                                        <TextBlock Grid.Column="1" Text="{Binding Hora}"
                                                                    FontSize="12" Foreground="#444444"
                                                                    Padding="4,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="2" Text="{Binding NumeroOperacionGlobal}" 
-                                                                   FontSize="11" Foreground="#888888"
+                                                        <TextBlock Grid.Column="2" Text="{Binding NumeroOperacionGlobal}"
+                                                                   FontSize="10" Foreground="#888888"
                                                                    Padding="4,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="3" Text="{Binding NumeroOperacion}" 
+                                                        <TextBlock Grid.Column="3" Text="{Binding NumeroOperacion}"
                                                                    FontSize="12" Foreground="#0b5394" FontWeight="SemiBold"
                                                                    Padding="4,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="4" Text="{Binding CodigoLocal}" 
+                                                        <TextBlock Grid.Column="4" Text="{Binding NombreComercio}"
+                                                                   FontSize="12" Foreground="#444444"
+                                                                   Padding="4,8" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="5" Text="{Binding CodigoLocal}"
                                                                    FontSize="12" Foreground="#666666"
                                                                    Padding="4,8" HorizontalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="5" Text="{Binding NombreComercio}" 
-                                                                   FontSize="12" Foreground="#444444"
-                                                                   Padding="4,8" HorizontalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="6" Text="{Binding Divisa}" 
                                                                    FontSize="12" Foreground="#0b5394" FontWeight="SemiBold"
                                                                    Padding="4,8" HorizontalAlignment="Center"/>
@@ -699,36 +711,36 @@
                         <Border Grid.Row="0" Margin="12,12,12,0" BorderBrush="#E8E8E8" BorderThickness="1" CornerRadius="6,6,0,0" ClipToBounds="True">
                             <Grid RowDefinitions="Auto,*">
                                 <Border Grid.Row="0" Background="#0b5394" Padding="0">
-                                    <Grid MinWidth="1300">
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40"/>
-                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="35"/>
+                                            <ColumnDefinition Width="65"/>
                                             <ColumnDefinition Width="70"/>
-                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="45"/>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="*" MinWidth="90"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="*" MinWidth="100"/>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="*" MinWidth="100"/>
+                                            <ColumnDefinition Width="*" MinWidth="100"/>
                                             <ColumnDefinition Width="80"/>
-                                            <ColumnDefinition Width="80"/>
-                                            <ColumnDefinition Width="120"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="100"/>
-                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="75"/>
                                         </Grid.ColumnDefinitions>
-                                        
-                                        <TextBlock Grid.Column="0" Text="" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="ID" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="Fecha" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="3" Text="Hora" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="4" Text="N Oper." Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="5" Text="Local" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="6" Text="Comercio" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="7" Text="Pack" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="8" Text="Destino" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="9" Text="Cliente" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="10" Text="Beneficiario" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="11" Text="Estado" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="12" Text="Importe" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="8,10" HorizontalAlignment="Center"/>
+
+                                        <TextBlock Grid.Column="0" Text="" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="N oper global" Foreground="White" FontWeight="SemiBold" FontSize="10" Padding="2,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="Fecha" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="Hora" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="4" Text="N Oper." Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="5" Text="Comercio" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="6" Text="Local" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="7" Text="Pack" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="8" Text="Destino" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="9" Text="Cliente" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="10" Text="Beneficiario" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="11" Text="Estado" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="12" Text="Importe" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
                                     </Grid>
                                 </Border>
 
@@ -737,68 +749,68 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border Background="{Binding BackgroundColor}" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
-                                                    <Grid MinWidth="1300">
+                                                    <Grid>
                                                         <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="40"/>
-                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="35"/>
+                                                            <ColumnDefinition Width="65"/>
                                                             <ColumnDefinition Width="70"/>
-                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="45"/>
+                                                            <ColumnDefinition Width="70"/>
+                                                            <ColumnDefinition Width="*" MinWidth="90"/>
+                                                            <ColumnDefinition Width="60"/>
+                                                            <ColumnDefinition Width="*" MinWidth="100"/>
+                                                            <ColumnDefinition Width="70"/>
+                                                            <ColumnDefinition Width="*" MinWidth="100"/>
+                                                            <ColumnDefinition Width="*" MinWidth="100"/>
                                                             <ColumnDefinition Width="80"/>
-                                                            <ColumnDefinition Width="80"/>
-                                                            <ColumnDefinition Width="120"/>
-                                                            <ColumnDefinition Width="130"/>
-                                                            <ColumnDefinition Width="90"/>
-                                                            <ColumnDefinition Width="130"/>
-                                                            <ColumnDefinition Width="130"/>
-                                                            <ColumnDefinition Width="100"/>
-                                                            <ColumnDefinition Width="90"/>
+                                                            <ColumnDefinition Width="75"/>
                                                         </Grid.ColumnDefinitions>
-                                                        
+
                                                         <!-- Checkbox solo visible si puede marcar enviado -->
-                                                        <CheckBox Grid.Column="0" 
+                                                        <CheckBox Grid.Column="0"
                                                                   IsChecked="{Binding EstaSeleccionado}"
                                                                   IsVisible="{Binding PuedeMarcarEnviado}"
                                                                   HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center"
                                                                   Command="{Binding $parent[UserControl].((vm:OperacionesAdminViewModel)DataContext).ActualizarSeleccionCommand}"/>
-                                                        
-                                                        <TextBlock Grid.Column="1" Text="{Binding NumeroOperacionGlobal}" FontSize="12" Foreground="#888888" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="2" Text="{Binding Fecha}" FontSize="13" Foreground="#444444" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="3" Text="{Binding Hora}" FontSize="13" Foreground="#444444" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="4" Text="{Binding NumeroOperacion}" FontSize="12" Foreground="#0b5394" FontWeight="Medium" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="5" Text="{Binding CodigoLocal}" FontSize="12" Foreground="#666666" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="6" Text="{Binding NombreComercio}" FontSize="13" Foreground="#444444" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Grid.Column="7" Text="{Binding Descripcion}" FontSize="13" Foreground="#444444" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Grid.Column="8" Text="{Binding PaisDestino}" FontSize="13" Foreground="#444444" FontWeight="Medium" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="9" Text="{Binding NombreCliente}" FontSize="13" Foreground="#444444" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Grid.Column="10" Text="{Binding NombreBeneficiario}" FontSize="13" Foreground="#444444" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                        
+
+                                                        <TextBlock Grid.Column="1" Text="{Binding NumeroOperacionGlobal}" FontSize="11" Foreground="#888888" Padding="2,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding Fecha}" FontSize="12" Foreground="#444444" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="3" Text="{Binding Hora}" FontSize="12" Foreground="#444444" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="4" Text="{Binding NumeroOperacion}" FontSize="11" Foreground="#0b5394" FontWeight="Medium" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="5" Text="{Binding NombreComercio}" FontSize="12" Foreground="#444444" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="6" Text="{Binding CodigoLocal}" FontSize="11" Foreground="#666666" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="7" Text="{Binding Descripcion}" FontSize="12" Foreground="#444444" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="8" Text="{Binding PaisDestino}" FontSize="12" Foreground="#444444" FontWeight="Medium" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="9" Text="{Binding NombreCliente}" FontSize="12" Foreground="#444444" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="10" Text="{Binding NombreBeneficiario}" FontSize="12" Foreground="#444444" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
                                                         <!-- Estado - clickeable solo si es PAGADO -->
                                                         <Panel Grid.Column="11" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                             <!-- Estado NO clickeable (PENDIENTE, ENVIADO, ANULADO) -->
                                                             <Border Background="{Binding EstadoColor}"
                                                                     CornerRadius="4"
-                                                                    Padding="8,4"
-                                                                    Margin="4,4"
+                                                                    Padding="6,3"
+                                                                    Margin="2,2"
                                                                     IsVisible="{Binding !PuedeMarcarEnviado}">
-                                                                <TextBlock Text="{Binding EstadoTexto}" FontSize="11" Foreground="White" FontWeight="SemiBold"/>
+                                                                <TextBlock Text="{Binding EstadoTexto}" FontSize="10" Foreground="White" FontWeight="SemiBold"/>
                                                             </Border>
                                                             <!-- Estado clickeable (PAGADO) -->
                                                             <Button Background="{Binding EstadoColor}"
                                                                     BorderThickness="0"
                                                                     CornerRadius="4"
-                                                                    Padding="8,4"
-                                                                    Margin="4,4"
+                                                                    Padding="6,3"
+                                                                    Margin="2,2"
                                                                     Cursor="Hand"
                                                                     IsVisible="{Binding PuedeMarcarEnviado}"
                                                                     Command="{Binding $parent[UserControl].((vm:OperacionesAdminViewModel)DataContext).CambiarEstadoAEnviadoCommand}"
                                                                     CommandParameter="{Binding NumeroOperacionGlobal}"
                                                                     ToolTip.Tip="Clic para marcar como ENVIADO">
-                                                                <TextBlock Text="{Binding EstadoTexto}" FontSize="11" Foreground="White" FontWeight="SemiBold"/>
+                                                                <TextBlock Text="{Binding EstadoTexto}" FontSize="10" Foreground="White" FontWeight="SemiBold"/>
                                                             </Button>
                                                         </Panel>
-                                                        
-                                                        <TextBlock Grid.Column="12" Text="{Binding Importe}" FontSize="13" Foreground="#008800" FontWeight="SemiBold" Padding="8,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                                                        <TextBlock Grid.Column="12" Text="{Binding Importe}" FontSize="12" Foreground="#008800" FontWeight="SemiBold" Padding="4,8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
@@ -830,7 +842,7 @@
                                     <TextBlock Text="Exportar" FontSize="12" FontWeight="SemiBold"/>
                                 </Button>
                                 
-                                <Button Grid.Column="2" 
+                                <Button Grid.Column="2"
                                         Background="#17a2b8"
                                         Foreground="White"
                                         Padding="12,6"
@@ -838,7 +850,7 @@
                                         CornerRadius="4"
                                         Cursor="Hand"
                                         Command="{Binding SeleccionarTodosPagadosCommand}">
-                                    <TextBlock Text="Seleccionar varios" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Seleccionar todos" FontSize="12" FontWeight="SemiBold"/>
                                 </Button>
                                 
                                 <!-- Boton Marcar Enviados (visible si hay seleccionados) -->

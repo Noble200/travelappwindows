@@ -145,7 +145,7 @@
                                 IsVisible="{Binding MostrarBalance}"
                                 Margin="12,2"
                                 CornerRadius="8">
-                            <TextBlock Text="Balance" Classes="admin-menu-text"/>
+                            <TextBlock Text="Balance de Cuentas" Classes="admin-menu-text"/>
                         </Button>
 
                     </StackPanel>

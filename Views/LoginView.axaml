@@ -96,15 +96,15 @@
                     <Button Classes="btnLogin"
                             Command="{Binding LoginCommand}"
                             IsEnabled="{Binding !IsLoading}">
-                        
+
                         <Grid>
                             <!-- Texto normal -->
                             <TextBlock Text="{Binding Localization[Login_Button]}"
                                       IsVisible="{Binding !IsLoading}"
                                       HorizontalAlignment="Center"/>
-                            
+
                             <!-- LOADING CON PUNTOS ANIMADOS -->
-                            <StackPanel Orientation="Horizontal" 
+                            <StackPanel Orientation="Horizontal"
                                        HorizontalAlignment="Center"
                                        Spacing="8"
                                        IsVisible="{Binding IsLoading}">
@@ -175,6 +175,22 @@
                         </Grid>
                     </Button>
 
+                    <!-- Mensaje de error -->
+                    <Border Background="#FFDDDD"
+                            BorderBrush="#CC0000"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="15,10"
+                            IsVisible="{Binding MostrarMensajeError}"
+                            HorizontalAlignment="Stretch">
+                        <TextBlock Text="{Binding MensajeError}"
+                                  Foreground="#CC0000"
+                                  FontSize="13"
+                                  FontWeight="SemiBold"
+                                  TextWrapping="Wrap"
+                                  TextAlignment="Center"/>
+                    </Border>
+
                     <!-- Enlace: Olvidé mi contraseña -->
                     <Button Classes="btnRecuperarPassword"
                             Command="{Binding RecuperarPasswordCommand}"
@@ -187,7 +203,7 @@
                         <TextBlock Classes="textoVersion"
                                   Text="{Binding Localization[Login_Version]}"/>
                         <TextBlock Classes="textoVersion"
-                                  Text="1.1.4"/>
+                                  Text="1.1.5"/>
                     </StackPanel>
 
                 </StackPanel>
@@ -296,9 +312,9 @@
                 </StackPanel>
             </Border>
 
-            <!-- OVERLAY DE CARGA GRANDE Y VISIBLE (login) -->
-            <Border Background="#DD000000" 
-                    IsVisible="{Binding IsLoading}"
+            <!-- OVERLAY DE CARGA GRANDE Y VISIBLE (login) - Solo si NO hay actualización -->
+            <Border Background="#DD000000"
+                    IsVisible="{Binding MostrarOverlayCarga}"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
                     CornerRadius="25">
