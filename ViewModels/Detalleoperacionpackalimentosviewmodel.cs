@@ -314,8 +314,9 @@ public partial class DetalleOperacionPackAlimentosViewModel : ObservableObject
             if (archivo == null)
                 return;
 
+            // Generar PDF en hilo separado para no bloquear la UI
             var pdfService = new ReciboFoodPackService();
-            var pdfBytes = pdfService.GenerarReciboPdf(_datosRecibo);
+            var pdfBytes = await Task.Run(() => pdfService.GenerarReciboPdf(_datosRecibo));
 
             await using var stream = await archivo.OpenWriteAsync();
             await stream.WriteAsync(pdfBytes);

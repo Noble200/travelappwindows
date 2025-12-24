@@ -121,6 +121,22 @@ namespace Allva.Desktop.ViewModels.Admin
         private string? _imagenAmpliadaNombre;
 
         // ============================================
+        // PROPIEDADES PARA NAVEGACION POR PAISES
+        // ============================================
+
+        [ObservableProperty]
+        private bool _mostrarVistaPaises = true;
+
+        [ObservableProperty]
+        private bool _mostrarVistaPacksPais;
+
+        [ObservableProperty]
+        private PaisDesignado? _paisActual;
+
+        [ObservableProperty]
+        private ObservableCollection<PackAlimento> _packsPaisActual = new();
+
+        // ============================================
         // PROPIEDADES PARA PAISES DESIGNADOS
         // ============================================
 
@@ -130,9 +146,18 @@ namespace Allva.Desktop.ViewModels.Admin
         [ObservableProperty]
         private PaisDesignado? _paisSeleccionado;
 
-        // Modal agregar pais
+        // Modal agregar/editar pais
         [ObservableProperty]
         private bool _mostrarModalPais;
+
+        [ObservableProperty]
+        private bool _modoEdicionPais;
+
+        [ObservableProperty]
+        private int _paisIdEnEdicion;
+
+        [ObservableProperty]
+        private string _tituloModalPais = "Nuevo Pais";
 
         [ObservableProperty]
         private string _nuevoPaisNombre = string.Empty;
@@ -188,6 +213,12 @@ namespace Allva.Desktop.ViewModels.Admin
 
         public bool HayPaisesDisponibles => PaisesDisponibles.Count > 0;
 
+        public string TextoBotonGuardarPais => ModoEdicionPais ? "Actualizar Pais" : "Guardar Pais";
+
+        public string SubtituloModalPais => ModoEdicionPais
+            ? "Modifica los datos del pais"
+            : "Agrega un pais para organizar tus packs";
+
         // ============================================
         // CONSTRUCTOR
         // ============================================
@@ -230,6 +261,171 @@ namespace Allva.Desktop.ViewModels.Admin
             OnPropertyChanged(nameof(TieneNuevoPaisBandera));
         }
 
+        partial void OnModoEdicionPaisChanged(bool value)
+        {
+            OnPropertyChanged(nameof(TextoBotonGuardarPais));
+            OnPropertyChanged(nameof(SubtituloModalPais));
+        }
+
+        // ============================================
+        // COMANDOS PARA NAVEGACION POR PAISES
+        // ============================================
+
+        [RelayCommand]
+        private async Task EntrarEnPaisAsync(PaisDesignado? pais)
+        {
+            if (pais == null) return;
+
+            PaisActual = pais;
+            await CargarPacksPorPaisAsync(pais.IdPais);
+            MostrarVistaPaises = false;
+            MostrarVistaPacksPais = true;
+        }
+
+        [RelayCommand]
+        private void VolverAPaises()
+        {
+            PaisActual = null;
+            PacksPaisActual.Clear();
+            MostrarVistaPacksPais = false;
+            MostrarVistaPaises = true;
+        }
+
+        private async Task CargarPacksPorPaisAsync(int idPais)
+        {
+            EstaCargando = true;
+            PacksPaisActual.Clear();
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                var query = @"
+                    SELECT pa.id_pack, pa.nombre_pack, pa.descripcion, pa.imagen_poster,
+                           pa.imagen_poster_nombre, pa.activo, pa.fecha_creacion, pa.id_pais,
+                           pd.nombre_pais, pd.bandera_imagen,
+                           COALESCE(pap.precio, pap_global.precio, 0) as precio,
+                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa
+                    FROM packs_alimentos pa
+                    LEFT JOIN paises_designados pd ON pa.id_pais = pd.id_pais
+                    LEFT JOIN pack_alimentos_asignacion_comercios paac
+                        ON pa.id_pack = paac.id_pack AND paac.activo = true
+                    LEFT JOIN pack_alimentos_precios pap
+                        ON paac.id_precio = pap.id_precio
+                    LEFT JOIN pack_alimentos_asignacion_global paag
+                        ON pa.id_pack = paag.id_pack AND paag.activo = true
+                    LEFT JOIN pack_alimentos_precios pap_global
+                        ON paag.id_precio = pap_global.id_precio
+                    WHERE pa.id_pais = @idPais
+                    ORDER BY pa.fecha_creacion DESC";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@idPais", idPais);
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                var packsIds = new System.Collections.Generic.HashSet<int>();
+
+                while (await reader.ReadAsync())
+                {
+                    var idPack = reader.GetInt32(0);
+                    if (packsIds.Contains(idPack)) continue;
+                    packsIds.Add(idPack);
+
+                    var pack = new PackAlimento
+                    {
+                        IdPack = idPack,
+                        NombrePack = reader.GetString(1),
+                        Descripcion = reader.IsDBNull(2) ? null : reader.GetString(2),
+                        ImagenPoster = reader.IsDBNull(3) ? null : (byte[])reader["imagen_poster"],
+                        ImagenPosterNombre = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        Activo = reader.GetBoolean(5),
+                        FechaCreacion = reader.GetDateTime(6),
+                        IdPais = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                        NombrePais = reader.IsDBNull(8) ? null : reader.GetString(8),
+                        BanderaPais = reader.IsDBNull(9) ? null : (byte[])reader["bandera_imagen"],
+                        PrecioPack = reader.IsDBNull(10) ? 0 : reader.GetDecimal(10),
+                        DivisaPack = reader.IsDBNull(11) ? "EUR" : reader.GetString(11)
+                    };
+
+                    PacksPaisActual.Add(pack);
+                }
+
+                await reader.CloseAsync();
+
+                // Cargar productos e imagenes de cada pack
+                foreach (var pack in PacksPaisActual)
+                {
+                    await CargarDetallesPackAsync(conn, pack);
+                }
+            }
+            catch (Exception ex)
+            {
+                MostrarMensaje($"Error al cargar packs: {ex.Message}", true);
+            }
+            finally
+            {
+                EstaCargando = false;
+            }
+        }
+
+        private async Task CargarDetallesPackAsync(NpgsqlConnection conn, PackAlimento pack)
+        {
+            var prodQuery = @"
+                SELECT id_producto, nombre_producto, descripcion, detalles, cantidad, unidad_medida, orden, imagen, imagen_nombre, imagen_tipo
+                FROM pack_alimentos_productos
+                WHERE id_pack = @idPack
+                ORDER BY orden";
+
+            await using var prodCmd = new NpgsqlCommand(prodQuery, conn);
+            prodCmd.Parameters.AddWithValue("@idPack", pack.IdPack);
+            await using var prodReader = await prodCmd.ExecuteReaderAsync();
+
+            while (await prodReader.ReadAsync())
+            {
+                pack.Productos.Add(new PackAlimentoProducto
+                {
+                    IdProducto = prodReader.GetInt32(0),
+                    IdPack = pack.IdPack,
+                    NombreProducto = prodReader.GetString(1),
+                    Descripcion = prodReader.IsDBNull(2) ? null : prodReader.GetString(2),
+                    Detalles = prodReader.IsDBNull(3) ? null : prodReader.GetString(3),
+                    Cantidad = prodReader.GetInt32(4),
+                    UnidadMedida = prodReader.GetString(5),
+                    Orden = prodReader.GetInt32(6),
+                    Imagen = prodReader.IsDBNull(7) ? null : (byte[])prodReader["imagen"],
+                    ImagenNombre = prodReader.IsDBNull(8) ? null : prodReader.GetString(8),
+                    ImagenTipo = prodReader.IsDBNull(9) ? null : prodReader.GetString(9)
+                });
+            }
+
+            await prodReader.CloseAsync();
+
+            var imgQuery = @"
+                SELECT id_imagen, imagen_contenido, imagen_nombre, imagen_tipo, descripcion, orden
+                FROM pack_alimentos_imagenes
+                WHERE id_pack = @idPack
+                ORDER BY orden";
+
+            await using var imgCmd = new NpgsqlCommand(imgQuery, conn);
+            imgCmd.Parameters.AddWithValue("@idPack", pack.IdPack);
+            await using var imgReader = await imgCmd.ExecuteReaderAsync();
+
+            while (await imgReader.ReadAsync())
+            {
+                pack.Imagenes.Add(new PackAlimentoImagen
+                {
+                    IdImagen = imgReader.GetInt32(0),
+                    IdPack = pack.IdPack,
+                    ImagenContenido = (byte[])imgReader["imagen_contenido"],
+                    ImagenNombre = imgReader.IsDBNull(2) ? null : imgReader.GetString(2),
+                    ImagenTipo = imgReader.IsDBNull(3) ? null : imgReader.GetString(3),
+                    Descripcion = imgReader.IsDBNull(4) ? null : imgReader.GetString(4),
+                    Orden = imgReader.GetInt32(5)
+                });
+            }
+        }
+
         // ============================================
         // COMANDOS PARA PAISES DESIGNADOS
         // ============================================
@@ -237,6 +433,9 @@ namespace Allva.Desktop.ViewModels.Admin
         [RelayCommand]
         private void MostrarFormularioPais()
         {
+            ModoEdicionPais = false;
+            PaisIdEnEdicion = 0;
+            TituloModalPais = "Nuevo Pais";
             NuevoPaisNombre = string.Empty;
             NuevoPaisCodigoIso = string.Empty;
             NuevoPaisBandera = null;
@@ -248,6 +447,9 @@ namespace Allva.Desktop.ViewModels.Admin
         private void CerrarModalPais()
         {
             MostrarModalPais = false;
+            ModoEdicionPais = false;
+            PaisIdEnEdicion = 0;
+            TituloModalPais = "Nuevo Pais";
             NuevoPaisNombre = string.Empty;
             NuevoPaisCodigoIso = string.Empty;
             NuevoPaisBandera = null;
@@ -288,6 +490,21 @@ namespace Allva.Desktop.ViewModels.Admin
         }
 
         [RelayCommand]
+        private void EditarPais(PaisDesignado? pais)
+        {
+            if (pais == null) return;
+
+            ModoEdicionPais = true;
+            PaisIdEnEdicion = pais.IdPais;
+            TituloModalPais = "Editar Pais";
+            NuevoPaisNombre = pais.NombrePais;
+            NuevoPaisCodigoIso = pais.CodigoIso ?? string.Empty;
+            NuevoPaisBandera = pais.BanderaImagen;
+            NuevoPaisBanderaNombre = pais.BanderaNombre;
+            MostrarModalPais = true;
+        }
+
+        [RelayCommand]
         private async Task GuardarPaisAsync()
         {
             if (string.IsNullOrWhiteSpace(NuevoPaisNombre))
@@ -303,20 +520,48 @@ namespace Allva.Desktop.ViewModels.Admin
                 await using var conn = new NpgsqlConnection(ConnectionString);
                 await conn.OpenAsync();
 
-                var insertQuery = @"
-                    INSERT INTO paises_designados (nombre_pais, codigo_iso, bandera_imagen, bandera_nombre)
-                    VALUES (@nombre, @codigo, @bandera, @banderaNombre)
-                    RETURNING id_pais";
+                if (ModoEdicionPais)
+                {
+                    // Actualizar pais existente
+                    var updateQuery = @"
+                        UPDATE paises_designados
+                        SET nombre_pais = @nombre,
+                            codigo_iso = @codigo,
+                            bandera_imagen = @bandera,
+                            bandera_nombre = @banderaNombre,
+                            fecha_modificacion = CURRENT_TIMESTAMP
+                        WHERE id_pais = @idPais";
 
-                await using var cmd = new NpgsqlCommand(insertQuery, conn);
-                cmd.Parameters.AddWithValue("@nombre", NuevoPaisNombre.Trim());
-                cmd.Parameters.AddWithValue("@codigo", string.IsNullOrWhiteSpace(NuevoPaisCodigoIso) ? DBNull.Value : NuevoPaisCodigoIso.Trim().ToUpper());
-                cmd.Parameters.AddWithValue("@bandera", (object?)NuevoPaisBandera ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@banderaNombre", (object?)NuevoPaisBanderaNombre ?? DBNull.Value);
+                    await using var cmd = new NpgsqlCommand(updateQuery, conn);
+                    cmd.Parameters.AddWithValue("@nombre", NuevoPaisNombre.Trim());
+                    cmd.Parameters.AddWithValue("@codigo", string.IsNullOrWhiteSpace(NuevoPaisCodigoIso) ? DBNull.Value : NuevoPaisCodigoIso.Trim().ToUpper());
+                    cmd.Parameters.AddWithValue("@bandera", (object?)NuevoPaisBandera ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@banderaNombre", (object?)NuevoPaisBanderaNombre ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@idPais", PaisIdEnEdicion);
 
-                await cmd.ExecuteScalarAsync();
+                    await cmd.ExecuteNonQueryAsync();
 
-                MostrarMensaje($"Pais '{NuevoPaisNombre}' agregado correctamente", false);
+                    MostrarMensaje($"Pais '{NuevoPaisNombre}' actualizado correctamente", false);
+                }
+                else
+                {
+                    // Insertar nuevo pais
+                    var insertQuery = @"
+                        INSERT INTO paises_designados (nombre_pais, codigo_iso, bandera_imagen, bandera_nombre)
+                        VALUES (@nombre, @codigo, @bandera, @banderaNombre)
+                        RETURNING id_pais";
+
+                    await using var cmd = new NpgsqlCommand(insertQuery, conn);
+                    cmd.Parameters.AddWithValue("@nombre", NuevoPaisNombre.Trim());
+                    cmd.Parameters.AddWithValue("@codigo", string.IsNullOrWhiteSpace(NuevoPaisCodigoIso) ? DBNull.Value : NuevoPaisCodigoIso.Trim().ToUpper());
+                    cmd.Parameters.AddWithValue("@bandera", (object?)NuevoPaisBandera ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@banderaNombre", (object?)NuevoPaisBanderaNombre ?? DBNull.Value);
+
+                    await cmd.ExecuteScalarAsync();
+
+                    MostrarMensaje($"Pais '{NuevoPaisNombre}' agregado correctamente", false);
+                }
+
                 CerrarModalPais();
                 await CargarPaisesAsync();
             }
@@ -340,10 +585,11 @@ namespace Allva.Desktop.ViewModels.Admin
                 PaisesDisponibles.Clear();
 
                 var query = @"
-                    SELECT id_pais, nombre_pais, codigo_iso, bandera_imagen, bandera_nombre, activo, fecha_creacion
-                    FROM paises_designados
-                    WHERE activo = true
-                    ORDER BY nombre_pais";
+                    SELECT pd.id_pais, pd.nombre_pais, pd.codigo_iso, pd.bandera_imagen, pd.bandera_nombre, pd.activo, pd.fecha_creacion,
+                           (SELECT COUNT(*) FROM packs_alimentos pa WHERE pa.id_pais = pd.id_pais) as cantidad_packs
+                    FROM paises_designados pd
+                    WHERE pd.activo = true
+                    ORDER BY pd.nombre_pais";
 
                 await using var cmd = new NpgsqlCommand(query, conn);
                 await using var reader = await cmd.ExecuteReaderAsync();
@@ -358,7 +604,8 @@ namespace Allva.Desktop.ViewModels.Admin
                         BanderaImagen = reader.IsDBNull(3) ? null : (byte[])reader["bandera_imagen"],
                         BanderaNombre = reader.IsDBNull(4) ? null : reader.GetString(4),
                         Activo = reader.GetBoolean(5),
-                        FechaCreacion = reader.GetDateTime(6)
+                        FechaCreacion = reader.GetDateTime(6),
+                        CantidadPacks = reader.GetInt32(7)
                     });
                 }
 
@@ -470,9 +717,20 @@ namespace Allva.Desktop.ViewModels.Admin
         {
             LimpiarFormulario();
             ModoEdicion = false;
-            TituloPanel = "Nuevo Pack de Alimentos";
+            TituloPanel = PaisActual != null
+                ? $"Nuevo Pack para {PaisActual.NombrePais}"
+                : "Nuevo Pack de Alimentos";
             await CargarComerciosAsync();
             await CargarPaisesAsync();
+
+            // Pre-seleccionar el pais actual si estamos dentro de uno
+            if (PaisActual != null)
+            {
+                PaisSeleccionado = PaisesDisponibles.FirstOrDefault(p => p.IdPais == PaisActual.IdPais);
+            }
+
+            MostrarVistaPacksPais = false;
+            MostrarVistaPaises = false;
             MostrarPanelEdicion = true;
         }
 
@@ -515,14 +773,28 @@ namespace Allva.Desktop.ViewModels.Admin
 
             ModoEdicion = true;
             TituloPanel = $"Editar: {pack.NombrePack}";
+            MostrarVistaPacksPais = false;
+            MostrarVistaPaises = false;
             MostrarPanelEdicion = true;
         }
 
         [RelayCommand]
-        private void CancelarEdicion()
+        private async Task CancelarEdicion()
         {
             LimpiarFormulario();
             MostrarPanelEdicion = false;
+
+            // Volver a la vista correcta
+            if (PaisActual != null)
+            {
+                await CargarPacksPorPaisAsync(PaisActual.IdPais);
+                MostrarVistaPacksPais = true;
+            }
+            else
+            {
+                await CargarPaisesAsync();
+                MostrarVistaPaises = true;
+            }
         }
 
         [RelayCommand]
@@ -721,7 +993,18 @@ namespace Allva.Desktop.ViewModels.Admin
                 MostrarMensaje(ModoEdicion ? "Pack actualizado correctamente" : "Pack creado correctamente", false);
                 MostrarPanelEdicion = false;
                 LimpiarFormulario();
-                await CargarPacksAsync();
+
+                // Volver a la vista correcta
+                if (PaisActual != null)
+                {
+                    await CargarPacksPorPaisAsync(PaisActual.IdPais);
+                    MostrarVistaPacksPais = true;
+                }
+                else
+                {
+                    await CargarPaisesAsync();
+                    MostrarVistaPaises = true;
+                }
             }
             catch (Exception ex)
             {
@@ -748,7 +1031,16 @@ namespace Allva.Desktop.ViewModels.Admin
                 await cmd.ExecuteNonQueryAsync();
 
                 MostrarMensaje("Pack eliminado correctamente", false);
-                await CargarPacksAsync();
+
+                // Recargar la vista actual
+                if (PaisActual != null)
+                {
+                    await CargarPacksPorPaisAsync(PaisActual.IdPais);
+                }
+                else
+                {
+                    await CargarPaisesAsync();
+                }
             }
             catch (Exception ex)
             {

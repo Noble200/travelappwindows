@@ -70,7 +70,6 @@ public partial class AdminDashboardViewModel : ObservableObject
             {
                 "comercios" => "GESTION DE COMERCIOS",
                 "usuarios" => "GESTION DE USUARIOS",
-                "usuarios_allva" => "USUARIOS ALLVA",
                 "divisas" => "COMISIONES",
                 "operaciones" => "OPERACIONES",
                 "balance" => "BALANCE DE CUENTAS",
@@ -81,7 +80,6 @@ public partial class AdminDashboardViewModel : ObservableObject
 
     public bool MostrarGestionComercios => _permisos?.AccesoGestionComercios ?? true;
     public bool MostrarGestionUsuarios => _permisos?.AccesoGestionUsuariosLocales ?? true;
-    public bool MostrarUsuariosAllva => _permisos?.AccesoGestionUsuariosAllva ?? false;
     public bool MostrarDivisas => true;
     public bool MostrarBalance => true;
 
@@ -154,7 +152,6 @@ public partial class AdminDashboardViewModel : ObservableObject
             {
                 "comercios" => new ManageComerciosView(),
                 "usuarios" => new ManageUsersView(),
-                "usuarios_allva" => new ManageAdministradoresAllvaView(),
                 "divisas" => new ComisionesView(),
                 "operaciones" => new OperacionesAdminView(),
                 "balance" => new BalanceAdminView(),

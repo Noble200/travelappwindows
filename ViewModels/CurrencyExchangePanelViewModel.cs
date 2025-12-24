@@ -39,6 +39,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     [ObservableProperty] private bool _vistaNuevoCliente = false;
     [ObservableProperty] private bool _vistaConfirmacionCliente = false;
     [ObservableProperty] private bool _vistaTransaccion = false;
+    [ObservableProperty] private bool _vistaConfirmacionTransaccion = false;
     [ObservableProperty] private bool _vistaResumen = false;
     [ObservableProperty] private bool _vistaEditarCliente = false;
     [ObservableProperty]
@@ -124,14 +125,14 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
     public bool TieneImagenesDocumento => TieneImagenDocumentoFrontal || TieneImagenDocumentoTrasera;
     [ObservableProperty]
     private ObservableCollection<string> _tiposDocumento = new() { "DNI", "NIE", "Pasaporte" };
-    public ObservableCollection<string> TiposResidencia { get; } = new() { "Espanol", "Extranjero" };
+    public ObservableCollection<string> TiposResidencia { get; } = new() { "España", "Extranjero" };
 
     [ObservableProperty] 
     private string _nuevoTipoResidencia = string.Empty;
 
     partial void OnNuevoTipoResidenciaChanged(string value)
     {
-        if (value == "Espanol")
+        if (value == "España")
         {
             TiposDocumento = new ObservableCollection<string> { "DNI", "NIE" };
             if (NuevoTipoDocumento == "Pasaporte")
@@ -264,6 +265,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         VistaNuevoCliente = false;
         VistaConfirmacionCliente = false;
         VistaTransaccion = false;
+        VistaConfirmacionTransaccion = false;
         VistaResumen = false;
         VistaEditarCliente = false;
     }
@@ -425,7 +427,7 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
         }
         if (string.IsNullOrWhiteSpace(NuevoTipoResidencia))
         {
-            ErrorMessage = "Debe seleccionar si es Espanol o Extranjero";
+            ErrorMessage = "Debe seleccionar si es España o Extranjero";
             return;
         }
         if (string.IsNullOrWhiteSpace(NuevaNacionalidad))
@@ -1498,20 +1500,20 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
             ErrorMessage = "No se puede realizar la operacion. Verifique los datos.";
             return;
         }
-        
+
         IsLoading = true;
         ErrorMessage = string.Empty;
-        
+
         try
         {
             FechaOperacion = ObtenerHoraEspana();
             _operacionGuardada = false;
-            
+
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
-            
+
             int idLocalParaPreview = _idLocalActual;
-            
+
             if (idLocalParaPreview <= 0)
             {
                 var sqlPrimerLocal = "SELECT id_local FROM locales WHERE activo = true ORDER BY id_local LIMIT 1";
@@ -1520,23 +1522,64 @@ public partial class CurrencyExchangePanelViewModel : ObservableObject
                 if (result != null)
                     idLocalParaPreview = Convert.ToInt32(result);
             }
-            
+
             // Solo LEER el siguiente numero (sin incrementar) para mostrar preview
-            var sqlVerificar = @"SELECT COALESCE(ultimo_correlativo, 0) + 1 FROM correlativos_operaciones 
+            var sqlVerificar = @"SELECT COALESCE(ultimo_correlativo, 0) + 1 FROM correlativos_operaciones
                                 WHERE id_local = @idLocal AND prefijo = 'DI'";
             await using var cmdVerificar = new NpgsqlCommand(sqlVerificar, conn);
             cmdVerificar.Parameters.AddWithValue("idLocal", idLocalParaPreview);
             var siguiente = await cmdVerificar.ExecuteScalarAsync();
             int numeroPreview = siguiente != null && siguiente != DBNull.Value ? Convert.ToInt32(siguiente) : 1;
-            
+
             NumeroOperacionDisplay = $"DI{numeroPreview:D4}";
-            
+
             OcultarTodasLasVistas();
-            VistaResumen = true;
+            VistaConfirmacionTransaccion = true;
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Error al preparar: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Confirma la operacion, la guarda en BD y navega al resumen final
+    /// </summary>
+    [RelayCommand]
+    private async Task ConfirmarYGuardarOperacionAsync()
+    {
+        if (_operacionGuardada)
+        {
+            OcultarTodasLasVistas();
+            VistaResumen = true;
+            return;
+        }
+
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            var (exito, mensaje) = await GuardarOperacionCompletaAsync();
+
+            if (exito)
+            {
+                _operacionGuardada = true;
+                OcultarTodasLasVistas();
+                VistaResumen = true;
+            }
+            else
+            {
+                ErrorMessage = mensaje;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error inesperado: {ex.Message}";
         }
         finally
         {

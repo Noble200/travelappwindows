@@ -237,9 +237,9 @@ namespace Allva.Desktop.ViewModels
         [ObservableProperty]
         private string _beneficiarioCodigoPostal = string.Empty;
 
-        public ObservableCollection<string> TiposDocumentoBeneficiario { get; } = new() 
-        { 
-            "DNI", "NIE", "Pasaporte", "Cedula", "Otro" 
+        public ObservableCollection<string> TiposDocumentoBeneficiario { get; } = new()
+        {
+            "DNI", "Cédula"
         };
 
         public ObservableCollection<string> PaisesDestino { get; } = new()
@@ -287,10 +287,15 @@ namespace Allva.Desktop.ViewModels
         private string _busquedaPaisImpresion = string.Empty;
 
         [ObservableProperty]
-        private PaisDesignadoFront? _paisSeleccionadoImpresion;
+        private ObservableCollection<PaisDesignadoFront> _paisesSeleccionadosImpresion = new();
 
         [ObservableProperty]
         private ObservableCollection<PaisDesignadoFront> _paisesFiltradosImpresion = new();
+
+        public bool HayPaisesSeleccionadosImpresion => PaisesSeleccionadosImpresion.Count > 0;
+        public string TextoPaisesSeleccionados => PaisesSeleccionadosImpresion.Count == 1
+            ? "1 país seleccionado"
+            : $"{PaisesSeleccionadosImpresion.Count} países seleccionados";
 
         partial void OnBusquedaPaisImpresionChanged(string value)
         {
@@ -345,7 +350,7 @@ namespace Allva.Desktop.ViewModels
         [ObservableProperty]
         private string _nuevaDireccion = string.Empty;
 
-        public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE", "Pasaporte", "Cedula" };
+        public ObservableCollection<string> TiposDocumento { get; } = new() { "DNI", "NIE" };
 
         // ============================================
         // ESTADO DE OPERACION
@@ -653,8 +658,15 @@ namespace Allva.Desktop.ViewModels
         private void AbrirModalImprimirCatalogo()
         {
             BusquedaPaisImpresion = string.Empty;
-            PaisSeleccionadoImpresion = null;
+            PaisesSeleccionadosImpresion.Clear();
+            // Limpiar selección previa
+            foreach (var pais in PaisesDisponibles)
+            {
+                pais.EsSeleccionadoImpresion = false;
+            }
             FiltrarPaisesImpresion();
+            OnPropertyChanged(nameof(HayPaisesSeleccionadosImpresion));
+            OnPropertyChanged(nameof(TextoPaisesSeleccionados));
             MostrarModalImprimirCatalogo = true;
         }
 
@@ -662,8 +674,13 @@ namespace Allva.Desktop.ViewModels
         private void CerrarModalImprimirCatalogo()
         {
             MostrarModalImprimirCatalogo = false;
-            PaisSeleccionadoImpresion = null;
+            PaisesSeleccionadosImpresion.Clear();
             BusquedaPaisImpresion = string.Empty;
+            // Limpiar selección
+            foreach (var pais in PaisesDisponibles)
+            {
+                pais.EsSeleccionadoImpresion = false;
+            }
         }
 
         [RelayCommand]
@@ -671,26 +688,32 @@ namespace Allva.Desktop.ViewModels
         {
             if (pais == null) return;
 
-            // Deseleccionar el anterior
-            if (PaisSeleccionadoImpresion != null)
+            // Toggle selección (multiselección)
+            if (pais.EsSeleccionadoImpresion)
             {
-                PaisSeleccionadoImpresion.EsSeleccionadoImpresion = false;
+                // Deseleccionar
+                pais.EsSeleccionadoImpresion = false;
+                PaisesSeleccionadosImpresion.Remove(pais);
             }
-
-            // Seleccionar el nuevo
-            pais.EsSeleccionadoImpresion = true;
-            PaisSeleccionadoImpresion = pais;
+            else
+            {
+                // Seleccionar
+                pais.EsSeleccionadoImpresion = true;
+                PaisesSeleccionadosImpresion.Add(pais);
+            }
 
             // Refrescar la lista para actualizar la UI
             OnPropertyChanged(nameof(PaisesFiltradosImpresion));
+            OnPropertyChanged(nameof(HayPaisesSeleccionadosImpresion));
+            OnPropertyChanged(nameof(TextoPaisesSeleccionados));
         }
 
         [RelayCommand]
         private async Task GenerarCatalogoPdfAsync()
         {
-            if (PaisSeleccionadoImpresion == null)
+            if (PaisesSeleccionadosImpresion.Count == 0)
             {
-                MostrarMensaje("Debe seleccionar un pais", true);
+                MostrarMensaje("Debe seleccionar al menos un pais", true);
                 return;
             }
 
@@ -699,20 +722,39 @@ namespace Allva.Desktop.ViewModels
 
             try
             {
-                // Cargar los packs del pais seleccionado con todos sus detalles
-                var datosCatalogo = await CargarDatosCatalogoAsync(PaisSeleccionadoImpresion);
+                // Cargar los datos de todos los paises seleccionados
+                var listaCatalogos = new List<Services.CatalogoPacksPdfService.DatosCatalogo>();
 
-                if (datosCatalogo.Packs.Count == 0)
+                foreach (var pais in PaisesSeleccionadosImpresion.OrderBy(p => p.NombrePais))
                 {
-                    MostrarMensaje("No hay packs disponibles para este pais", true);
+                    var datosCatalogo = await CargarDatosCatalogoAsync(pais);
+                    if (datosCatalogo.Packs.Count > 0)
+                    {
+                        listaCatalogos.Add(datosCatalogo);
+                    }
+                }
+
+                if (listaCatalogos.Count == 0)
+                {
+                    MostrarMensaje("No hay packs disponibles para los paises seleccionados", true);
                     return;
                 }
 
-                // Generar PDF
-                var pdfBytes = Services.CatalogoPacksPdfService.GenerarPdf(datosCatalogo);
-                var rutaArchivo = Services.CatalogoPacksPdfService.GuardarPdf(pdfBytes, datosCatalogo.NombrePais);
+                // Generar PDF con múltiples países en hilo separado para no bloquear la UI
+                var pdfBytes = await Task.Run(() => Services.CatalogoPacksPdfService.GenerarPdfMultiplesPaises(listaCatalogos));
 
-                MostrarMensaje($"Catalogo generado: {rutaArchivo}", false);
+                // Nombre del archivo según cantidad de países
+                var nombreArchivo = listaCatalogos.Count == 1
+                    ? listaCatalogos[0].NombrePais
+                    : $"Multiple_{listaCatalogos.Count}_Paises";
+
+                // Guardar archivo en hilo separado para no bloquear la UI
+                var rutaArchivo = await Task.Run(() => Services.CatalogoPacksPdfService.GuardarPdf(pdfBytes, nombreArchivo));
+
+                var mensajePaises = listaCatalogos.Count == 1
+                    ? listaCatalogos[0].NombrePais
+                    : $"{listaCatalogos.Count} paises";
+                MostrarMensaje($"Catalogo generado para {mensajePaises}: {rutaArchivo}", false);
 
                 // Abrir el archivo PDF
                 try
@@ -736,7 +778,11 @@ namespace Allva.Desktop.ViewModels
             finally
             {
                 EstaCargando = false;
-                PaisSeleccionadoImpresion = null;
+                PaisesSeleccionadosImpresion.Clear();
+                foreach (var pais in PaisesDisponibles)
+                {
+                    pais.EsSeleccionadoImpresion = false;
+                }
             }
         }
 
@@ -2677,9 +2723,9 @@ namespace Allva.Desktop.ViewModels
                     MetodoPago = "EFECTIVO"
                 };
 
-                // Generar PDF
+                // Generar PDF en hilo separado para no bloquear la UI
                 var pdfService = new ReciboFoodPackService();
-                var pdfBytes = pdfService.GenerarReciboPdf(datosRecibo);
+                var pdfBytes = await Task.Run(() => pdfService.GenerarReciboPdf(datosRecibo));
 
                 // Guardar archivo
                 await using var stream = await archivo.OpenWriteAsync();

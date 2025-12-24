@@ -66,10 +66,34 @@ namespace Allva.Desktop.ViewModels.Admin
         private string _filtroNumeroOperacion = "";
 
         [ObservableProperty]
-        private string _filtroPaisDestino = "Todos";
+        private string _filtroPaisDestino = "";
 
         [ObservableProperty]
         private string _filtroEstado = "Todos";
+
+        // Ordenamiento por fecha
+        [ObservableProperty]
+        private bool _ordenAscendente = false; // false = más reciente primero
+
+        public string IconoOrden => OrdenAscendente ? "▲" : "▼";
+        public string TooltipOrden => OrdenAscendente ? "Ordenar de más reciente a más antiguo" : "Ordenar de más antiguo a más reciente";
+
+        partial void OnOrdenAscendenteChanged(bool value)
+        {
+            OnPropertyChanged(nameof(IconoOrden));
+            OnPropertyChanged(nameof(TooltipOrden));
+        }
+
+        // Autocompletado país destino
+        [ObservableProperty]
+        private string _textoBusquedaPaisDestino = "";
+
+        [ObservableProperty]
+        private bool _mostrarListaPaises = false;
+
+        public ObservableCollection<string> PaisesFiltrados { get; } = new();
+
+        private List<string> _todosPaises = new();
 
         [ObservableProperty]
         private string _filtroComercioTexto = "";
@@ -180,6 +204,13 @@ namespace Allva.Desktop.ViewModels.Admin
         private string _popupLocalBeneficio = "0.00 EUR";
 
         private int _popupLocalId = 0;
+
+        // Panel agregar monto a favor
+        [ObservableProperty]
+        private bool _mostrarPanelAgregarAFavor = false;
+
+        [ObservableProperty]
+        private string _montoAgregarAFavor = "";
 
         [ObservableProperty]
         private string _totalPendienteLocalSeleccionado = "0.00";
@@ -383,6 +414,49 @@ namespace Allva.Desktop.ViewModels.Admin
         {
             MostrarSugerenciasComercio = false;
             MostrarSugerenciasLocal = false;
+            MostrarListaPaises = false;
+        }
+
+        // Autocompletado de país destino
+        partial void OnTextoBusquedaPaisDestinoChanged(string value)
+        {
+            FiltrarPaises(value);
+            FiltroPaisDestino = value;
+        }
+
+        private void FiltrarPaises(string texto)
+        {
+            PaisesFiltrados.Clear();
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                MostrarListaPaises = false;
+                return;
+            }
+
+            var coincidencias = _todosPaises
+                .Where(p => p.Contains(texto, StringComparison.OrdinalIgnoreCase))
+                .Take(10);
+
+            foreach (var pais in coincidencias)
+                PaisesFiltrados.Add(pais);
+
+            MostrarListaPaises = PaisesFiltrados.Count > 0;
+        }
+
+        [RelayCommand]
+        private void SeleccionarPaisDestino(string? pais)
+        {
+            if (string.IsNullOrEmpty(pais)) return;
+            TextoBusquedaPaisDestino = pais;
+            FiltroPaisDestino = pais;
+            MostrarListaPaises = false;
+        }
+
+        [RelayCommand]
+        private async Task CambiarOrden()
+        {
+            OrdenAscendente = !OrdenAscendente;
+            await CargarOperacionesAlimentosAsync();
         }
 
         private async Task CargarComerciosAsync()
@@ -449,6 +523,7 @@ namespace Allva.Desktop.ViewModels.Admin
             {
                 PaisesDestino.Clear();
                 PaisesDestino.Add("Todos");
+                _todosPaises.Clear();
 
                 await using var conn = new NpgsqlConnection(ConnectionString);
                 await conn.OpenAsync();
@@ -458,7 +533,11 @@ namespace Allva.Desktop.ViewModels.Admin
                 await using var reader = await cmd.ExecuteReaderAsync();
 
                 while (await reader.ReadAsync())
-                    PaisesDestino.Add(reader.GetString(0));
+                {
+                    var pais = reader.GetString(0);
+                    PaisesDestino.Add(pais);
+                    _todosPaises.Add(pais);
+                }
             }
             catch { }
         }
@@ -516,8 +595,7 @@ namespace Allva.Desktop.ViewModels.Admin
                         TotalDeuda = deuda,
                         DeudaTexto = $"{deuda:N2} EUR",
                         BeneficioAcumulado = beneficio,
-                        BeneficioTexto = $"{beneficio:N2} EUR",
-                        BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+                        BeneficioTexto = $"{beneficio:N2} EUR"
                     });
 
                     totalDeuda += deuda;
@@ -536,6 +614,13 @@ namespace Allva.Desktop.ViewModels.Admin
         private async Task SeleccionarLocalDeposito(LocalBalanceItem? local)
         {
             if (local == null) return;
+
+            // Desmarcar todos los locales
+            foreach (var l in LocalesConDeuda)
+                l.EstaSeleccionado = false;
+
+            // Marcar el seleccionado
+            local.EstaSeleccionado = true;
 
             LocalSeleccionadoDeposito = local;
             MontoDeposito = "";
@@ -647,6 +732,13 @@ namespace Allva.Desktop.ViewModels.Admin
         {
             if (operacion == null) return;
 
+            // Establecer valores desde la operación primero (siempre visibles)
+            PopupLocalCodigo = operacion.CodigoLocal ?? "";
+            PopupLocalComercio = operacion.Comercio ?? "";
+            PopupLocalDeuda = "0.00 EUR";
+            PopupLocalBeneficio = "0.00 EUR";
+            _popupLocalId = 0;
+
             // Buscar info del local
             try
             {
@@ -654,7 +746,7 @@ namespace Allva.Desktop.ViewModels.Admin
                 await conn.OpenAsync();
 
                 var sql = @"
-                    SELECT 
+                    SELECT
                         l.id_local,
                         l.codigo_local,
                         c.nombre_comercio,
@@ -668,14 +760,14 @@ namespace Allva.Desktop.ViewModels.Admin
                     GROUP BY l.id_local, l.codigo_local, c.nombre_comercio, l.beneficio_acumulado";
 
                 await using var cmd = new NpgsqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("codigo", operacion.CodigoLocal);
+                cmd.Parameters.AddWithValue("codigo", operacion.CodigoLocal ?? "");
 
                 await using var reader = await cmd.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
                     _popupLocalId = reader.GetInt32(0);
-                    PopupLocalCodigo = reader.GetString(1);
-                    PopupLocalComercio = reader.GetString(2);
+                    if (!reader.IsDBNull(1)) PopupLocalCodigo = reader.GetString(1);
+                    if (!reader.IsDBNull(2)) PopupLocalComercio = reader.GetString(2);
                     var deuda = reader.GetDecimal(3);
                     var beneficio = reader.GetDecimal(4);
                     PopupLocalDeuda = $"{deuda:N2} EUR";
@@ -684,16 +776,81 @@ namespace Allva.Desktop.ViewModels.Admin
 
                 await reader.CloseAsync();
                 await CargarHistorialLocalMesAsync(_popupLocalId);
-                MostrarPopupLocal = true;
             }
             catch { }
+
+            // Siempre mostrar el popup
+            MostrarPopupLocal = true;
         }
 
         [RelayCommand]
         private void CerrarPopupLocal()
         {
             MostrarPopupLocal = false;
+            MostrarPanelAgregarAFavor = false;
             HistorialLocalMes.Clear();
+        }
+
+        [RelayCommand]
+        private void AbrirAgregarAFavor()
+        {
+            MontoAgregarAFavor = "";
+            MostrarPanelAgregarAFavor = true;
+        }
+
+        [RelayCommand]
+        private void CancelarAgregarAFavor()
+        {
+            MostrarPanelAgregarAFavor = false;
+            MontoAgregarAFavor = "";
+        }
+
+        [RelayCommand]
+        private async Task ConfirmarAgregarAFavor()
+        {
+            if (_popupLocalId <= 0) return;
+
+            // Parsear el monto
+            var montoTexto = MontoAgregarAFavor.Replace(",", ".").Trim();
+            if (!decimal.TryParse(montoTexto, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var monto) || monto <= 0)
+            {
+                ErrorMessage = "Por favor ingrese un monto válido mayor a 0";
+                return;
+            }
+
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                // Sumar al beneficio_acumulado del local
+                var sql = "UPDATE locales SET beneficio_acumulado = COALESCE(beneficio_acumulado, 0) + @monto WHERE id_local = @idLocal";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("monto", monto);
+                cmd.Parameters.AddWithValue("idLocal", _popupLocalId);
+                await cmd.ExecuteNonQueryAsync();
+
+                // Actualizar el popup
+                var sqlBeneficio = "SELECT COALESCE(beneficio_acumulado, 0) FROM locales WHERE id_local = @idLocal";
+                await using var cmdBeneficio = new NpgsqlCommand(sqlBeneficio, conn);
+                cmdBeneficio.Parameters.AddWithValue("idLocal", _popupLocalId);
+                var nuevoBeneficio = await cmdBeneficio.ExecuteScalarAsync();
+                if (nuevoBeneficio != null && nuevoBeneficio != DBNull.Value)
+                {
+                    PopupLocalBeneficio = $"{Convert.ToDecimal(nuevoBeneficio):N2} EUR";
+                }
+
+                // Cerrar panel y limpiar
+                MostrarPanelAgregarAFavor = false;
+                MontoAgregarAFavor = "";
+
+                // Recargar datos
+                await CargarLocalesConDeudaAsync();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Error al agregar monto a favor: {ex.Message}";
+            }
         }
 
         [RelayCommand]
@@ -711,33 +868,34 @@ namespace Allva.Desktop.ViewModels.Admin
                 var hoy = ObtenerHoraEspana();
                 var hace30Dias = hoy.AddDays(-30);
 
+                var historialItems = new List<(DateTime FechaCompleta, HistorialOperacionItem Item)>();
+
                 await using var conn = new NpgsqlConnection(ConnectionString);
                 await conn.OpenAsync();
 
-                var sql = @"
-                    SELECT o.id_operacion, o.fecha_operacion, o.hora_operacion, o.numero_operacion, 
+                // Cargar operaciones
+                var sqlOperaciones = @"
+                    SELECT o.id_operacion, o.fecha_operacion, o.hora_operacion, o.numero_operacion,
                            o.importe_total, opa.estado_envio
                     FROM operaciones o
                     INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
                     WHERE o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS'
-                      AND o.fecha_operacion >= @fechaDesde
-                    ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC";
+                      AND o.fecha_operacion >= @fechaDesde";
 
-                await using var cmd = new NpgsqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("idLocal", idLocal);
-                cmd.Parameters.AddWithValue("fechaDesde", hace30Dias.Date);
+                await using var cmdOps = new NpgsqlCommand(sqlOperaciones, conn);
+                cmdOps.Parameters.AddWithValue("idLocal", idLocal);
+                cmdOps.Parameters.AddWithValue("fechaDesde", hace30Dias.Date);
 
-                await using var reader = await cmd.ExecuteReaderAsync();
-                int index = 0;
+                await using var readerOps = await cmdOps.ExecuteReaderAsync();
 
-                while (await reader.ReadAsync())
+                while (await readerOps.ReadAsync())
                 {
-                    var idOp = reader.GetInt32(0);
-                    var fecha = reader.IsDBNull(1) ? DateTime.Today : reader.GetDateTime(1);
-                    var hora = reader.IsDBNull(2) ? TimeSpan.Zero : reader.GetTimeSpan(2);
-                    var numOp = reader.IsDBNull(3) ? "" : reader.GetString(3);
-                    var importe = reader.IsDBNull(4) ? 0 : reader.GetDecimal(4);
-                    var estado = reader.IsDBNull(5) ? "PENDIENTE" : reader.GetString(5).Trim().ToUpper();
+                    var idOp = readerOps.GetInt32(0);
+                    var fecha = readerOps.IsDBNull(1) ? DateTime.Today : readerOps.GetDateTime(1);
+                    var hora = readerOps.IsDBNull(2) ? TimeSpan.Zero : readerOps.GetTimeSpan(2);
+                    var numOp = readerOps.IsDBNull(3) ? "" : readerOps.GetString(3);
+                    var importe = readerOps.IsDBNull(4) ? 0 : readerOps.GetDecimal(4);
+                    var estado = readerOps.IsDBNull(5) ? "PENDIENTE" : readerOps.GetString(5).Trim().ToUpper();
 
                     var estadoColor = estado switch
                     {
@@ -747,7 +905,8 @@ namespace Allva.Desktop.ViewModels.Admin
                         _ => "#ffc107"
                     };
 
-                    HistorialLocalMes.Add(new HistorialOperacionItem
+                    var fechaCompleta = fecha.Add(hora);
+                    historialItems.Add((fechaCompleta, new HistorialOperacionItem
                     {
                         IdOperacion = idOp,
                         Fecha = fecha.ToString("dd/MM/yy"),
@@ -757,8 +916,68 @@ namespace Allva.Desktop.ViewModels.Admin
                         ImporteTexto = $"{importe:N2} EUR",
                         Estado = estado,
                         EstadoColor = estadoColor,
-                        BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
-                    });
+                        EsDeposito = false,
+                        Descripcion = "Operación Pack Alimentos"
+                    }));
+                }
+
+                await readerOps.CloseAsync();
+
+                // Cargar depósitos
+                var sqlDepositos = @"
+                    SELECT id_deposito, fecha_deposito, hora_deposito, monto_depositado, monto_aplicado,
+                           cantidad_operaciones_pagadas, numeros_operaciones_pagadas, excedente
+                    FROM depositos_pack_alimentos
+                    WHERE id_local = @idLocal AND fecha_deposito >= @fechaDesde";
+
+                await using var cmdDeps = new NpgsqlCommand(sqlDepositos, conn);
+                cmdDeps.Parameters.AddWithValue("idLocal", idLocal);
+                cmdDeps.Parameters.AddWithValue("fechaDesde", hace30Dias.Date);
+
+                await using var readerDeps = await cmdDeps.ExecuteReaderAsync();
+
+                while (await readerDeps.ReadAsync())
+                {
+                    var idDeposito = readerDeps.GetInt32(0);
+                    var fecha = readerDeps.IsDBNull(1) ? DateTime.Today : readerDeps.GetDateTime(1);
+                    var hora = readerDeps.IsDBNull(2) ? TimeSpan.Zero : readerDeps.GetTimeSpan(2);
+                    var montoDepositado = readerDeps.IsDBNull(3) ? 0 : readerDeps.GetDecimal(3);
+                    var montoAplicado = readerDeps.IsDBNull(4) ? 0 : readerDeps.GetDecimal(4);
+                    var cantOps = readerDeps.IsDBNull(5) ? 0 : readerDeps.GetInt32(5);
+                    var numerosOps = readerDeps.IsDBNull(6) ? "" : readerDeps.GetString(6);
+                    var excedente = readerDeps.IsDBNull(7) ? 0 : readerDeps.GetDecimal(7);
+
+                    var descripcion = $"Pagó {cantOps} op(s)";
+                    if (excedente > 0)
+                        descripcion += $" + {excedente:N2} EUR a favor";
+
+                    var fechaCompleta = fecha.Add(hora);
+                    historialItems.Add((fechaCompleta, new HistorialOperacionItem
+                    {
+                        IdOperacion = idDeposito,
+                        Fecha = fecha.ToString("dd/MM/yy"),
+                        Hora = hora.ToString(@"hh\:mm"),
+                        NumeroOperacion = $"DEP-{idDeposito:D4}",
+                        Importe = montoDepositado,
+                        ImporteTexto = $"+{montoDepositado:N2} EUR",
+                        Estado = "DEPOSITO",
+                        EstadoColor = "#6f42c1", // Morado para depósitos
+                        EsDeposito = true,
+                        Descripcion = descripcion,
+                        CantidadOperacionesPagadas = cantOps,
+                        NumerosOperacionesPagadas = numerosOps
+                    }));
+                }
+
+                // Ordenar por fecha descendente y agregar a la colección
+                var itemsOrdenados = historialItems.OrderByDescending(x => x.FechaCompleta).ToList();
+                int index = 0;
+                foreach (var item in itemsOrdenados)
+                {
+                    item.Item.BackgroundColor = item.Item.EsDeposito
+                        ? "#F3E5F5"  // Fondo morado claro para depósitos
+                        : (index % 2 == 0 ? "White" : "#F5F5F5");
+                    HistorialLocalMes.Add(item.Item);
                     index++;
                 }
             }
@@ -766,8 +985,10 @@ namespace Allva.Desktop.ViewModels.Admin
         }
 
         [RelayCommand]
-        private async Task AnularOperacion(int idOperacion)
+        private async Task AnularOperacion(HistorialOperacionItem? item)
         {
+            if (item == null) return;
+
             try
             {
                 IsLoading = true;
@@ -775,63 +996,139 @@ namespace Allva.Desktop.ViewModels.Admin
                 await using var conn = new NpgsqlConnection(ConnectionString);
                 await conn.OpenAsync();
 
-                var sql = @"UPDATE operaciones_pack_alimentos 
-                            SET estado_envio = 'PENDIENTE' 
-                            WHERE id_operacion = @idOperacion AND estado_envio = 'PAGADO'";
-
-                await using var cmd = new NpgsqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("idOperacion", idOperacion);
-                var affected = await cmd.ExecuteNonQueryAsync();
-
-                if (affected > 0)
+                if (item.EsDeposito)
                 {
-                    SuccessMessage = "Pago anulado correctamente. La operacion volvio a estado PENDIENTE";
-                    
-                    await CargarLocalesConDeudaAsync();
-                    await CargarOperacionesAlimentosAsync();
-                    
-                    // Actualizar popup si está abierto
-                    if (MostrarPopupLocal && _popupLocalId > 0)
+                    // Anular depósito: revertir las operaciones pagadas a PENDIENTE y eliminar el depósito
+                    await using var transaction = await conn.BeginTransactionAsync();
+                    try
                     {
-                        await CargarHistorialLocalMesAsync(_popupLocalId);
-                        // Actualizar deuda del local en popup
-                        await using var conn2 = new NpgsqlConnection(ConnectionString);
-                        await conn2.OpenAsync();
-                        var sqlDeuda = @"SELECT COALESCE(SUM(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN o.importe_total ELSE 0 END), 0)
-                                        FROM operaciones o
-                                        INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
-                                        WHERE o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS'";
-                        await using var cmdDeuda = new NpgsqlCommand(sqlDeuda, conn2);
-                        cmdDeuda.Parameters.AddWithValue("idLocal", _popupLocalId);
-                        var deuda = await cmdDeuda.ExecuteScalarAsync();
-                        if (deuda != null && deuda != DBNull.Value)
-                            PopupLocalDeuda = $"{Convert.ToDecimal(deuda):N2} EUR";
-                    }
-                    
-                    if (LocalSeleccionadoDeposito != null)
-                    {
-                        var idLocalActual = LocalSeleccionadoDeposito.IdLocal;
-                        await CargarHistorialLocalMesAsync(idLocalActual);
-                        await CargarOperacionesParaPagoAsync(idLocalActual);
-                        
-                        var localActualizado = LocalesConDeuda.FirstOrDefault(l => l.IdLocal == idLocalActual);
-                        if (localActualizado != null)
+                        // Obtener los IDs de las operaciones pagadas por este depósito
+                        var sqlGetOps = "SELECT ids_operaciones_pagadas, excedente FROM depositos_pack_alimentos WHERE id_deposito = @idDeposito";
+                        await using var cmdGetOps = new NpgsqlCommand(sqlGetOps, conn, transaction);
+                        cmdGetOps.Parameters.AddWithValue("idDeposito", item.IdOperacion);
+
+                        string idsOperaciones = "";
+                        decimal excedente = 0;
+                        await using var reader = await cmdGetOps.ExecuteReaderAsync();
+                        if (await reader.ReadAsync())
                         {
-                            LocalSeleccionadoDeposito = localActualizado;
-                            TotalPendienteLocalSeleccionado = $"{localActualizado.TotalDeuda:N2}";
-                            CantidadOpsPendientesLocal = localActualizado.TotalOperaciones;
+                            idsOperaciones = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                            excedente = reader.IsDBNull(1) ? 0 : reader.GetDecimal(1);
                         }
+                        await reader.CloseAsync();
+
+                        // Revertir las operaciones a PENDIENTE
+                        if (!string.IsNullOrEmpty(idsOperaciones))
+                        {
+                            var ids = idsOperaciones.Split(',').Select(s => s.Trim()).Where(s => int.TryParse(s, out _)).ToArray();
+                            foreach (var idStr in ids)
+                            {
+                                var sqlRevert = @"UPDATE operaciones_pack_alimentos
+                                                  SET estado_envio = 'PENDIENTE'
+                                                  WHERE id_operacion = @idOp";
+                                await using var cmdRevert = new NpgsqlCommand(sqlRevert, conn, transaction);
+                                cmdRevert.Parameters.AddWithValue("idOp", int.Parse(idStr));
+                                await cmdRevert.ExecuteNonQueryAsync();
+                            }
+                        }
+
+                        // Restar el excedente del beneficio_acumulado del local si había
+                        if (excedente > 0 && _popupLocalId > 0)
+                        {
+                            var sqlBeneficio = @"UPDATE locales
+                                                SET beneficio_acumulado = GREATEST(0, COALESCE(beneficio_acumulado, 0) - @excedente)
+                                                WHERE id_local = @idLocal";
+                            await using var cmdBeneficio = new NpgsqlCommand(sqlBeneficio, conn, transaction);
+                            cmdBeneficio.Parameters.AddWithValue("excedente", excedente);
+                            cmdBeneficio.Parameters.AddWithValue("idLocal", _popupLocalId);
+                            await cmdBeneficio.ExecuteNonQueryAsync();
+                        }
+
+                        // Eliminar el depósito
+                        var sqlDelete = "DELETE FROM depositos_pack_alimentos WHERE id_deposito = @idDeposito";
+                        await using var cmdDelete = new NpgsqlCommand(sqlDelete, conn, transaction);
+                        cmdDelete.Parameters.AddWithValue("idDeposito", item.IdOperacion);
+                        await cmdDelete.ExecuteNonQueryAsync();
+
+                        await transaction.CommitAsync();
+
+                        SuccessMessage = $"Deposito anulado. {item.CantidadOperacionesPagadas} operacion(es) volvieron a PENDIENTE";
                     }
-                    
-                    await Task.Delay(2500);
-                    SuccessMessage = "";
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
                 }
                 else
                 {
-                    ErrorMessage = "No se pudo anular la operacion";
-                    await Task.Delay(2000);
-                    ErrorMessage = "";
+                    // Anular operación individual (pago)
+                    var sql = @"UPDATE operaciones_pack_alimentos
+                                SET estado_envio = 'PENDIENTE'
+                                WHERE id_operacion = @idOperacion AND estado_envio = 'PAGADO'";
+
+                    await using var cmd = new NpgsqlCommand(sql, conn);
+                    cmd.Parameters.AddWithValue("idOperacion", item.IdOperacion);
+                    var affected = await cmd.ExecuteNonQueryAsync();
+
+                    if (affected == 0)
+                    {
+                        ErrorMessage = "No se pudo anular la operacion";
+                        await Task.Delay(2000);
+                        ErrorMessage = "";
+                        return;
+                    }
+
+                    SuccessMessage = "Pago anulado correctamente. La operacion volvio a estado PENDIENTE";
                 }
+
+                await CargarLocalesConDeudaAsync();
+                await CargarOperacionesAlimentosAsync();
+
+                // Actualizar popup si está abierto
+                if (MostrarPopupLocal && _popupLocalId > 0)
+                {
+                    await CargarHistorialLocalMesAsync(_popupLocalId);
+                    // Actualizar deuda y beneficio del local en popup
+                    await using var conn2 = new NpgsqlConnection(ConnectionString);
+                    await conn2.OpenAsync();
+                    var sqlLocal = @"SELECT
+                                        COALESCE(SUM(CASE WHEN opa.estado_envio = 'PENDIENTE' THEN o.importe_total ELSE 0 END), 0),
+                                        COALESCE(l.beneficio_acumulado, 0)
+                                    FROM locales l
+                                    LEFT JOIN operaciones o ON l.id_local = o.id_local AND o.modulo = 'PACK_ALIMENTOS'
+                                    LEFT JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
+                                    WHERE l.id_local = @idLocal
+                                    GROUP BY l.beneficio_acumulado";
+                    await using var cmdLocal = new NpgsqlCommand(sqlLocal, conn2);
+                    cmdLocal.Parameters.AddWithValue("idLocal", _popupLocalId);
+                    await using var readerLocal = await cmdLocal.ExecuteReaderAsync();
+                    if (await readerLocal.ReadAsync())
+                    {
+                        var deuda = readerLocal.GetDecimal(0);
+                        var beneficio = readerLocal.GetDecimal(1);
+                        PopupLocalDeuda = $"{deuda:N2} EUR";
+                        PopupLocalBeneficio = $"{beneficio:N2} EUR";
+                    }
+                }
+
+                if (LocalSeleccionadoDeposito != null)
+                {
+                    var idLocalActual = LocalSeleccionadoDeposito.IdLocal;
+                    await CargarHistorialLocalMesAsync(idLocalActual);
+                    await CargarOperacionesParaPagoAsync(idLocalActual);
+
+                    var localActualizado = LocalesConDeuda.FirstOrDefault(l => l.IdLocal == idLocalActual);
+                    if (localActualizado != null)
+                    {
+                        LocalSeleccionadoDeposito = localActualizado;
+                        TotalPendienteLocalSeleccionado = $"{localActualizado.TotalDeuda:N2}";
+                        CantidadOpsPendientesLocal = localActualizado.TotalOperaciones;
+                    }
+                }
+
+                await Task.Delay(2500);
+                SuccessMessage = "";
             }
             catch (Exception ex)
             {
@@ -1104,10 +1401,12 @@ namespace Allva.Desktop.ViewModels.Admin
             FiltroNumeroOperacion = "";
             FiltroComercioTexto = "";
             FiltroLocalTexto = "";
-            FiltroPaisDestino = "Todos";
+            FiltroPaisDestino = "";
+            TextoBusquedaPaisDestino = "";
             FiltroEstado = "Todos";
             MostrarSugerenciasComercio = false;
             MostrarSugerenciasLocal = false;
+            MostrarListaPaises = false;
             await CargarOperacionesAlimentosAsync();
         }
 
@@ -1169,19 +1468,21 @@ namespace Allva.Desktop.ViewModels.Admin
                 if (fechaDesde.HasValue) sql += " AND o.fecha_operacion >= @fechaDesde";
                 if (fechaHasta.HasValue) sql += " AND o.fecha_operacion <= @fechaHasta";
                 if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion)) sql += " AND o.numero_operacion ILIKE @numOp";
-                if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos") sql += " AND opa.pais_destino = @pais";
+                if (!string.IsNullOrEmpty(FiltroPaisDestino)) sql += " AND opa.pais_destino ILIKE @pais";
                 if (!string.IsNullOrEmpty(FiltroEstado) && FiltroEstado != "Todos") sql += " AND opa.estado_envio = @estado";
                 if (idComercio.HasValue) sql += " AND l.id_comercio = @idComercio";
                 if (idLocal.HasValue) sql += " AND o.id_local = @idLocal";
 
-                sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
+                // Ordenamiento dinámico
+                var ordenDir = OrdenAscendente ? "ASC" : "DESC";
+                sql += $" ORDER BY o.fecha_operacion {ordenDir}, o.hora_operacion {ordenDir} LIMIT 500";
 
                 await using var cmd = new NpgsqlCommand(sql, conn);
 
                 if (fechaDesde.HasValue) cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
                 if (fechaHasta.HasValue) cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
                 if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion)) cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
-                if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos") cmd.Parameters.AddWithValue("pais", FiltroPaisDestino);
+                if (!string.IsNullOrEmpty(FiltroPaisDestino)) cmd.Parameters.AddWithValue("pais", $"%{FiltroPaisDestino}%");
                 if (!string.IsNullOrEmpty(FiltroEstado) && FiltroEstado != "Todos") cmd.Parameters.AddWithValue("estado", FiltroEstado);
                 if (idComercio.HasValue) cmd.Parameters.AddWithValue("idComercio", idComercio.Value);
                 if (idLocal.HasValue) cmd.Parameters.AddWithValue("idLocal", idLocal.Value);
@@ -1332,7 +1633,7 @@ namespace Allva.Desktop.ViewModels.Admin
         public string BackgroundColor { get; set; } = "White";
     }
 
-    public class LocalBalanceItem
+    public partial class LocalBalanceItem : ObservableObject
     {
         public int IdLocal { get; set; }
         public int IdComercio { get; set; }
@@ -1344,7 +1645,18 @@ namespace Allva.Desktop.ViewModels.Admin
         public decimal BeneficioAcumulado { get; set; }
         public string BeneficioTexto { get; set; } = "0.00 EUR";
         public bool TieneBeneficio => BeneficioAcumulado > 0;
-        public string BackgroundColor { get; set; } = "White";
+
+        [ObservableProperty]
+        private bool _estaSeleccionado = false;
+
+        public string BackgroundColor => EstaSeleccionado ? "#E3F2FD" : "White";
+        public string BorderColor => EstaSeleccionado ? "#0b5394" : "#E0E0E0";
+
+        partial void OnEstaSeleccionadoChanged(bool value)
+        {
+            OnPropertyChanged(nameof(BackgroundColor));
+            OnPropertyChanged(nameof(BorderColor));
+        }
     }
 
     public class OperacionParaPago
@@ -1384,7 +1696,17 @@ namespace Allva.Desktop.ViewModels.Admin
         public string ImporteTexto { get; set; } = "0.00 EUR";
         public string Estado { get; set; } = "";
         public string EstadoColor { get; set; } = "#ffc107";
-        public bool PuedeAnular => Estado == "PAGADO";
+        public bool PuedeAnular => Estado == "PAGADO" || EsDeposito;
         public string BackgroundColor { get; set; } = "White";
+
+        // Campos para diferenciar operaciones de depósitos
+        public bool EsDeposito { get; set; } = false;
+        public string TipoIcono => EsDeposito ? "💰" : "📦";
+        public string Descripcion { get; set; } = "";
+        public int CantidadOperacionesPagadas { get; set; }
+        public string NumerosOperacionesPagadas { get; set; } = "";
+
+        // Color del importe: morado para depósitos, verde para operaciones
+        public string ImporteColor => EsDeposito ? "#6f42c1" : "#28a745";
     }
 }

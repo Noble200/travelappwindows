@@ -18,8 +18,12 @@ namespace Allva.Desktop.Models
 
         // Propiedades de visualizacion
         public bool TieneBandera => BanderaImagen != null && BanderaImagen.Length > 0;
-        public string NombreConCodigo => !string.IsNullOrEmpty(CodigoIso) 
-            ? $"{NombrePais} ({CodigoIso})" 
+        public string NombreConCodigo => !string.IsNullOrEmpty(CodigoIso)
+            ? $"{NombrePais} ({CodigoIso})"
             : NombrePais;
+
+        // Cantidad de packs en este pais
+        public int CantidadPacks { get; set; }
+        public string TextoCantidadPacks => CantidadPacks == 1 ? "1 pack" : $"{CantidadPacks} packs";
     }
 }

@@ -45,9 +45,20 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     
     [ObservableProperty]
     private string operacionDesde = "";
-    
+
     [ObservableProperty]
     private string operacionHasta = "";
+
+    [ObservableProperty]
+    private string tipoOperacionFiltro = "Todas";
+
+    public ObservableCollection<string> TiposOperacion { get; } = new()
+    {
+        "Todas",
+        "Cambio divisa",
+        "Traspaso a caja",
+        "Deposito en banco"
+    };
     
     [ObservableProperty]
     private string fechaActualTexto = "";
@@ -122,7 +133,23 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     
     [ObservableProperty]
     private string filtroNumeroOperacionAlimentos = "";
-    
+
+    // Propiedad para autocompletado de país destino
+    [ObservableProperty]
+    private string textoBusquedaPaisDestino = "";
+
+    [ObservableProperty]
+    private bool mostrarListaPaises = false;
+
+    public ObservableCollection<string> PaisesFiltrados { get; } = new();
+
+    // Propiedad para ordenamiento
+    [ObservableProperty]
+    private bool ordenAscendente = false; // false = más reciente primero (DESC), true = más viejo primero (ASC)
+
+    public string IconoOrden => OrdenAscendente ? "▲" : "▼";
+    public string TooltipOrden => OrdenAscendente ? "Más viejo primero (click para cambiar)" : "Más reciente primero (click para cambiar)";
+
     [ObservableProperty]
     private int totalPendientes = 0;
     
@@ -137,6 +164,16 @@ public partial class BalancedeCuentasViewModel : ObservableObject
 
     [ObservableProperty]
     private string totalImporteAlimentosColor = "#28a745";
+
+    // Saldo a favor (beneficio_acumulado)
+    [ObservableProperty]
+    private decimal saldoAFavor = 0;
+
+    [ObservableProperty]
+    private string saldoAFavorTexto = "0.00 EUR";
+
+    [ObservableProperty]
+    private bool tieneSaldoAFavor = false;
 
     public ObservableCollection<OperacionItem> Operaciones { get; } = new();
     public ObservableCollection<OperacionPackAlimentoBalanceItem> OperacionesAlimentos { get; } = new();
@@ -296,15 +333,68 @@ public partial class BalancedeCuentasViewModel : ObservableObject
     }
     
     [RelayCommand]
-    private void LimpiarFiltros()
+    private async Task LimpiarFiltrosAsync()
     {
         var hoy = ObtenerHoraEspana();
         FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
         FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
         OperacionDesde = "";
         OperacionHasta = "";
+        TipoOperacionFiltro = "Todas";
         FiltroPaisDestino = "Todos";
+        TextoBusquedaPaisDestino = "";
+        MostrarListaPaises = false;
         FiltroNumeroOperacionAlimentos = "";
+
+        // Ejecutar búsqueda automáticamente para mostrar todos los resultados
+        await CargarDatosAsync();
+    }
+
+    [RelayCommand]
+    private async Task CambiarOrdenAsync()
+    {
+        OrdenAscendente = !OrdenAscendente;
+        OnPropertyChanged(nameof(IconoOrden));
+        OnPropertyChanged(nameof(TooltipOrden));
+        await CargarDatosAsync();
+    }
+
+    partial void OnTextoBusquedaPaisDestinoChanged(string value)
+    {
+        FiltrarPaises(value);
+        MostrarListaPaises = PaisesFiltrados.Count > 0;
+    }
+
+    private void FiltrarPaises(string texto)
+    {
+        PaisesFiltrados.Clear();
+
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            // No mostrar lista cuando el campo está vacío
+            return;
+        }
+
+        var filtrados = PaisesDestinoDisponibles
+            .Where(p => p.Contains(texto, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var pais in filtrados)
+        {
+            PaisesFiltrados.Add(pais);
+        }
+    }
+
+    [RelayCommand]
+    private void SeleccionarPaisDestino(string pais)
+    {
+        if (!string.IsNullOrEmpty(pais))
+        {
+            FiltroPaisDestino = pais;
+            TextoBusquedaPaisDestino = pais == "Todos" ? "" : pais;
+            MostrarListaPaises = false;
+            PaisesFiltrados.Clear();
+        }
     }
     
     // ============================================
@@ -317,25 +407,28 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         {
             PaisesDestinoDisponibles.Clear();
             PaisesDestinoDisponibles.Add("Todos");
-            
+
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
-            
+
             var sql = @"SELECT DISTINCT opa.pais_destino
                         FROM operaciones o
                         INNER JOIN operaciones_pack_alimentos opa ON o.id_operacion = opa.id_operacion
                         WHERE o.id_local = @idLocal AND o.modulo = 'PACK_ALIMENTOS'
                         AND opa.pais_destino IS NOT NULL AND opa.pais_destino != ''
                         ORDER BY opa.pais_destino";
-            
+
             await using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("idLocal", _idLocal);
-            
+
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 PaisesDestinoDisponibles.Add(reader.GetString(0));
             }
+
+            // Inicializar países filtrados
+            FiltrarPaises(TextoBusquedaPaisDestino);
         }
         catch (Exception ex)
         {
@@ -391,7 +484,7 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 LEFT JOIN clientes c ON o.id_cliente = c.id_cliente
                 LEFT JOIN usuarios u ON o.id_usuario = u.id_usuario
                 WHERE {whereClause}
-                ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC
+                ORDER BY o.fecha_operacion {(OrdenAscendente ? "ASC" : "DESC")}, o.hora_operacion {(OrdenAscendente ? "ASC" : "DESC")}
                 LIMIT 500";
             
             await using var cmd = new NpgsqlCommand(query, conn);
@@ -498,9 +591,19 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             TotalEnviados = enviados;
             TotalAnulados = anulados;
 
-            // El balance es: -totalPendiente (pendientes son deuda)
-            // Si no hay pendientes = 0, si hay pendientes = negativo
-            var balance = -totalPendiente;
+            // Consultar saldo a favor del local
+            var sqlSaldo = "SELECT COALESCE(beneficio_acumulado, 0) FROM locales WHERE id_local = @idLocal";
+            await using var cmdSaldo = new NpgsqlCommand(sqlSaldo, conn);
+            cmdSaldo.Parameters.AddWithValue("idLocal", _idLocal);
+            var saldoResult = await cmdSaldo.ExecuteScalarAsync();
+            SaldoAFavor = saldoResult != null && saldoResult != DBNull.Value ? Convert.ToDecimal(saldoResult) : 0;
+            SaldoAFavorTexto = $"{SaldoAFavor:N2} EUR";
+            TieneSaldoAFavor = SaldoAFavor > 0;
+
+            // El balance es: saldoAFavor - totalPendiente
+            // Si hay más pendientes que saldo a favor = negativo (debe)
+            // Si hay más saldo a favor que pendientes = positivo (a favor)
+            var balance = SaldoAFavor - totalPendiente;
 
             if (balance < 0)
             {
@@ -510,7 +613,7 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             else if (balance > 0)
             {
                 TotalImporteAlimentos = $"+{balance:N2}";
-                TotalImporteAlimentosColor = "#28a745"; // Verde para positivo (beneficio)
+                TotalImporteAlimentosColor = "#28a745"; // Verde para positivo (a favor)
             }
             else
             {
@@ -721,8 +824,9 @@ public partial class BalancedeCuentasViewModel : ObservableObject
                 });
             }
             
-            var pdfBytes = HistorialPdfService.GenerarPdf(datosReporte);
-            
+            // Generar PDF en hilo separado para no bloquear la UI
+            var pdfBytes = await Task.Run(() => HistorialPdfService.GenerarPdf(datosReporte));
+
             await using var stream = await archivo.OpenWriteAsync();
             await stream.WriteAsync(pdfBytes);
             
@@ -1067,57 +1171,174 @@ public partial class BalancedeCuentasViewModel : ObservableObject
         {
             IsLoading = true;
             Operaciones.Clear();
-            
+
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
-            
+
             var fechaDesde = ParsearFecha(FechaDesdeTexto);
             var fechaHasta = ParsearFecha(FechaHastaTexto);
-            
-            DateTime? fechaHoraMinOp = null;
-            DateTime? fechaHoraMaxOp = null;
-            
-            if (!string.IsNullOrWhiteSpace(OperacionDesde) || !string.IsNullOrWhiteSpace(OperacionHasta))
+
+            // Construir query unificada con UNION ALL similar a pack alimentos
+            var queries = new System.Collections.Generic.List<string>();
+
+            // Query para compras de divisa
+            if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Cambio divisa")
             {
-                var sqlRango = @"SELECT 
-                                    MIN(fecha_operacion + hora_operacion) as fecha_min,
-                                    MAX(fecha_operacion + hora_operacion) as fecha_max
-                                FROM operaciones
-                                WHERE id_local = @idLocal AND modulo = 'DIVISAS'";
-                
+                var sqlCompras = @"SELECT
+                    o.fecha_operacion as fecha,
+                    o.hora_operacion as hora,
+                    o.numero_operacion,
+                    'COMPRA' as tipo_operacion,
+                    od.divisa_origen as divisa,
+                    od.cantidad_origen as cantidad_divisa,
+                    od.cantidad_destino as cantidad_euros,
+                    '' as descripcion_extra
+                FROM operaciones o
+                INNER JOIN operaciones_divisas od ON o.id_operacion = od.id_operacion
+                WHERE o.id_local = @idLocal AND o.modulo = 'DIVISAS'";
+
+                if (fechaDesde.HasValue)
+                    sqlCompras += " AND o.fecha_operacion >= @fechaDesde";
+                if (fechaHasta.HasValue)
+                    sqlCompras += " AND o.fecha_operacion <= @fechaHasta";
                 if (!string.IsNullOrWhiteSpace(OperacionDesde))
-                    sqlRango += " AND numero_operacion >= @opDesde";
+                    sqlCompras += " AND o.numero_operacion >= @opDesde";
                 if (!string.IsNullOrWhiteSpace(OperacionHasta))
-                    sqlRango += " AND numero_operacion <= @opHasta";
-                
-                await using var cmdRango = new NpgsqlCommand(sqlRango, conn);
-                cmdRango.Parameters.AddWithValue("idLocal", _idLocal);
-                if (!string.IsNullOrWhiteSpace(OperacionDesde))
-                    cmdRango.Parameters.AddWithValue("opDesde", OperacionDesde);
-                if (!string.IsNullOrWhiteSpace(OperacionHasta))
-                    cmdRango.Parameters.AddWithValue("opHasta", OperacionHasta);
-                
-                await using var readerRango = await cmdRango.ExecuteReaderAsync();
-                if (await readerRango.ReadAsync())
-                {
-                    if (!readerRango.IsDBNull(0))
-                        fechaHoraMinOp = readerRango.GetDateTime(0);
-                    if (!readerRango.IsDBNull(1))
-                        fechaHoraMaxOp = readerRango.GetDateTime(1);
-                }
+                    sqlCompras += " AND o.numero_operacion <= @opHasta";
+
+                queries.Add($"({sqlCompras})");
             }
-            
-            await CargarComprasAsync(conn, fechaDesde, fechaHasta);
-            await CargarDepositosAsync(conn, fechaDesde, fechaHasta, fechaHoraMinOp, fechaHoraMaxOp);
-            await CargarTraspasosAsync(conn, fechaDesde, fechaHasta, fechaHoraMinOp, fechaHoraMaxOp);
-            
-            var operacionesOrdenadas = Operaciones.OrderByDescending(o => o.FechaHoraOrden).ToList();
-            Operaciones.Clear();
-            
-            for (int i = 0; i < operacionesOrdenadas.Count; i++)
+
+            // Query para depositos en banco
+            if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Deposito en banco")
             {
-                operacionesOrdenadas[i].BackgroundColor = i % 2 == 0 ? "White" : "#F5F5F5";
-                Operaciones.Add(operacionesOrdenadas[i]);
+                var sqlDepositos = @"SELECT
+                    fecha_movimiento::date as fecha,
+                    fecha_movimiento::time as hora,
+                    '' as numero_operacion,
+                    'DEPOSITO' as tipo_operacion,
+                    divisa,
+                    0 as cantidad_divisa,
+                    monto as cantidad_euros,
+                    descripcion as descripcion_extra
+                FROM balance_cuentas
+                WHERE id_local = @idLocal AND tipo_movimiento = 'DEPOSITO' AND modulo = 'DIVISAS'";
+
+                if (fechaDesde.HasValue)
+                    sqlDepositos += " AND fecha_movimiento >= @fechaDesde";
+                if (fechaHasta.HasValue)
+                    sqlDepositos += " AND fecha_movimiento <= @fechaHasta + interval '1 day'";
+
+                queries.Add($"({sqlDepositos})");
+            }
+
+            // Query para traspasos a caja
+            if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Traspaso a caja")
+            {
+                var sqlTraspasos = @"SELECT
+                    fecha_movimiento::date as fecha,
+                    fecha_movimiento::time as hora,
+                    '' as numero_operacion,
+                    'TRASPASO' as tipo_operacion,
+                    'EUR' as divisa,
+                    0 as cantidad_divisa,
+                    monto as cantidad_euros,
+                    '' as descripcion_extra
+                FROM balance_cuentas
+                WHERE id_local = @idLocal AND tipo_movimiento = 'TRASPASO' AND modulo = 'DIVISAS'";
+
+                if (fechaDesde.HasValue)
+                    sqlTraspasos += " AND fecha_movimiento >= @fechaDesde";
+                if (fechaHasta.HasValue)
+                    sqlTraspasos += " AND fecha_movimiento <= @fechaHasta + interval '1 day'";
+
+                queries.Add($"({sqlTraspasos})");
+            }
+
+            if (queries.Count == 0)
+            {
+                IsLoading = false;
+                return;
+            }
+
+            var ordenamiento = OrdenAscendente ? "ASC" : "DESC";
+            var sqlFinal = string.Join(" UNION ALL ", queries) + $" ORDER BY fecha {ordenamiento}, hora {ordenamiento} LIMIT 500";
+
+            await using var cmd = new NpgsqlCommand(sqlFinal, conn);
+            cmd.Parameters.AddWithValue("idLocal", _idLocal);
+
+            if (fechaDesde.HasValue)
+                cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
+            if (fechaHasta.HasValue)
+                cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date);
+            if (!string.IsNullOrWhiteSpace(OperacionDesde))
+                cmd.Parameters.AddWithValue("opDesde", OperacionDesde);
+            if (!string.IsNullOrWhiteSpace(OperacionHasta))
+                cmd.Parameters.AddWithValue("opHasta", OperacionHasta);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            int index = 0;
+            while (await reader.ReadAsync())
+            {
+                var fecha = reader.IsDBNull(0) ? DateTime.Today : reader.GetDateTime(0);
+                var hora = reader.IsDBNull(1) ? TimeSpan.Zero : reader.GetTimeSpan(1);
+                var numeroOp = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                var tipoOp = reader.GetString(3);
+                var divisa = reader.IsDBNull(4) ? "" : reader.GetString(4);
+                var cantidadDivisa = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5);
+                var cantidadEuros = reader.IsDBNull(6) ? 0m : reader.GetDecimal(6);
+                var descripcionExtra = reader.IsDBNull(7) ? "" : reader.GetString(7);
+
+                var item = new OperacionItem
+                {
+                    Fecha = fecha.ToString("dd/MM/yy"),
+                    Hora = hora.ToString(@"hh\:mm"),
+                    NumeroOperacion = numeroOp,
+                    FechaHoraOrden = fecha.Date.Add(hora),
+                    BackgroundColor = index % 2 == 0 ? "White" : "#F5F5F5"
+                };
+
+                switch (tipoOp)
+                {
+                    case "COMPRA":
+                        item.Descripcion = $"Compra {divisa}";
+                        item.CantidadDivisa = $"{cantidadDivisa:N2}";
+                        item.SalidaEuros = $"-{cantidadEuros:N2}";
+                        item.SalidaEurosColor = "#CC3333";
+                        item.EntradaEuros = "";
+                        item.EsClickeable = true;
+                        item.TextoSubrayado = TextDecorationCollection.Parse("Underline");
+                        break;
+                    case "DEPOSITO":
+                        item.Descripcion = "Dto Banco";
+                        var cantidadDivisaTexto = "";
+                        if (!string.IsNullOrEmpty(descripcionExtra) && descripcionExtra.Contains(":"))
+                        {
+                            var partes = descripcionExtra.Split(':');
+                            if (partes.Length > 1)
+                                cantidadDivisaTexto = partes[1].Trim();
+                        }
+                        item.CantidadDivisa = cantidadDivisaTexto;
+                        item.SalidaEuros = "";
+                        item.SalidaEurosColor = "#666666";
+                        item.EntradaEuros = $"+{cantidadEuros:N2}";
+                        item.EsClickeable = false;
+                        item.TextoSubrayado = null;
+                        break;
+                    case "TRASPASO":
+                        item.Descripcion = "Traspaso";
+                        item.CantidadDivisa = "";
+                        item.SalidaEuros = $"{cantidadEuros:N2}";
+                        item.SalidaEurosColor = "#666666";
+                        item.EntradaEuros = "";
+                        item.EsClickeable = false;
+                        item.TextoSubrayado = null;
+                        break;
+                }
+
+                Operaciones.Add(item);
+                index++;
             }
         }
         catch (Exception ex)
@@ -1129,210 +1350,7 @@ public partial class BalancedeCuentasViewModel : ObservableObject
             IsLoading = false;
         }
     }
-    
-    private async Task CargarComprasAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta)
-    {
-        var sql = @"SELECT 
-                        o.fecha_operacion,
-                        o.hora_operacion,
-                        o.numero_operacion,
-                        od.divisa_origen,
-                        od.cantidad_origen,
-                        od.cantidad_destino
-                    FROM operaciones o
-                    INNER JOIN operaciones_divisas od ON o.id_operacion = od.id_operacion
-                    WHERE o.id_local = @idLocal
-                      AND o.modulo = 'DIVISAS'";
-        
-        if (fechaDesde.HasValue)
-            sql += " AND o.fecha_operacion >= @fechaDesde";
-        if (fechaHasta.HasValue)
-            sql += " AND o.fecha_operacion <= @fechaHasta";
-        
-        if (!string.IsNullOrWhiteSpace(OperacionDesde))
-            sql += " AND o.numero_operacion >= @opDesde";
-        if (!string.IsNullOrWhiteSpace(OperacionHasta))
-            sql += " AND o.numero_operacion <= @opHasta";
-        
-        sql += " LIMIT 100";
-        
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("idLocal", _idLocal);
-        
-        if (fechaDesde.HasValue)
-            cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
-        if (fechaHasta.HasValue)
-            cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
-        if (!string.IsNullOrWhiteSpace(OperacionDesde))
-            cmd.Parameters.AddWithValue("opDesde", OperacionDesde);
-        if (!string.IsNullOrWhiteSpace(OperacionHasta))
-            cmd.Parameters.AddWithValue("opHasta", OperacionHasta);
-        
-        await using var reader = await cmd.ExecuteReaderAsync();
-        
-        while (await reader.ReadAsync())
-        {
-            var fechaDb = reader.GetDateTime(0);
-            var hora = reader.IsDBNull(1) ? TimeSpan.Zero : reader.GetTimeSpan(1);
-            var numeroOp = reader.IsDBNull(2) ? "" : reader.GetString(2);
-            var divisaOrigen = reader.GetString(3);
-            var cantidadOrigen = reader.GetDecimal(4);
-            var cantidadDestino = reader.GetDecimal(5);
-            
-            Operaciones.Add(new OperacionItem
-            {
-                Fecha = fechaDb.ToString("dd/MM/yy"),
-                Hora = hora.ToString(@"hh\:mm"),
-                NumeroOperacion = numeroOp,
-                Descripcion = $"Compra {divisaOrigen}",
-                CantidadDivisa = $"{cantidadOrigen:N2}",
-                SalidaEuros = $"-{cantidadDestino:N2}",
-                SalidaEurosColor = "#CC3333",
-                EntradaEuros = "",
-                FechaHoraOrden = fechaDb.Date.Add(hora),
-                EsClickeable = true,
-                TextoSubrayado = TextDecorationCollection.Parse("Underline")
-            });
-        }
-    }
-    
-    private async Task CargarDepositosAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta, DateTime? fechaHoraMinOp = null, DateTime? fechaHoraMaxOp = null)
-    {
-        var sql = @"SELECT 
-                        fecha_movimiento,
-                        monto,
-                        descripcion,
-                        divisa
-                    FROM balance_cuentas
-                    WHERE id_local = @idLocal 
-                    AND tipo_movimiento = 'DEPOSITO'
-                    AND modulo = 'DIVISAS'";
-        
-        if (fechaHoraMinOp.HasValue && fechaHoraMaxOp.HasValue)
-        {
-            sql += " AND fecha_movimiento >= @fechaHoraMin AND fecha_movimiento <= @fechaHoraMax";
-        }
-        else
-        {
-            if (fechaDesde.HasValue)
-                sql += " AND fecha_movimiento >= @fechaDesde";
-            if (fechaHasta.HasValue)
-                sql += " AND fecha_movimiento <= @fechaHasta";
-        }
-        
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("idLocal", _idLocal);
-        
-        if (fechaHoraMinOp.HasValue && fechaHoraMaxOp.HasValue)
-        {
-            cmd.Parameters.AddWithValue("fechaHoraMin", fechaHoraMinOp.Value);
-            cmd.Parameters.AddWithValue("fechaHoraMax", fechaHoraMaxOp.Value);
-        }
-        else
-        {
-            if (fechaDesde.HasValue)
-                cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
-            if (fechaHasta.HasValue)
-                cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1));
-        }
-        
-        await using var reader = await cmd.ExecuteReaderAsync();
-        
-        while (await reader.ReadAsync())
-        {
-            var fecha = reader.GetDateTime(0);
-            var monto = reader.GetDecimal(1);
-            var descripcion = reader.IsDBNull(2) ? "Dto Banco" : reader.GetString(2);
-            
-            var cantidadDivisaTexto = "";
-            if (descripcion.Contains(":"))
-            {
-                var partes = descripcion.Split(':');
-                if (partes.Length > 1)
-                {
-                    cantidadDivisaTexto = partes[1].Trim();
-                }
-            }
-            
-            Operaciones.Add(new OperacionItem
-            {
-                Fecha = fecha.ToString("dd/MM/yy"),
-                Hora = fecha.ToString("HH:mm"),
-                NumeroOperacion = "",
-                Descripcion = "Dto Banco",
-                CantidadDivisa = cantidadDivisaTexto,
-                SalidaEuros = "",
-                SalidaEurosColor = "#666666",
-                EntradaEuros = $"+{monto:N2}",
-                FechaHoraOrden = fecha,
-                EsClickeable = false,
-                TextoSubrayado = null
-            });
-        }
-    }
-    
-    private async Task CargarTraspasosAsync(NpgsqlConnection conn, DateTime? fechaDesde, DateTime? fechaHasta, DateTime? fechaHoraMinOp = null, DateTime? fechaHoraMaxOp = null)
-    {
-        var sql = @"SELECT 
-                        fecha_movimiento,
-                        monto
-                    FROM balance_cuentas
-                    WHERE id_local = @idLocal 
-                    AND tipo_movimiento = 'TRASPASO'
-                    AND modulo = 'DIVISAS'";
-        
-        if (fechaHoraMinOp.HasValue && fechaHoraMaxOp.HasValue)
-        {
-            sql += " AND fecha_movimiento >= @fechaHoraMin AND fecha_movimiento <= @fechaHoraMax";
-        }
-        else
-        {
-            if (fechaDesde.HasValue)
-                sql += " AND fecha_movimiento >= @fechaDesde";
-            if (fechaHasta.HasValue)
-                sql += " AND fecha_movimiento <= @fechaHasta";
-        }
-        
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("idLocal", _idLocal);
-        
-        if (fechaHoraMinOp.HasValue && fechaHoraMaxOp.HasValue)
-        {
-            cmd.Parameters.AddWithValue("fechaHoraMin", fechaHoraMinOp.Value);
-            cmd.Parameters.AddWithValue("fechaHoraMax", fechaHoraMaxOp.Value);
-        }
-        else
-        {
-            if (fechaDesde.HasValue)
-                cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
-            if (fechaHasta.HasValue)
-                cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1));
-        }
-        
-        await using var reader = await cmd.ExecuteReaderAsync();
-        
-        while (await reader.ReadAsync())
-        {
-            var fecha = reader.GetDateTime(0);
-            var monto = reader.GetDecimal(1);
-            
-            Operaciones.Add(new OperacionItem
-            {
-                Fecha = fecha.ToString("dd/MM/yy"),
-                Hora = fecha.ToString("HH:mm"),
-                NumeroOperacion = "",
-                Descripcion = "Traspaso",
-                CantidadDivisa = "",
-                SalidaEuros = $"{monto:N2}",
-                SalidaEurosColor = "#666666",
-                EntradaEuros = "",
-                FechaHoraOrden = fecha,
-                EsClickeable = false,
-                TextoSubrayado = null
-            });
-        }
-    }
-    
+
     private async Task CargarDivisasDelLocalAsync()
     {
         try

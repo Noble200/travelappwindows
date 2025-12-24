@@ -115,9 +115,21 @@ public partial class DetalleOperacionDivisaViewModel : ObservableObject
             
             await using var conn = new NpgsqlConnection(ConnectionString);
             await conn.OpenAsync();
-            
+
+            // Obtener id_local a partir del codigo_local
+            int? idLocal = null;
+            if (!string.IsNullOrEmpty(_codigoLocal))
+            {
+                var sqlLocal = "SELECT id_local FROM locales WHERE codigo_local = @codigo";
+                await using var cmdLocal = new NpgsqlCommand(sqlLocal, conn);
+                cmdLocal.Parameters.AddWithValue("codigo", _codigoLocal);
+                var result = await cmdLocal.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                    idLocal = Convert.ToInt32(result);
+            }
+
             // Primero buscar la operacion basica
-            var sqlOperacion = @"SELECT 
+            var sqlOperacion = @"SELECT
                                     o.id_operacion,
                                     o.numero_operacion,
                                     o.fecha_operacion,
@@ -126,14 +138,19 @@ public partial class DetalleOperacionDivisaViewModel : ObservableObject
                                     o.id_cliente
                                 FROM operaciones o
                                 WHERE o.numero_operacion = @numOp";
-            
+
+            if (idLocal.HasValue)
+                sqlOperacion += " AND o.id_local = @idLocal";
+
             int idOperacion = 0;
             int? idUsuario = null;
             int? idCliente = null;
-            
+
             await using (var cmdOp = new NpgsqlCommand(sqlOperacion, conn))
             {
                 cmdOp.Parameters.AddWithValue("numOp", _numeroOperacion);
+                if (idLocal.HasValue)
+                    cmdOp.Parameters.AddWithValue("idLocal", idLocal.Value);
                 await using var readerOp = await cmdOp.ExecuteReaderAsync();
                 
                 if (await readerOp.ReadAsync())
@@ -196,8 +213,8 @@ public partial class DetalleOperacionDivisaViewModel : ObservableObject
             // Buscar datos del cliente
             if (idCliente.HasValue)
             {
-                var sqlCliente = @"SELECT nombre, segundo_nombre, apellidos, segundo_apellido, 
-                                          tipo_documento, numero_documento, telefono, direccion, nacionalidad 
+                var sqlCliente = @"SELECT nombre, segundo_nombre, apellidos, segundo_apellido,
+                                          documento_tipo, documento_numero, telefono, direccion, nacionalidad
                                    FROM clientes WHERE id_cliente = @id";
                 await using var cmdCli = new NpgsqlCommand(sqlCliente, conn);
                 cmdCli.Parameters.AddWithValue("id", idCliente.Value);
@@ -226,7 +243,7 @@ public partial class DetalleOperacionDivisaViewModel : ObservableObject
                 ClienteNombre = "Cliente no disponible";
             
             // Buscar datos de la divisa
-            var sqlDivisa = @"SELECT divisa_origen, cantidad_origen, cantidad_destino, tasa_cambio_aplicada 
+            var sqlDivisa = @"SELECT divisa_origen, cantidad_origen, cantidad_destino, tipo_cambio_aplicado
                               FROM operaciones_divisas WHERE id_operacion = @id";
             await using var cmdDiv = new NpgsqlCommand(sqlDivisa, conn);
             cmdDiv.Parameters.AddWithValue("id", idOperacion);
@@ -354,10 +371,10 @@ public partial class DetalleOperacionDivisaViewModel : ObservableObject
             });
             
             if (archivo == null) return;
-            
-            // Generar PDF
+
+            // Generar PDF en hilo separado para no bloquear la UI
             var pdfService = new ReciboDivisasPdfService();
-            var pdfBytes = pdfService.GenerarReciboPdfBytes(
+            var pdfBytes = await Task.Run(() => pdfService.GenerarReciboPdfBytes(
                 numeroOperacion: NumeroOperacionDisplay,
                 fechaOperacion: _fechaHoraOperacion,
                 cliente: _clienteRecibo,
@@ -368,8 +385,8 @@ public partial class DetalleOperacionDivisaViewModel : ObservableObject
                 totalEntregado: _totalEntregado,
                 codigoLocal: _codigoLocal,
                 esReimpresion: true
-            );
-            
+            ));
+
             // Guardar
             await using var stream = await archivo.OpenWriteAsync();
             await stream.WriteAsync(pdfBytes);

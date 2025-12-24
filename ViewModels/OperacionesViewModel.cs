@@ -52,13 +52,29 @@ public partial class OperacionesViewModel : ObservableObject
     [ObservableProperty]
     private string tipoOperacionFiltro = "Todas";
 
-    public ObservableCollection<string> TiposOperacion { get; } = new() 
-    { 
-        "Todas", 
-        "Cambio divisa", 
-        "Traspaso a caja", 
-        "Deposito en banco" 
+    public ObservableCollection<string> TiposOperacion { get; } = new()
+    {
+        "Todas",
+        "Cambio divisa",
+        "Traspaso a caja",
+        "Deposito en banco"
     };
+
+    // ============================================
+    // FILTRO DIVISA (autocompletado)
+    // ============================================
+
+    [ObservableProperty]
+    private string filtroDivisa = "Todas";
+
+    [ObservableProperty]
+    private string textoBusquedaDivisa = "";
+
+    [ObservableProperty]
+    private bool mostrarListaDivisas = false;
+
+    public ObservableCollection<string> DivisasFiltradas { get; } = new();
+    public ObservableCollection<string> DivisasDisponibles { get; } = new() { "Todas" };
 
     // ============================================
     // FILTROS PACK ALIMENTOS
@@ -72,6 +88,22 @@ public partial class OperacionesViewModel : ObservableObject
 
     [ObservableProperty]
     private string filtroEstadoOperacion = "Todos";
+
+    // Propiedad para autocompletado de país destino
+    [ObservableProperty]
+    private string textoBusquedaPaisDestino = "";
+
+    [ObservableProperty]
+    private bool mostrarListaPaises = false;
+
+    public ObservableCollection<string> PaisesFiltrados { get; } = new();
+
+    // Propiedad para ordenamiento
+    [ObservableProperty]
+    private bool ordenAscendente = false; // false = más reciente primero (DESC), true = más viejo primero (ASC)
+
+    public string IconoOrden => OrdenAscendente ? "▲" : "▼";
+    public string TooltipOrden => OrdenAscendente ? "Más viejo primero (click para cambiar)" : "Más reciente primero (click para cambiar)";
 
     public ObservableCollection<string> PaisesDestinoDisponibles { get; } = new() { "Todos" };
 
@@ -264,6 +296,10 @@ public partial class OperacionesViewModel : ObservableObject
         {
             _ = CargarPaisesDestinoAsync();
         }
+        else if (panel == "divisa")
+        {
+            _ = CargarDivisasDisponiblesAsync();
+        }
 
         _ = CargarOperacionesAsync();
     }
@@ -276,7 +312,7 @@ public partial class OperacionesViewModel : ObservableObject
     }
     
     [RelayCommand]
-    private void LimpiarFiltros()
+    private async Task LimpiarFiltrosAsync()
     {
         var hoy = ObtenerHoraEspana();
         FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
@@ -284,11 +320,147 @@ public partial class OperacionesViewModel : ObservableObject
         OperacionDesde = "";
         OperacionHasta = "";
         TipoOperacionFiltro = "Todas";
+        // Filtro divisa
+        FiltroDivisa = "Todas";
+        TextoBusquedaDivisa = "";
+        MostrarListaDivisas = false;
+        // Filtros pack alimentos
         FiltroPaisDestino = "Todos";
+        TextoBusquedaPaisDestino = "";
+        MostrarListaPaises = false;
         FiltroNumeroOperacionAlimentos = "";
         FiltroEstadoOperacion = "Todos";
+
+        // Ejecutar búsqueda automáticamente para mostrar todos los resultados
+        await CargarOperacionesAsync();
+        ActualizarResumen();
     }
-    
+
+    [RelayCommand]
+    private async Task CambiarOrdenAsync()
+    {
+        OrdenAscendente = !OrdenAscendente;
+        OnPropertyChanged(nameof(IconoOrden));
+        OnPropertyChanged(nameof(TooltipOrden));
+        await CargarOperacionesAsync();
+    }
+
+    partial void OnTextoBusquedaPaisDestinoChanged(string value)
+    {
+        FiltrarPaises(value);
+        MostrarListaPaises = PaisesFiltrados.Count > 0;
+    }
+
+    private void FiltrarPaises(string texto)
+    {
+        PaisesFiltrados.Clear();
+
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            // No mostrar lista cuando el campo está vacío
+            return;
+        }
+
+        var filtrados = PaisesDestinoDisponibles
+            .Where(p => p.Contains(texto, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var pais in filtrados)
+        {
+            PaisesFiltrados.Add(pais);
+        }
+    }
+
+    [RelayCommand]
+    private void SeleccionarPaisDestino(string pais)
+    {
+        if (!string.IsNullOrEmpty(pais))
+        {
+            FiltroPaisDestino = pais;
+            TextoBusquedaPaisDestino = pais == "Todos" ? "" : pais;
+            MostrarListaPaises = false;
+            PaisesFiltrados.Clear();
+        }
+    }
+
+    // ============================================
+    // AUTOCOMPLETADO DIVISA
+    // ============================================
+
+    partial void OnTextoBusquedaDivisaChanged(string value)
+    {
+        FiltrarDivisas(value);
+        MostrarListaDivisas = DivisasFiltradas.Count > 0;
+    }
+
+    private void FiltrarDivisas(string texto)
+    {
+        DivisasFiltradas.Clear();
+
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return;
+        }
+
+        var filtradas = DivisasDisponibles
+            .Where(d => d.Contains(texto, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var divisa in filtradas)
+        {
+            DivisasFiltradas.Add(divisa);
+        }
+    }
+
+    [RelayCommand]
+    private void SeleccionarDivisa(string divisa)
+    {
+        if (!string.IsNullOrEmpty(divisa))
+        {
+            FiltroDivisa = divisa;
+            TextoBusquedaDivisa = divisa == "Todas" ? "" : divisa;
+            MostrarListaDivisas = false;
+            DivisasFiltradas.Clear();
+        }
+    }
+
+    private async Task CargarDivisasDisponiblesAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var query = @"
+                SELECT DISTINCT od.divisa_origen
+                FROM operaciones_divisas od
+                INNER JOIN operaciones o ON o.id_operacion = od.id_operacion
+                WHERE o.id_local = @idLocal
+                  AND od.divisa_origen IS NOT NULL
+                  AND od.divisa_origen != ''
+                ORDER BY od.divisa_origen";
+
+            await using var cmd = new NpgsqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@idLocal", _idLocal);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            DivisasDisponibles.Clear();
+            DivisasDisponibles.Add("Todas");
+
+            while (await reader.ReadAsync())
+            {
+                var divisa = reader.GetString(0);
+                if (!string.IsNullOrWhiteSpace(divisa))
+                    DivisasDisponibles.Add(divisa);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar divisas disponibles: {ex.Message}");
+        }
+    }
+
     [RelayCommand]
     private async Task ImprimirHistorialAsync()
     {
@@ -442,8 +614,9 @@ public partial class OperacionesViewModel : ObservableObject
                 });
             }
             
-            var pdfBytes = OperacionesPdfService.GenerarPdf(datosReporte);
-            
+            // Generar PDF en hilo separado para no bloquear la UI
+            var pdfBytes = await Task.Run(() => OperacionesPdfService.GenerarPdf(datosReporte));
+
             await using var stream = await archivo.OpenWriteAsync();
             await stream.WriteAsync(pdfBytes);
             
@@ -685,7 +858,10 @@ public partial class OperacionesViewModel : ObservableObject
                 if (TipoOperacionFiltro == "Todas" || TipoOperacionFiltro == "Traspaso a caja")
                     await CargarTraspasosCajaAsync(conn, fechaDesde, fechaHasta);
                 
-                var operacionesOrdenadas = Operaciones.OrderByDescending(o => o.FechaHoraOrden).ToList();
+                // Ordenar según la preferencia del usuario
+                var operacionesOrdenadas = OrdenAscendente
+                    ? Operaciones.OrderBy(o => o.FechaHoraOrden).ToList()
+                    : Operaciones.OrderByDescending(o => o.FechaHoraOrden).ToList();
                 Operaciones.Clear();
                 
                 for (int i = 0; i < operacionesOrdenadas.Count; i++)
@@ -745,6 +921,9 @@ public partial class OperacionesViewModel : ObservableObject
                 if (!string.IsNullOrWhiteSpace(pais))
                     PaisesDestinoDisponibles.Add(pais);
             }
+
+            // Inicializar países filtrados
+            FiltrarPaises(TextoBusquedaPaisDestino);
         }
         catch (Exception ex)
         {
@@ -802,7 +981,7 @@ public partial class OperacionesViewModel : ObservableObject
             LEFT JOIN clientes_beneficiarios cb ON opa.id_beneficiario = cb.id_beneficiario
             LEFT JOIN clientes c ON o.id_cliente = c.id_cliente
             WHERE {whereClause}
-            ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC
+            ORDER BY o.fecha_operacion {(OrdenAscendente ? "ASC" : "DESC")}, o.hora_operacion {(OrdenAscendente ? "ASC" : "DESC")}
             LIMIT 500";
 
         await using var cmd = new NpgsqlCommand(query, conn);
@@ -927,18 +1106,22 @@ public partial class OperacionesViewModel : ObservableObject
             sql += " AND o.numero_operacion >= @opDesde";
         if (!string.IsNullOrWhiteSpace(OperacionHasta))
             sql += " AND o.numero_operacion <= @opHasta";
-        
+        if (FiltroDivisa != "Todas" && !string.IsNullOrWhiteSpace(FiltroDivisa))
+            sql += " AND od.divisa_origen = @filtroDivisa";
+
         sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
-        
+
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("idLocal", _idLocal);
-        
+
         if (fechaDesde.HasValue)
             cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
         if (fechaHasta.HasValue)
             cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
         if (!string.IsNullOrWhiteSpace(OperacionDesde))
             cmd.Parameters.AddWithValue("opDesde", OperacionDesde);
+        if (FiltroDivisa != "Todas" && !string.IsNullOrWhiteSpace(FiltroDivisa))
+            cmd.Parameters.AddWithValue("filtroDivisa", FiltroDivisa);
         if (!string.IsNullOrWhiteSpace(OperacionHasta))
             cmd.Parameters.AddWithValue("opHasta", OperacionHasta);
         
@@ -964,9 +1147,11 @@ public partial class OperacionesViewModel : ObservableObject
             var usuarioCompleto = $"{usuarioNombre} {usuarioApellidos}".Trim();
             if (string.IsNullOrWhiteSpace(usuarioCompleto)) usuarioCompleto = "-";
 
-            var partesNombreCliente = new[] { nombreCliente, segundoNombre, apellidosCliente, segundoApellido };
-            var clienteNombre = string.Join(" ", partesNombreCliente.Where(p => !string.IsNullOrWhiteSpace(p)));
-            if (string.IsNullOrWhiteSpace(clienteNombre)) clienteNombre = "-";
+            // Cliente: primer nombre y primer apellido solamente
+            var primerNombreCliente = nombreCliente.Split(' ').FirstOrDefault() ?? "";
+            var primerApellidoCliente = apellidosCliente.Split(' ').FirstOrDefault() ?? "";
+            var clienteNombreCorto = $"{primerNombreCliente} {primerApellidoCliente}".Trim();
+            if (string.IsNullOrWhiteSpace(clienteNombreCorto)) clienteNombreCorto = "-";
             
             Operaciones.Add(new OperacionDetalleItem
             {
@@ -979,7 +1164,7 @@ public partial class OperacionesViewModel : ObservableObject
                 CantidadDivisaNum = cantidadOrigen,
                 CantidadPagada = $"{cantidadDestino:N2}",
                 CantidadPagadaNum = cantidadDestino,
-                Cliente = clienteNombre,
+                Cliente = clienteNombreCorto,
                 TipoDocumento = string.IsNullOrWhiteSpace(tipoDoc) ? "-" : tipoDoc,
                 NumeroDocumento = string.IsNullOrWhiteSpace(numDoc) ? "-" : numDoc,
                 FechaHoraOrden = fechaDb.Date.Add(hora)

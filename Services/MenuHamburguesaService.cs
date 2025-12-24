@@ -30,15 +30,26 @@ namespace Allva.Desktop.Services
         /// </summary>
         private void RegistrarPanelesDisponibles()
         {
-            // Panel de Packs de Alimentos
+            // Panel de Usuarios Allva (Administradores)
             RegistrarItem(new MenuHamburguesaItem
             {
-                Id = "packs_alimentos",
-                Titulo = "Packs Alimentos",
-                Descripcion = "Gestion de packs de alimentos",
+                Id = "usuarios_allva",
+                Titulo = "Usuarios Allva",
+                Descripcion = "Gestion de administradores Allva",
+                Orden = 1,
+                Habilitado = true,
+                TipoVista = typeof(UsuariosAllvaView)
+            });
+
+            // Panel de Edicion FrontOffice (antes Packs de Alimentos)
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "edicion_frontoffice",
+                Titulo = "Edicion FrontOffice",
+                Descripcion = "Edicion de contenido del FrontOffice",
                 Orden = 5,
                 Habilitado = true,
-                TipoVista = typeof(PacksAlimentosView)
+                TipoVista = typeof(EdicionFrontOfficeView)
             });
 
             // Panel de APIs

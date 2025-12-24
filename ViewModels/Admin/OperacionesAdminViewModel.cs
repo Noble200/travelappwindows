@@ -61,10 +61,34 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
     // Filtros especificos por panel (Pack Alimentos)
     [ObservableProperty]
-    private string _filtroPaisDestino = "Todos";
+    private string _filtroPaisDestino = "";
 
     [ObservableProperty]
     private string _filtroEstadoAlimentos = "Todos";
+
+    // Autocompletado país destino
+    [ObservableProperty]
+    private string _textoBusquedaPaisDestino = "";
+
+    [ObservableProperty]
+    private bool _mostrarListaPaises = false;
+
+    public ObservableCollection<string> PaisesFiltrados { get; } = new();
+
+    private List<string> _todosPaises = new();
+
+    // Ordenamiento por fecha
+    [ObservableProperty]
+    private bool _ordenAscendente = false; // false = más reciente primero
+
+    public string IconoOrden => OrdenAscendente ? "▲" : "▼";
+    public string TooltipOrden => OrdenAscendente ? "Ordenar de más reciente a más antiguo" : "Ordenar de más antiguo a más reciente";
+
+    partial void OnOrdenAscendenteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IconoOrden));
+        OnPropertyChanged(nameof(TooltipOrden));
+    }
 
     // ============================================
     // COLECCIONES PARA AUTOCOMPLETADO
@@ -651,12 +675,16 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
             PaisesDestinoDisponibles.Clear();
             PaisesDestinoDisponibles.Add("Todos");
+            _todosPaises.Clear();
 
             while (await reader.ReadAsync())
             {
                 var pais = reader.GetString(0);
                 if (!string.IsNullOrWhiteSpace(pais))
+                {
                     PaisesDestinoDisponibles.Add(pais);
+                    _todosPaises.Add(pais);
+                }
             }
         }
         catch (Exception ex)
@@ -699,7 +727,50 @@ public partial class OperacionesAdminViewModel : ObservableObject
         MostrarSugerenciasComercio = false;
         MostrarSugerenciasLocal = false;
         MostrarSugerenciasDivisa = false;
-        
+        MostrarListaPaises = false;
+
+        await CargarOperacionesAsync();
+    }
+
+    // Autocompletado de país destino
+    partial void OnTextoBusquedaPaisDestinoChanged(string value)
+    {
+        FiltrarPaises(value);
+        FiltroPaisDestino = value;
+    }
+
+    private void FiltrarPaises(string texto)
+    {
+        PaisesFiltrados.Clear();
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            MostrarListaPaises = false;
+            return;
+        }
+
+        var coincidencias = _todosPaises
+            .Where(p => p.Contains(texto, StringComparison.OrdinalIgnoreCase))
+            .Take(10);
+
+        foreach (var pais in coincidencias)
+            PaisesFiltrados.Add(pais);
+
+        MostrarListaPaises = PaisesFiltrados.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SeleccionarPaisDestino(string? pais)
+    {
+        if (string.IsNullOrEmpty(pais)) return;
+        TextoBusquedaPaisDestino = pais;
+        FiltroPaisDestino = pais;
+        MostrarListaPaises = false;
+    }
+
+    [RelayCommand]
+    private async Task CambiarOrden()
+    {
+        OrdenAscendente = !OrdenAscendente;
         await CargarOperacionesAsync();
     }
 
@@ -714,12 +785,14 @@ public partial class OperacionesAdminViewModel : ObservableObject
         FiltroDivisaTexto = "";
         FiltroNumeroOperacion = "";
         FiltroNumeroOperacionGlobal = "";
-        FiltroPaisDestino = "Todos";
+        FiltroPaisDestino = "";
+        TextoBusquedaPaisDestino = "";
         FiltroEstadoAlimentos = "Todos";
 
         MostrarSugerenciasComercio = false;
         MostrarSugerenciasLocal = false;
         MostrarSugerenciasDivisa = false;
+        MostrarListaPaises = false;
     }
 
     [RelayCommand]
@@ -1243,7 +1316,8 @@ public partial class OperacionesAdminViewModel : ObservableObject
             sql += " AND od.divisa_origen ILIKE @divisa";
         }
 
-        sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
+        var ordenDir = OrdenAscendente ? "ASC" : "DESC";
+        sql += $" ORDER BY o.fecha_operacion {ordenDir}, o.hora_operacion {ordenDir} LIMIT 500";
 
         await using var cmd = new NpgsqlCommand(sql, conn);
 
@@ -1463,12 +1537,13 @@ public partial class OperacionesAdminViewModel : ObservableObject
             sql += " AND o.numero_operacion ILIKE @numOp";
         if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal))
             sql += " AND o.id_operacion::text ILIKE @numOpGlobal";
-        if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
-            sql += " AND opa.pais_destino = @pais";
+        if (!string.IsNullOrEmpty(FiltroPaisDestino))
+            sql += " AND opa.pais_destino ILIKE @pais";
         if (!string.IsNullOrEmpty(FiltroEstadoAlimentos) && FiltroEstadoAlimentos != "Todos")
             sql += " AND opa.estado_envio = @estado";
 
-        sql += " ORDER BY o.fecha_operacion DESC, o.hora_operacion DESC LIMIT 500";
+        var ordenDir = OrdenAscendente ? "ASC" : "DESC";
+        sql += $" ORDER BY o.fecha_operacion {ordenDir}, o.hora_operacion {ordenDir} LIMIT 500";
 
         await using var cmd = new NpgsqlCommand(sql, conn);
 
@@ -1484,8 +1559,8 @@ public partial class OperacionesAdminViewModel : ObservableObject
             cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
         if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal))
             cmd.Parameters.AddWithValue("numOpGlobal", $"%{FiltroNumeroOperacionGlobal}%");
-        if (!string.IsNullOrEmpty(FiltroPaisDestino) && FiltroPaisDestino != "Todos")
-            cmd.Parameters.AddWithValue("pais", FiltroPaisDestino);
+        if (!string.IsNullOrEmpty(FiltroPaisDestino))
+            cmd.Parameters.AddWithValue("pais", $"%{FiltroPaisDestino}%");
         if (!string.IsNullOrEmpty(FiltroEstadoAlimentos) && FiltroEstadoAlimentos != "Todos")
             cmd.Parameters.AddWithValue("estado", FiltroEstadoAlimentos);
 
@@ -1493,7 +1568,8 @@ public partial class OperacionesAdminViewModel : ObservableObject
 
         int index = 0;
         int pendientes = 0, pagados = 0, enviados = 0, anulados = 0;
-        decimal importePendientes = 0; // Solo pendientes cuentan para el importe total
+        decimal importePendientes = 0; // Pendientes = negativo (deuda)
+        decimal importeEnviados = 0;   // Enviados = positivo (cobrado)
 
         while (await reader.ReadAsync())
         {
@@ -1547,20 +1623,21 @@ public partial class OperacionesAdminViewModel : ObservableObject
             {
                 case "PENDIENTE":
                     pendientes++;
-                    // Solo las pendientes de pago cuentan para el importe total
+                    // Pendientes = deuda (se resta del total)
                     importePendientes += importe;
                     break;
                 case "PAGADO":
                     pagados++;
-                    // Pagado ya no cuenta para el importe (ya fue pagado)
+                    // Pagado no cuenta para el importe total
                     break;
                 case "ENVIADO":
                     enviados++;
-                    // Enviado ya no cuenta para el importe
+                    // Enviados = cobrado (se suma al total)
+                    importeEnviados += importe;
                     break;
                 case "ANULADO":
                     anulados++;
-                    // Anulado ya no cuenta para el importe
+                    // Anulado no cuenta para el importe total
                     break;
             }
 
@@ -1573,16 +1650,24 @@ public partial class OperacionesAdminViewModel : ObservableObject
         TotalEnviados = enviados.ToString();
         TotalAnulados = anulados.ToString();
 
-        // Importe total = solo las operaciones pendientes (deuda pendiente de pago)
-        if (importePendientes > 0)
+        // Importe total = Enviados (positivo) - Pendientes (negativo)
+        // Pendientes representan deuda, Enviados representan ingresos cobrados
+        decimal importeTotal = importeEnviados - importePendientes;
+
+        if (importeTotal < 0)
         {
-            TotalImporteAlimentos = $"-{importePendientes:N2}";
-            TotalImporteAlimentosColor = "#dc3545"; // Rojo (hay deuda pendiente)
+            TotalImporteAlimentos = $"{importeTotal:N2}";
+            TotalImporteAlimentosColor = "#dc3545"; // Rojo (balance negativo)
+        }
+        else if (importeTotal > 0)
+        {
+            TotalImporteAlimentos = $"{importeTotal:N2}";
+            TotalImporteAlimentosColor = "#28a745"; // Verde (balance positivo)
         }
         else
         {
-            TotalImporteAlimentos = "0.00";
-            TotalImporteAlimentosColor = "#28a745"; // Verde (sin deuda)
+            TotalImporteAlimentos = "0,00";
+            TotalImporteAlimentosColor = "#6c757d"; // Gris (neutro)
         }
     }
 

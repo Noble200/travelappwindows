@@ -104,16 +104,36 @@ public class ComercioModel
     // ============================================
     // PROPIEDADES CALCULADAS PARA UI
     // ============================================
-    
+
     /// <summary>
     /// Texto del estado para mostrar en UI (Badge de estado)
     /// </summary>
     public string EstadoTexto => Activo ? "Activo" : "Inactivo";
-    
+
     /// <summary>
     /// Color del badge de estado para UI
     /// </summary>
     public string EstadoColor => Activo ? "#28a745" : "#dc3545";
+
+    /// <summary>
+    /// Cantidad maxima de locales a mostrar en la tarjeta del comercio
+    /// </summary>
+    private const int MaxLocalesVisibles = 3;
+
+    /// <summary>
+    /// Lista de locales visibles en la tarjeta (primeros 3)
+    /// </summary>
+    public List<LocalSimpleModel> LocalesVisibles => Locales?.Take(MaxLocalesVisibles).ToList() ?? new List<LocalSimpleModel>();
+
+    /// <summary>
+    /// Indica si hay mas locales que los mostrados
+    /// </summary>
+    public bool TieneMasLocales => (Locales?.Count ?? 0) > MaxLocalesVisibles;
+
+    /// <summary>
+    /// Cantidad de locales restantes que no se muestran
+    /// </summary>
+    public int LocalesRestantes => Math.Max(0, (Locales?.Count ?? 0) - MaxLocalesVisibles);
 }
 
 /// <summary>

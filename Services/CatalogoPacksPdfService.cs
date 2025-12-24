@@ -76,6 +76,37 @@ public static class CatalogoPacksPdfService
         return document.GeneratePdf();
     }
 
+    /// <summary>
+    /// Genera un PDF con catálogos de múltiples países
+    /// Cada país comienza en una nueva página con su encabezado
+    /// </summary>
+    public static byte[] GenerarPdfMultiplesPaises(List<DatosCatalogo> catalogos)
+    {
+        if (catalogos.Count == 1)
+        {
+            return GenerarPdf(catalogos[0]);
+        }
+
+        var document = Document.Create(container =>
+        {
+            foreach (var datos in catalogos)
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(25);
+                    page.DefaultTextStyle(x => x.FontSize(10).FontColor(ColorTexto));
+
+                    page.Header().Element(c => CrearEncabezado(c, datos));
+                    page.Content().Element(c => CrearContenido(c, datos));
+                    page.Footer().Element(c => CrearPiePaginaMultiple(c, datos, catalogos.Count));
+                });
+            }
+        });
+
+        return document.GeneratePdf();
+    }
+
     private static void CrearEncabezado(IContainer container, DatosCatalogo datos)
     {
         container.Column(column =>
@@ -346,6 +377,47 @@ public static class CatalogoPacksPdfService
                 row.RelativeItem().Column(col =>
                 {
                     col.Item().Text("Documento generado automaticamente")
+                        .FontSize(8)
+                        .FontColor(ColorTextoClaro);
+
+                    col.Item().Text($"ALLVA SYSTEM - {datos.FechaGeneracion}")
+                        .FontSize(8)
+                        .FontColor(ColorTextoClaro);
+                });
+
+                row.RelativeItem().AlignRight().Column(col =>
+                {
+                    col.Item().Text(text =>
+                    {
+                        text.DefaultTextStyle(x => x.FontSize(8).FontColor(ColorTextoClaro));
+                        text.Span("Pagina ");
+                        text.CurrentPageNumber();
+                        text.Span(" de ");
+                        text.TotalPages();
+                    });
+                });
+            });
+
+            // Barra inferior decorativa
+            column.Item().PaddingTop(8).Row(row =>
+            {
+                row.RelativeItem(3).Height(4).Background(ColorAzul);
+                row.RelativeItem(1).Height(4).Background(ColorAmarillo);
+            });
+        });
+    }
+
+    private static void CrearPiePaginaMultiple(IContainer container, DatosCatalogo datos, int totalPaises)
+    {
+        container.Column(column =>
+        {
+            column.Item().LineHorizontal(1).LineColor(ColorBorde);
+
+            column.Item().PaddingTop(8).Row(row =>
+            {
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().Text($"Catalogo multiple - {totalPaises} paises incluidos")
                         .FontSize(8)
                         .FontColor(ColorTextoClaro);
 
