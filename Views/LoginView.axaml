@@ -203,7 +203,7 @@
                         <TextBlock Classes="textoVersion"
                                   Text="{Binding Localization[Login_Version]}"/>
                         <TextBlock Classes="textoVersion"
-                                  Text="1.1.7"/>
+                                  Text="1.2.0"/>
                     </StackPanel>
 
                 </StackPanel>

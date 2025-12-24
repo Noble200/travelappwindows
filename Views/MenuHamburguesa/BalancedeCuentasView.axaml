@@ -153,10 +153,20 @@
                     
                     <!-- Filtros para DIVISA -->
                     <StackPanel Spacing="4" IsVisible="{Binding EsTabDivisa}">
-                        <TextBlock Text="N Operacion"
+                        <TextBlock Text="Tipo Operacion"
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    Foreground="#333333"/>
+                        <ComboBox ItemsSource="{Binding TiposOperacion}"
+                                  SelectedItem="{Binding TipoOperacionFiltro}"
+                                  HorizontalAlignment="Stretch"
+                                  FontSize="11"/>
+
+                        <TextBlock Text="N Operacion"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#333333"
+                                   Margin="0,8,0,0"/>
                         <TextBox Classes="filter-input"
                                  Watermark="Desde"
                                  Text="{Binding OperacionDesde}"/>
@@ -171,11 +181,35 @@
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    Foreground="#333333"/>
-                        <ComboBox ItemsSource="{Binding PaisesDestinoDisponibles}"
-                                  SelectedItem="{Binding FiltroPaisDestino}"
-                                  HorizontalAlignment="Stretch"
-                                  FontSize="11"/>
-                        
+                        <!-- Autocompletado tipo Google para país destino con Popup -->
+                        <Panel>
+                            <TextBox Classes="filter-input"
+                                     Text="{Binding TextoBusquedaPaisDestino}"
+                                     Watermark="Buscar país..."/>
+                            <Popup IsOpen="{Binding MostrarListaPaises}" PlacementTarget="{Binding $parent[Panel]}" Placement="Bottom" IsLightDismissEnabled="True">
+                                <Border Background="White" BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="4" BoxShadow="0 4 12 0 #20000000" MaxHeight="150" MinWidth="150">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding PaisesFiltrados}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="{Binding}"
+                                                            Background="Transparent"
+                                                            BorderThickness="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            HorizontalContentAlignment="Left"
+                                                            Padding="8,6"
+                                                            FontSize="11"
+                                                            Cursor="Hand"
+                                                            Command="{Binding $parent[ItemsControl].((vm:BalancedeCuentasViewModel)DataContext).SeleccionarPaisDestinoCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Panel>
+
                         <TextBlock Text="N Operacion"
                                    FontSize="11"
                                    FontWeight="SemiBold"
@@ -294,9 +328,23 @@
                                                 <ColumnDefinition Width="80"/>
                                             </Grid.ColumnDefinitions>
 
-                                            <TextBlock Grid.Column="0" Text="Fecha"
-                                                       Foreground="White" FontWeight="SemiBold" FontSize="11"
-                                                       Padding="8,8" HorizontalAlignment="Center"/>
+                                            <!-- Fecha con botón de ordenamiento -->
+                                            <Button Grid.Column="0"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="4,8"
+                                                    HorizontalAlignment="Center"
+                                                    Cursor="Hand"
+                                                    Command="{Binding CambiarOrdenCommand}"
+                                                    ToolTip.Tip="{Binding TooltipOrden}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="Fecha"
+                                                               Foreground="White" FontWeight="SemiBold" FontSize="11"/>
+                                                    <TextBlock Text="{Binding IconoOrden}"
+                                                               Foreground="#ffd966" FontWeight="Bold" FontSize="10"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
                                             <TextBlock Grid.Column="1" Text="Hora"
                                                        Foreground="White" FontWeight="SemiBold" FontSize="11"
                                                        Padding="8,8" HorizontalAlignment="Center"/>
@@ -320,7 +368,7 @@
 
                                     <!-- Filas de datos -->
                                     <ScrollViewer Grid.Row="1"
-                                                  MaxHeight="200"
+                                                  MaxHeight="350"
                                                   VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding Operaciones}">
                                             <ItemsControl.ItemTemplate>
@@ -629,9 +677,23 @@
                                             <TextBlock Grid.Column="0" Text="Hora"
                                                        Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                        Padding="6,10" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Column="1" Text="Fecha"
-                                                       Foreground="White" FontWeight="SemiBold" FontSize="12"
-                                                       Padding="6,10" HorizontalAlignment="Center"/>
+                                            <!-- Fecha con botón de ordenamiento -->
+                                            <Button Grid.Column="1"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="4,10"
+                                                    HorizontalAlignment="Center"
+                                                    Cursor="Hand"
+                                                    Command="{Binding CambiarOrdenCommand}"
+                                                    ToolTip.Tip="{Binding TooltipOrden}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="Fecha"
+                                                               Foreground="White" FontWeight="SemiBold" FontSize="12"/>
+                                                    <TextBlock Text="{Binding IconoOrden}"
+                                                               Foreground="#ffd966" FontWeight="Bold" FontSize="10"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
                                             <TextBlock Grid.Column="2" Text="Usuario"
                                                        Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                        Padding="6,10"/>
@@ -652,7 +714,7 @@
 
                                     <!-- Filas de datos -->
                                     <ScrollViewer Grid.Row="1"
-                                                  MaxHeight="300"
+                                                  MaxHeight="350"
                                                   VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding OperacionesAlimentos}">
                                             <ItemsControl.ItemTemplate>
@@ -739,9 +801,9 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- Importe EUR -->
+                                    <!-- Balance EUR (incluye saldo a favor) -->
                                     <StackPanel Grid.Column="2" Spacing="4">
-                                        <TextBlock Text="Importe EUR"
+                                        <TextBlock Text="Balance EUR"
                                                    FontSize="11"
                                                    Foreground="#666666"
                                                    HorizontalAlignment="Center"

@@ -98,8 +98,8 @@
                                 Command="{Binding IrABuscarClienteCommand}"/>
                         
                         <Button Content="Nuevo Cliente +"
-                                Background="#0b5394"
-                                Foreground="White"
+                                Background="#ffd966"
+                                Foreground="#0b5394"
                                 FontWeight="SemiBold"
                                 FontSize="14"
                                 Padding="20,10"
@@ -358,6 +358,7 @@
         <local:NuevoClienteView IsVisible="{Binding VistaNuevoCliente}" DataContext="{Binding}"/>
         <local:ConfirmacionClienteView IsVisible="{Binding VistaConfirmacionCliente}" DataContext="{Binding}"/>
         <local:TransaccionDivisaView IsVisible="{Binding VistaTransaccion}" DataContext="{Binding}"/>
+        <local:ConfirmacionTransaccionView IsVisible="{Binding VistaConfirmacionTransaccion}" DataContext="{Binding}"/>
         <local:ResumenCompraView IsVisible="{Binding VistaResumen}" DataContext="{Binding}"/>
         <local:EditarClienteView IsVisible="{Binding VistaEditarCliente}" DataContext="{Binding}"/>
         

@@ -87,48 +87,8 @@
     </UserControl.Styles>
 
     <Grid Margin="0">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
-        <!-- HEADER -->
-        <Border Grid.Row="0" 
-                Background="#ffd966"
-                Padding="20,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                
-                <TextBlock Grid.Column="0"
-                           Text="OPERACIONES - BACKOFFICE"
-                           FontSize="18"
-                           FontWeight="Bold"
-                           Foreground="#0b5394"
-                           VerticalAlignment="Center"/>
-                
-                <TextBlock Grid.Column="1"
-                           Text="{Binding FechaActualTexto}"
-                           FontSize="12"
-                           Foreground="#666666"
-                           VerticalAlignment="Center"
-                           HorizontalAlignment="Center"
-                           FontStyle="Italic"/>
-                
-                <TextBlock Grid.Column="2"
-                           Text="Vista Global - Todos los Comercios"
-                           FontSize="13"
-                           FontWeight="SemiBold"
-                           Foreground="#0b5394"
-                           VerticalAlignment="Center"/>
-            </Grid>
-        </Border>
-
         <!-- CONTENIDO PRINCIPAL -->
-        <Grid Grid.Row="1" Margin="0">
+        <Grid Margin="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -420,9 +380,36 @@
                                                 FontSize="12"
                                                 FontWeight="SemiBold"
                                                 Foreground="#333333"/>
-                                        <ComboBox ItemsSource="{Binding PaisesDestinoDisponibles}"
-                                                  SelectedItem="{Binding FiltroPaisDestino}"
-                                                  Classes="filter-combo"/>
+                                        <!-- Autocompletado tipo Google para país destino -->
+                                        <Panel>
+                                            <TextBox Text="{Binding TextoBusquedaPaisDestino}"
+                                                     Classes="filter-input"
+                                                     Watermark="Buscar país..."/>
+                                            <Popup IsOpen="{Binding MostrarListaPaises}"
+                                                   Placement="Bottom"
+                                                   IsLightDismissEnabled="True">
+                                                <Border Background="White"
+                                                        BorderBrush="#CCCCCC"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        BoxShadow="0 4 12 0 #20000000"
+                                                        MaxHeight="200"
+                                                        MinWidth="200">
+                                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                                        <ItemsControl ItemsSource="{Binding PaisesFiltrados}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Button Classes="sugerencia-item"
+                                                                            Content="{Binding}"
+                                                                            Command="{Binding $parent[UserControl].((vm:OperacionesAdminViewModel)DataContext).SeleccionarPaisDestinoCommand}"
+                                                                            CommandParameter="{Binding}"/>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                </Border>
+                                            </Popup>
+                                        </Panel>
                                     </StackPanel>
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="Estado"
@@ -503,7 +490,7 @@
                 <Grid Grid.Row="1">
                     
                     <!-- PANEL DIVISA -->
-                    <Grid IsVisible="{Binding EsPanelDivisa}" RowDefinitions="*,Auto">
+                    <Grid IsVisible="{Binding EsPanelDivisa}" RowDefinitions="Auto,Auto">
                         
                         <!-- Tabla de operaciones -->
                         <Border Grid.Row="0" Margin="12,12,12,0" BorderBrush="#E8E8E8" BorderThickness="1" CornerRadius="6,6,0,0" ClipToBounds="True">
@@ -526,9 +513,13 @@
                                             <ColumnDefinition Width="95"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0" Text="Fecha"
-                                                   Foreground="White" FontWeight="SemiBold" FontSize="12"
-                                                   Padding="4,10" HorizontalAlignment="Center"/>
+                                        <!-- Fecha con botón de ordenamiento -->
+                                        <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="4,8" HorizontalAlignment="Center" Cursor="Hand" Command="{Binding CambiarOrdenCommand}" ToolTip.Tip="{Binding TooltipOrden}">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="Fecha" Foreground="White" FontWeight="SemiBold" FontSize="12"/>
+                                                <TextBlock Text="{Binding IconoOrden}" Foreground="#ffd966" FontWeight="Bold" FontSize="10" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
                                         <TextBlock Grid.Column="1" Text="Hora"
                                                    Foreground="White" FontWeight="SemiBold" FontSize="12"
                                                    Padding="4,10" HorizontalAlignment="Center"/>
@@ -565,8 +556,8 @@
                                     </Grid>
                                 </Border>
 
-                                <!-- Datos de tabla -->
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <!-- Datos de tabla con scroll independiente -->
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="450">
                                     <ItemsControl ItemsSource="{Binding OperacionesDivisa}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -705,7 +696,7 @@
                     </Grid>
 
                     <!-- PANEL PACK ALIMENTOS -->
-                    <Grid IsVisible="{Binding EsPanelAlimentos}" RowDefinitions="*,Auto">
+                    <Grid IsVisible="{Binding EsPanelAlimentos}" RowDefinitions="Auto,Auto">
                         
                         <!-- Tabla -->
                         <Border Grid.Row="0" Margin="12,12,12,0" BorderBrush="#E8E8E8" BorderThickness="1" CornerRadius="6,6,0,0" ClipToBounds="True">
@@ -730,7 +721,13 @@
 
                                         <TextBlock Grid.Column="0" Text="" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Text="N oper global" Foreground="White" FontWeight="SemiBold" FontSize="10" Padding="2,10" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="Fecha" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
+                                        <!-- Fecha con botón de ordenamiento -->
+                                        <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="4,8" HorizontalAlignment="Center" Cursor="Hand" Command="{Binding CambiarOrdenCommand}" ToolTip.Tip="{Binding TooltipOrden}">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="Fecha" Foreground="White" FontWeight="SemiBold" FontSize="12"/>
+                                                <TextBlock Text="{Binding IconoOrden}" Foreground="#ffd966" FontWeight="Bold" FontSize="10" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
                                         <TextBlock Grid.Column="3" Text="Hora" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="4" Text="N Oper." Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Column="5" Text="Comercio" Foreground="White" FontWeight="SemiBold" FontSize="12" Padding="4,10" HorizontalAlignment="Center"/>
@@ -744,7 +741,8 @@
                                     </Grid>
                                 </Border>
 
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                                <!-- Datos de tabla con scroll independiente -->
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" MaxHeight="450">
                                     <ItemsControl ItemsSource="{Binding OperacionesAlimentos}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -952,8 +950,7 @@
         </Grid>
 
         <!-- Overlay de carga -->
-        <Border Grid.Row="0" Grid.RowSpan="2"
-                Background="#80FFFFFF"
+        <Border Background="#80FFFFFF"
                 IsVisible="{Binding IsLoading}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
                 <TextBlock Text="Cargando..." FontSize="16" FontWeight="SemiBold" Foreground="#0b5394"/>
@@ -961,8 +958,7 @@
         </Border>
 
         <!-- Mensaje de error -->
-        <Border Grid.Row="1" 
-                Background="#FFE8E8"
+        <Border Background="#FFE8E8"
                 Padding="16"
                 Margin="20"
                 CornerRadius="8"
@@ -975,8 +971,7 @@
         </Border>
         
         <!-- Mensaje de exito -->
-        <Border Grid.Row="1" 
-                Background="#E8F5E9"
+        <Border Background="#E8F5E9"
                 Padding="16"
                 Margin="20"
                 CornerRadius="8"
@@ -989,8 +984,7 @@
         </Border>
         
         <!-- MODAL DE EXPORTACION -->
-        <Border Grid.RowSpan="2"
-                Background="#80000000"
+        <Border Background="#80000000"
                 IsVisible="{Binding MostrarModalExportar}">
             <Border Background="White"
                     CornerRadius="8"

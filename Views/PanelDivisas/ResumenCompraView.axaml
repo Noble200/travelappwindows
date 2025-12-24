@@ -3,7 +3,7 @@
              xmlns:vm="using:Allva.Desktop.ViewModels"
              x:Class="Allva.Desktop.Views.PanelDivisas.ResumenCompraView"
              x:DataType="vm:CurrencyExchangePanelViewModel">
-    
+
     <UserControl.Styles>
         <Style Selector="Border.card">
             <Setter Property="Background" Value="White"/>
@@ -16,75 +16,90 @@
     <Border Background="#f5f5f5">
         <ScrollViewer>
             <StackPanel Spacing="25" Margin="40" MaxWidth="1000" HorizontalAlignment="Center">
-                
+
                 <!-- Encabezado exito -->
-                <Border Background="#E8F5E9" 
-                        CornerRadius="8" 
-                        Padding="20">
-                    <StackPanel HorizontalAlignment="Center" Spacing="5">
-                        <TextBlock Text="Transaccion Completada"
-                                   FontSize="24"
+                <Border Background="#E8F5E9"
+                        CornerRadius="8"
+                        Padding="25">
+                    <StackPanel HorizontalAlignment="Center" Spacing="8">
+                        <TextBlock Text="Operacion Completada"
+                                   FontSize="28"
                                    FontWeight="Bold"
                                    Foreground="#2E7D32"
                                    HorizontalAlignment="Center"/>
                         <TextBlock Text="{Binding NumeroOperacionDisplay}"
-                                   FontSize="16"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"
                                    Foreground="#388E3C"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding FechaOperacion, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}"
+                                   FontSize="14"
+                                   Foreground="#4CAF50"
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
-                
+
                 <Grid ColumnDefinitions="*,280">
-                    
+
                     <!-- Resumen -->
                     <Border Grid.Column="0" Classes="card" Margin="0,0,15,0">
                         <StackPanel Spacing="20">
-                            
-                            <TextBlock Text="Resumen compra" 
-                                       FontSize="18" 
-                                       FontWeight="Bold" 
+
+                            <TextBlock Text="Resumen de la operacion"
+                                       FontSize="18"
+                                       FontWeight="Bold"
                                        Foreground="#0b5394"/>
                             <Border Height="1" Background="#E0E0E0"/>
-                            
+
                             <!-- Datos del cliente -->
-                            <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Nombre:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ClienteSeleccionado.NombreCompleto}"/>
-                                
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Telefono:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ClienteSeleccionado.Telefono}"/>
-                                
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Direccion:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ClienteSeleccionado.Direccion, TargetNullValue='-'}"/>
-                                
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="N documento:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ClienteSeleccionado.DocumentoCompleto}"/>
+                            <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Cliente:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ClienteSeleccionado.NombreCompleto}" FontWeight="SemiBold"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Documento:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ClienteSeleccionado.DocumentoCompleto}"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Telefono:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ClienteSeleccionado.Telefono, TargetNullValue='-'}"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Direccion:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ClienteSeleccionado.Direccion, TargetNullValue='-'}" TextWrapping="Wrap"/>
                             </Grid>
-                            
+
                             <Border Height="1" Background="#E0E0E0"/>
-                            
+
                             <!-- Datos transaccion -->
-                            <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Dinero recibido:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" FontWeight="Bold" Foreground="#0b5394" FontSize="15">
+                            <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Divisa:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1">
                                     <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} {1}">
-                                            <Binding Path="AmountReceived"/>
+                                        <MultiBinding StringFormat="{}{0} - {1}">
+                                            <Binding Path="SelectedCurrency.Code"/>
                                             <Binding Path="SelectedCurrency.Name"/>
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
-                                
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Total entregado:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,0"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" 
-                                           Text="{Binding TotalInEuros, StringFormat='{}{0:N2} euros'}" 
-                                           FontWeight="Bold" 
-                                           Foreground="#0b5394"
-                                           FontSize="15"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Cantidad recibida:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,8"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" FontWeight="Bold" Foreground="#0b5394" FontSize="16">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} {1}">
+                                            <Binding Path="AmountReceived"/>
+                                            <Binding Path="SelectedCurrency.Code"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Total entregado:" FontWeight="SemiBold" Foreground="#666" Margin="0,0,15,0"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1"
+                                           Text="{Binding TotalInEuros, StringFormat='{}{0:N2} EUR'}"
+                                           FontWeight="Bold"
+                                           Foreground="#2E7D32"
+                                           FontSize="16"/>
                             </Grid>
-                            
+
                             <Border Height="1" Background="#E0E0E0"/>
-                            
+
                             <!-- Boton imprimir -->
                             <Button Content="Imprimir recibo"
                                     Background="#ffd966"
@@ -97,13 +112,13 @@
                                     HorizontalContentAlignment="Center"
                                     Command="{Binding ImprimirReciboCommand}"
                                     IsEnabled="{Binding !IsLoading}"/>
-                            
+
                         </StackPanel>
                     </Border>
-                    
+
                     <!-- Imagenes documento -->
                     <StackPanel Grid.Column="1" Spacing="15">
-                        
+
                         <Border Background="White"
                                 CornerRadius="8"
                                 BoxShadow="0 2 8 0 #20000000"
@@ -113,7 +128,7 @@
                                    MaxHeight="160"
                                    Stretch="Uniform"/>
                         </Border>
-                        
+
                         <Border Background="White"
                                 CornerRadius="8"
                                 BoxShadow="0 2 8 0 #20000000"
@@ -123,7 +138,7 @@
                                    MaxHeight="160"
                                    Stretch="Uniform"/>
                         </Border>
-                        
+
                         <Border Background="White"
                                 CornerRadius="8"
                                 BoxShadow="0 2 8 0 #20000000"
@@ -135,63 +150,34 @@
                                        VerticalAlignment="Center"
                                        Foreground="#888"/>
                         </Border>
-                        
+
                     </StackPanel>
-                    
+
                 </Grid>
-                
-                <!-- AREA DE ERROR - FALTABA -->
+
+                <!-- AREA DE ERROR -->
                 <Border Background="#FFEBEE"
                         CornerRadius="6"
                         Padding="16"
                         IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Text="{Binding ErrorMessage}" 
+                    <TextBlock Text="{Binding ErrorMessage}"
                                Foreground="#C62828"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"/>
                 </Border>
-                
-                <!-- INDICADOR DE CARGA -->
-                <Border Background="#E3F2FD"
+
+                <!-- Boton Finalizar - unico boton grande -->
+                <Button Content="Finalizar y volver al inicio"
+                        Background="#2E7D32"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        FontSize="18"
+                        Padding="30,18"
                         CornerRadius="6"
-                        Padding="16"
-                        IsVisible="{Binding IsLoading}">
-                    <TextBlock Text="Guardando operacion..." 
-                               Foreground="#0b5394"
-                               FontWeight="SemiBold"
-                               HorizontalAlignment="Center"/>
-                </Border>
-                
-                <!-- Botones -->
-                <Grid ColumnDefinitions="*,*">
-                    <Button Grid.Column="0"
-                            Content="Atras"
-                            Background="#0b5394"
-                            Foreground="White"
-                            FontWeight="SemiBold"
-                            FontSize="16"
-                            Padding="20,15"
-                            CornerRadius="6"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Margin="0,0,10,0"
-                            IsEnabled="{Binding !IsLoading}"
-                            Command="{Binding VolverATransaccionCommand}"/>
-                    <Button Grid.Column="1"
-                            Content="Finalizar"
-                            Background="#2E7D32"
-                            Foreground="White"
-                            FontWeight="SemiBold"
-                            FontSize="16"
-                            Padding="20,15"
-                            CornerRadius="6"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Margin="10,0,0,0"
-                            IsEnabled="{Binding !IsLoading}"
-                            Command="{Binding FinalizarYVolverAPrincipalCommand}"/>
-                </Grid>
-                
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Command="{Binding FinalizarYVolverAPrincipalCommand}"/>
+
             </StackPanel>
         </ScrollViewer>
     </Border>

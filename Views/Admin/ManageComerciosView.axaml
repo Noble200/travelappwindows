@@ -11,7 +11,7 @@
     <UserControl.Styles>
         <!-- Estilo para boton primario -->
         <Style Selector="Button.btn-primary">
-            <Setter Property="Background" Value="#003366"/>
+            <Setter Property="Background" Value="#0b5394"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="16"/>
@@ -21,7 +21,8 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.btn-primary:pointerover">
-            <Setter Property="Background" Value="#0b5394"/>
+            <Setter Property="Background" Value="#ffd966"/>
+            <Setter Property="Foreground" Value="#0b5394"/>
         </Style>
 
         <!-- Estilo para boton secundario -->
@@ -158,12 +159,13 @@
                 </StackPanel>
 
                 <!-- Boton Nuevo Comercio -->
-                <Button Grid.Column="1" 
+                <Button Grid.Column="1"
                         Classes="btn-primary"
+                        VerticalAlignment="Center"
                         Command="{Binding MostrarFormularioComercioCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="+" FontSize="24" FontWeight="Bold"/>
-                        <TextBlock Text="NUEVO COMERCIO" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="+" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="NUEVO COMERCIO" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </Grid>
@@ -294,15 +296,15 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Classes="comercio-card">
-                                    <Grid RowDefinitions="Auto,Auto,Auto">
-                                        
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+
                                         <!-- FILA 0: Nombre del comercio -->
                                         <TextBlock Grid.Row="0"
-                                                   Text="{Binding NombreComercio}" 
-                                                   FontSize="20" FontWeight="Bold" 
+                                                   Text="{Binding NombreComercio}"
+                                                   FontSize="20" FontWeight="Bold"
                                                    Foreground="#003366"
                                                    Margin="0,0,0,10"/>
-                                        
+
                                         <!-- FILA 1: Datos en cascada (lista vertical) -->
                                         <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,10">
                                             <TextBlock FontSize="15" Foreground="#666">
@@ -319,11 +321,58 @@
                                             </TextBlock>
                                         </StackPanel>
 
-                                        <!-- FILA 2: Badges a la izquierda, botones a la derecha -->
-                                        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                        <!-- FILA 2: Lista de locales -->
+                                        <StackPanel Grid.Row="2" Margin="0,0,0,12" IsVisible="{Binding Locales.Count}">
+                                            <TextBlock Text="Locales:" FontSize="14" FontWeight="SemiBold" Foreground="#666" Margin="0,0,0,6"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <!-- Mostrar los primeros 3 locales -->
+                                                <ItemsControl ItemsSource="{Binding LocalesVisibles}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="#f0f4f8"
+                                                                    BorderBrush="#0b5394"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="4"
+                                                                    Padding="8,4">
+                                                                <TextBlock Text="{Binding CodigoLocal}"
+                                                                           FontSize="12" FontWeight="SemiBold"
+                                                                           Foreground="#003366"/>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!-- Boton +N para ver mas locales -->
+                                                <Button IsVisible="{Binding TieneMasLocales}"
+                                                        Background="#0b5394"
+                                                        Foreground="White"
+                                                        FontWeight="Bold"
+                                                        FontSize="13"
+                                                        Padding="12,6"
+                                                        BorderThickness="0"
+                                                        CornerRadius="6"
+                                                        Cursor="Hand"
+                                                        Command="{Binding $parent[ItemsControl].((vm:ManageComerciosViewModel)DataContext).VerDetallesComercioCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock>
+                                                        <Run Text="+"/>
+                                                        <Run Text="{Binding LocalesRestantes}"/>
+                                                        <Run Text=" mas"/>
+                                                    </TextBlock>
+                                                </Button>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- FILA 3: Badges a la izquierda, botones a la derecha -->
+                                        <Grid Grid.Row="3" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                                             <!-- Badge Locales -->
                                             <Border Grid.Column="0"
-                                                    Background="#e3f2fd" 
+                                                    Background="#e3f2fd"
                                                     CornerRadius="6" Padding="10,5"
                                                     Margin="0,0,10,0">
                                                 <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#0b5394">
@@ -331,10 +380,10 @@
                                                     <Run Text="Locales"/>
                                                 </TextBlock>
                                             </Border>
-                                            
+
                                             <!-- Badge Empleados -->
                                             <Border Grid.Column="1"
-                                                    Background="#e8f5e9" 
+                                                    Background="#e8f5e9"
                                                     CornerRadius="6" Padding="10,5"
                                                     Margin="0,0,10,0">
                                                 <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#28a745">
@@ -353,7 +402,7 @@
                                                     Margin="0,0,8,0">
                                                 <TextBlock Text="VER DETALLES" FontSize="13" FontWeight="Bold"/>
                                             </Button>
-                                            
+
                                             <!-- Boton EDITAR -->
                                             <Button Grid.Column="4"
                                                     Classes="btn-action"
@@ -386,31 +435,31 @@
                             <DataTemplate>
                                 <Border Classes="local-card">
                                     <Grid RowDefinitions="Auto,Auto,Auto,Auto">
-                                        
+
                                         <!-- FILA 0: Header con codigo y comercio -->
                                         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
                                             <!-- Codigo del local -->
-                                            <Border Grid.Column="0" 
-                                                    Background="#003366" 
-                                                    CornerRadius="6" 
+                                            <Border Grid.Column="0"
+                                                    Background="#003366"
+                                                    CornerRadius="6"
                                                     Padding="12,6"
                                                     Margin="0,0,12,0">
-                                                <TextBlock Text="{Binding CodigoLocal}" 
-                                                           FontSize="16" FontWeight="Bold" 
+                                                <TextBlock Text="{Binding CodigoLocal}"
+                                                           FontSize="16" FontWeight="Bold"
                                                            Foreground="White"/>
                                             </Border>
-                                            
+
                                             <!-- Nombre del comercio padre -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding NombreLocal}" 
-                                                           FontSize="18" FontWeight="Bold" 
+                                                <TextBlock Text="{Binding NombreLocal}"
+                                                           FontSize="18" FontWeight="Bold"
                                                            Foreground="#003366"/>
                                                 <TextBlock FontSize="14" Foreground="#666">
                                                     <Run Text="Comercio:"/>
                                                     <Run Text="{Binding NombreComercio}" FontWeight="SemiBold" Foreground="#0b5394"/>
                                                 </TextBlock>
                                             </StackPanel>
-                                            
+
                                             <!-- Badge de estado -->
                                             <Button Grid.Column="2"
                                                     Background="{Binding Activo, Converter={StaticResource EstadoActivoColorConverter}}"
@@ -423,42 +472,35 @@
                                                     Cursor="Hand"
                                                     Command="{Binding $parent[ItemsControl].((vm:ManageComerciosViewModel)DataContext).CambiarEstadoLocalFiltradoCommand}"
                                                     CommandParameter="{Binding}">
-                                                <TextBlock Text="{Binding Activo, Converter={StaticResource EstadoTextoMayusculaConverter}}" 
+                                                <TextBlock Text="{Binding Activo, Converter={StaticResource EstadoTextoMayusculaConverter}}"
                                                            FontSize="12" FontWeight="Bold"/>
                                             </Button>
                                         </Grid>
-                                        
-                                        <!-- FILA 1: Datos del local -->
-                                        <Grid Grid.Row="1" ColumnDefinitions="*,*,*" Margin="0,0,0,12">
-                                            <StackPanel Grid.Column="0" Spacing="4">
-                                                <TextBlock FontSize="14" Foreground="#666">
-                                                    <Run Text="Direccion:" FontWeight="SemiBold"/>
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding DireccionCompleta}" 
-                                                           FontSize="14" Foreground="#333" TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Spacing="4" Margin="12,0">
-                                                <TextBlock FontSize="14" Foreground="#666">
-                                                    <Run Text="Pais:" FontWeight="SemiBold"/>
-                                                    <Run Text="{Binding Pais}"/>
-                                                </TextBlock>
-                                                <TextBlock FontSize="14" Foreground="#666">
-                                                    <Run Text="CP:" FontWeight="SemiBold"/>
-                                                    <Run Text="{Binding CodigoPostal}"/>
-                                                </TextBlock>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2" Spacing="4">
-                                                <TextBlock FontSize="14" Foreground="#666">
-                                                    <Run Text="Movil:" FontWeight="SemiBold"/>
-                                                    <Run Text="{Binding Movil}"/>
-                                                </TextBlock>
-                                                <TextBlock FontSize="14" Foreground="#666">
-                                                    <Run Text="Email:" FontWeight="SemiBold"/>
-                                                    <Run Text="{Binding Email}"/>
-                                                </TextBlock>
-                                            </StackPanel>
-                                        </Grid>
-                                        
+
+                                        <!-- FILA 1: Datos del local en formato lista vertical -->
+                                        <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,12">
+                                            <TextBlock FontSize="14" Foreground="#666">
+                                                <Run Text="Direccion:" FontWeight="SemiBold"/>
+                                                <Run Text="{Binding DireccionCompleta}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="14" Foreground="#666">
+                                                <Run Text="Pais:" FontWeight="SemiBold"/>
+                                                <Run Text="{Binding Pais}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="14" Foreground="#666">
+                                                <Run Text="CP:" FontWeight="SemiBold"/>
+                                                <Run Text="{Binding CodigoPostal}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="14" Foreground="#666">
+                                                <Run Text="Movil:" FontWeight="SemiBold"/>
+                                                <Run Text="{Binding Movil}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="14" Foreground="#666">
+                                                <Run Text="Email:" FontWeight="SemiBold"/>
+                                                <Run Text="{Binding Email}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+
                                         <!-- FILA 2: Badges de usuarios y modulos -->
                                         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
                                             <!-- Usuarios Fijos -->
@@ -475,38 +517,38 @@
                                                     <Run Text="Floater"/>
                                                 </TextBlock>
                                             </Border>
-                                            
+
                                             <!-- Modulos habilitados -->
-                                            <Border Background="#ffc107" 
+                                            <Border Background="#ffc107"
                                                     CornerRadius="4" Padding="8,4"
                                                     IsVisible="{Binding ModuloDivisas}">
-                                                <TextBlock Text="DIVISAS" 
-                                                           FontSize="11" FontWeight="Bold" 
+                                                <TextBlock Text="DIVISAS"
+                                                           FontSize="11" FontWeight="Bold"
                                                            Foreground="White"/>
                                             </Border>
-                                            <Border Background="#28a745" 
+                                            <Border Background="#28a745"
                                                     CornerRadius="4" Padding="8,4"
                                                     IsVisible="{Binding ModuloPackAlimentos}">
-                                                <TextBlock Text="ALIMENTOS" 
-                                                           FontSize="11" FontWeight="Bold" 
+                                                <TextBlock Text="ALIMENTOS"
+                                                           FontSize="11" FontWeight="Bold"
                                                            Foreground="White"/>
                                             </Border>
-                                            <Border Background="#007bff" 
+                                            <Border Background="#007bff"
                                                     CornerRadius="4" Padding="8,4"
                                                     IsVisible="{Binding ModuloBilletesAvion}">
-                                                <TextBlock Text="BILLETES" 
-                                                           FontSize="11" FontWeight="Bold" 
+                                                <TextBlock Text="BILLETES"
+                                                           FontSize="11" FontWeight="Bold"
                                                            Foreground="White"/>
                                             </Border>
-                                            <Border Background="#6f42c1" 
+                                            <Border Background="#6f42c1"
                                                     CornerRadius="4" Padding="8,4"
                                                     IsVisible="{Binding ModuloPackViajes}">
-                                                <TextBlock Text="VIAJES" 
-                                                           FontSize="11" FontWeight="Bold" 
+                                                <TextBlock Text="VIAJES"
+                                                           FontSize="11" FontWeight="Bold"
                                                            Foreground="White"/>
                                             </Border>
                                         </StackPanel>
-                                        
+
                                         <!-- FILA 3: Boton ver detalles -->
                                         <Button Grid.Row="3"
                                                 Classes="btn-action"
@@ -692,24 +734,24 @@
 
                                     <!-- LOCALES DEL COMERCIO CON DETALLES -->
                                     <Border IsVisible="{Binding !MostrarFormulario}"
-                                            Background="#e3f2fd"
-                                            BorderThickness="1" BorderBrush="#0b5394"
+                                            Background="#fff3cd"
+                                            BorderThickness="2" BorderBrush="#ffc107"
                                             CornerRadius="10"
                                             Padding="20">
                                         <StackPanel Spacing="16">
-                                            <TextBlock Text="LOCALES Y PERMISOS" 
-                                                       FontSize="16" FontWeight="Bold" 
-                                                       Foreground="#0b5394"
+                                            <TextBlock Text="LOCALES Y PERMISOS"
+                                                       FontSize="16" FontWeight="Bold"
+                                                       Foreground="#856404"
                                                        LetterSpacing="0.5"/>
-                                            
+
                                             <!-- Lista de locales con todos sus detalles -->
                                             <ItemsControl ItemsSource="{Binding ComercioSeleccionado.Locales}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Border Background="White" 
-                                                                BorderBrush="#0b5394" BorderThickness="1"
-                                                                CornerRadius="8" 
-                                                                Padding="16" 
+                                                        <Border Background="White"
+                                                                BorderBrush="#ffc107" BorderThickness="1"
+                                                                CornerRadius="8"
+                                                                Padding="16"
                                                                 Margin="0,0,0,12">
                                                             <StackPanel Spacing="12">
                                                                 
@@ -819,20 +861,16 @@
                                                                         <TextBlock Text="Usuarios en este local" FontSize="13" Foreground="#666" FontWeight="SemiBold"/>
                                                                         <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
                                                                             <Border Grid.Column="0" Background="#e3f2fd" CornerRadius="4" Padding="12,6" Margin="0,0,4,0">
-                                                                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                                                                                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="#003366" VerticalAlignment="Center">
-                                                                                        <Run Text="{Binding CantidadUsuariosFijos}"/>
-                                                                                    </TextBlock>
-                                                                                    <TextBlock Text="Fijos" FontSize="14" Foreground="#666" VerticalAlignment="Center"/>
-                                                                                </StackPanel>
+                                                                                <TextBlock FontSize="14" Foreground="#003366" HorizontalAlignment="Center">
+                                                                                    <Run Text="{Binding CantidadUsuariosFijos}" FontWeight="Bold" FontSize="18"/>
+                                                                                    <Run Text=" Fijos"/>
+                                                                                </TextBlock>
                                                                             </Border>
                                                                             <Border Grid.Column="1" Background="#fff3cd" CornerRadius="4" Padding="12,6" Margin="4,0,0,0">
-                                                                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                                                                                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="#856404" VerticalAlignment="Center">
-                                                                                        <Run Text="{Binding CantidadUsuariosFlooter}"/>
-                                                                                    </TextBlock>
-                                                                                    <TextBlock Text="Floater" FontSize="14" Foreground="#666" VerticalAlignment="Center"/>
-                                                                                </StackPanel>
+                                                                                <TextBlock FontSize="14" Foreground="#856404" HorizontalAlignment="Center">
+                                                                                    <Run Text="{Binding CantidadUsuariosFlooter}" FontWeight="Bold" FontSize="18"/>
+                                                                                    <Run Text=" Floater"/>
+                                                                                </TextBlock>
                                                                             </Border>
                                                                         </Grid>
                                                                     </StackPanel>
@@ -979,10 +1017,11 @@
                                                     
                                                     <Button Grid.Column="1"
                                                             Classes="btn-primary"
+                                                            VerticalAlignment="Center"
                                                             Command="{Binding AgregarLocalCommand}">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                                            <TextBlock Text="+" FontSize="20" FontWeight="Bold"/>
-                                                            <TextBlock Text="ANADIR LOCAL" FontSize="14" FontWeight="Bold"/>
+                                                            <TextBlock Text="+" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="ANADIR LOCAL" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
                                                         </StackPanel>
                                                     </Button>
                                                 </Grid>

@@ -116,9 +116,14 @@
                                    FontSize="20"
                                    FontWeight="Bold"
                                    Foreground="#0b5394"/>
-                        <TextBlock Text="Seleccione el pais del cual desea generar el catalogo PDF"
+                        <TextBlock Text="Seleccione los paises de los cuales desea generar el catalogo PDF"
                                    FontSize="13"
                                    Foreground="#666666"/>
+                        <TextBlock Text="{Binding TextoPaisesSeleccionados}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="#28a745"
+                                   IsVisible="{Binding HayPaisesSeleccionadosImpresion}"/>
                     </StackPanel>
 
                     <!-- Buscador -->
@@ -241,7 +246,7 @@
                                 CornerRadius="6"
                                 Padding="24,12"
                                 FontWeight="SemiBold"
-                                IsEnabled="{Binding PaisSeleccionadoImpresion, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                IsEnabled="{Binding HayPaisesSeleccionadosImpresion}"
                                 Command="{Binding GenerarCatalogoPdfCommand}"/>
                     </StackPanel>
                 </Grid>

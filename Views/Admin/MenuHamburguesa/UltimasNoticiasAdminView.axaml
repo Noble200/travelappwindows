@@ -1,0 +1,267 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Allva.Desktop.ViewModels.Admin"
+             x:Class="Allva.Desktop.Views.Admin.MenuHamburguesa.UltimasNoticiasAdminView"
+             x:DataType="vm:UltimasNoticiasAdminViewModel">
+
+    <UserControl.DataContext>
+        <vm:UltimasNoticiasAdminViewModel/>
+    </UserControl.DataContext>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- HEADER -->
+        <Border Grid.Row="0"
+                Background="#F8F9FA"
+                Padding="24,16"
+                BorderBrush="#E0E0E0"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <TextBlock Text="Ultimas Noticias"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="#0b5394"/>
+                    <TextBlock Text="Crea y gestiona las noticias que veran los usuarios en el FrontOffice"
+                               FontSize="13"
+                               Foreground="#666666"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Command="{Binding NuevaNoticiaCommand}"
+                        Background="#0b5394"
+                        Foreground="White"
+                        Padding="16,10"
+                        CornerRadius="6"
+                        Cursor="Hand"
+                        IsVisible="{Binding !MostrarPanelEdicion}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="+" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="Nueva Noticia" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <Grid Grid.Row="1">
+
+            <!-- Mensaje de estado -->
+            <Border IsVisible="{Binding HayMensaje}"
+                    Background="{Binding MensajeBackground}"
+                    Padding="16,10"
+                    CornerRadius="6"
+                    Margin="24,16,24,0"
+                    VerticalAlignment="Top"
+                    ZIndex="100">
+                <TextBlock Text="{Binding MensajeEstado}"
+                           Foreground="White"
+                           FontWeight="Medium"/>
+            </Border>
+
+            <!-- Indicador de carga -->
+            <Border IsVisible="{Binding EstaCargando}"
+                    Background="#80FFFFFF"
+                    ZIndex="99">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                    <Border Width="40" Height="40" Background="#0b5394" CornerRadius="20"/>
+                    <TextBlock Text="Cargando..." Foreground="#0b5394" FontWeight="Medium"/>
+                </StackPanel>
+            </Border>
+
+            <!-- LISTA DE NOTICIAS -->
+            <ScrollViewer IsVisible="{Binding !MostrarPanelEdicion}"
+                          Padding="24"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="16">
+
+                    <!-- Mensaje cuando no hay noticias -->
+                    <Border IsVisible="{Binding !Noticias.Count}"
+                            Background="White"
+                            CornerRadius="8"
+                            Padding="40"
+                            BoxShadow="0 2 8 0 #15000000">
+                        <StackPanel HorizontalAlignment="Center" Spacing="12">
+                            <TextBlock Text="No hay noticias creadas"
+                                       FontSize="16"
+                                       Foreground="#888888"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Crea tu primera noticia haciendo clic en 'Nueva Noticia'"
+                                       FontSize="13"
+                                       Foreground="#AAAAAA"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Items de noticias -->
+                    <ItemsControl ItemsSource="{Binding Noticias}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="White"
+                                        CornerRadius="12"
+                                        Padding="20"
+                                        Margin="0,0,0,12"
+                                        BoxShadow="0 2 12 0 #20000000">
+                                    <Grid ColumnDefinitions="*,Auto">
+
+                                        <StackPanel Grid.Column="0" Spacing="8">
+                                            <TextBlock Text="{Binding Titulo}"
+                                                       FontSize="18"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0b5394"/>
+
+                                            <TextBlock Text="{Binding Contenido}"
+                                                       FontSize="13"
+                                                       Foreground="#666666"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxLines="2"/>
+
+                                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                                <Border Background="{Binding EstadoBackground}"
+                                                        CornerRadius="4"
+                                                        Padding="8,4">
+                                                    <TextBlock Text="{Binding EstadoTexto}"
+                                                               FontSize="12"
+                                                               FontWeight="Medium"
+                                                               Foreground="{Binding EstadoForeground}"/>
+                                                </Border>
+
+                                                <TextBlock FontSize="12" Foreground="#999999" VerticalAlignment="Center">
+                                                    <Run Text="Creado: "/>
+                                                    <Run Text="{Binding FechaCreacionTexto}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1"
+                                                    Orientation="Vertical"
+                                                    Spacing="8"
+                                                    VerticalAlignment="Center">
+
+                                            <Button Background="#0b5394"
+                                                    Foreground="White"
+                                                    Padding="16,10"
+                                                    CornerRadius="6"
+                                                    Cursor="Hand"
+                                                    HorizontalContentAlignment="Center"
+                                                    Width="100"
+                                                    Command="{Binding $parent[UserControl].((vm:UltimasNoticiasAdminViewModel)DataContext).EditarNoticiaCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="Editar" FontWeight="Medium" FontSize="13"/>
+                                            </Button>
+
+                                            <Button Background="#dc3545"
+                                                    Foreground="White"
+                                                    Padding="16,10"
+                                                    CornerRadius="6"
+                                                    Cursor="Hand"
+                                                    HorizontalContentAlignment="Center"
+                                                    Width="100"
+                                                    Command="{Binding $parent[UserControl].((vm:UltimasNoticiasAdminViewModel)DataContext).EliminarNoticiaCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="Eliminar" FontWeight="Medium" FontSize="13"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- PANEL DE EDICION/CREACION -->
+            <ScrollViewer IsVisible="{Binding MostrarPanelEdicion}"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <Border Background="White" Padding="24">
+                    <StackPanel Spacing="20" MaxWidth="800">
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding TituloPanel}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="#0b5394"/>
+                            <Button Grid.Column="1"
+                                    Content="Cancelar"
+                                    Background="#E0E0E0"
+                                    Foreground="#333333"
+                                    Padding="16,8"
+                                    CornerRadius="6"
+                                    Cursor="Hand"
+                                    Command="{Binding CancelarEdicionCommand}"/>
+                        </Grid>
+
+                        <Border Height="1" Background="#E0E0E0"/>
+
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="INFORMACION DE LA NOTICIA"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#888888"/>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Titulo de la Noticia" FontWeight="Medium" Foreground="#333333"/>
+                                <TextBox Text="{Binding TituloNoticia}"
+                                         Watermark="Ej: Nueva promocion disponible"
+                                         Padding="12"
+                                         CornerRadius="6"
+                                         BorderBrush="#DDDDDD"/>
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Contenido" FontWeight="Medium" Foreground="#333333"/>
+                                <TextBox Text="{Binding ContenidoNoticia}"
+                                         Watermark="Escribe el contenido de la noticia..."
+                                         Padding="12"
+                                         CornerRadius="6"
+                                         BorderBrush="#DDDDDD"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Height="150"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="*,*">
+                                <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,12,0">
+                                    <TextBlock Text="Estado" FontWeight="Medium" Foreground="#333333"/>
+                                    <ComboBox ItemsSource="{Binding EstadosDisponibles}"
+                                              SelectedItem="{Binding EstadoSeleccionado}"
+                                              Padding="12"
+                                              CornerRadius="6"
+                                              HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Spacing="6">
+                                    <TextBlock Text="Orden de visualizacion" FontWeight="Medium" Foreground="#333333"/>
+                                    <TextBox Text="{Binding OrdenNoticia}"
+                                             Watermark="1"
+                                             Padding="12"
+                                             CornerRadius="6"
+                                             BorderBrush="#DDDDDD"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+
+                        <Border Height="1" Background="#E0E0E0" Margin="0,16"/>
+
+                        <Button Command="{Binding GuardarNoticiaCommand}"
+                                Background="#0b5394"
+                                Foreground="White"
+                                Padding="24,14"
+                                CornerRadius="8"
+                                Cursor="Hand"
+                                HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding TextoBotonGuardar}"
+                                       FontWeight="SemiBold"
+                                       FontSize="14"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+
+        </Grid>
+    </Grid>
+
+</UserControl>

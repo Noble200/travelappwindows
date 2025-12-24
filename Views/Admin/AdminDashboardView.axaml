@@ -10,6 +10,24 @@
 
     <UserControl.Styles>
         <StyleInclude Source="AdminDashboardView.Styles.axaml"/>
+
+        <!-- Estilos para botones del header (usuario y menu) con hover de contraste -->
+        <Style Selector="Button.header-icon-btn">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="Button.header-icon-btn /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style Selector="Button.header-icon-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#FFD966"/>
+        </Style>
     </UserControl.Styles>
 
     <Grid>
@@ -103,17 +121,6 @@
                                 Margin="12,2"
                                 CornerRadius="8">
                             <TextBlock Text="Gestion de usuarios" Classes="admin-menu-text"/>
-                        </Button>
-
-                        <!-- Usuarios Allva -->
-                        <Button Classes="admin-menu-item"
-                                Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='usuarios_allva'}"
-                                Command="{Binding NavigateToModuleCommand}"
-                                CommandParameter="usuarios_allva"
-                                IsVisible="{Binding MostrarUsuariosAllva}"
-                                Margin="12,2"
-                                CornerRadius="8">
-                            <TextBlock Text="Usuarios Allva" Classes="admin-menu-text"/>
                         </Button>
 
                         <!-- Divisas -->
@@ -219,15 +226,10 @@
                             <Panel>
                                 <Button x:Name="UserButton"
                                         Click="UserButton_Click"
-                                        Background="White"
+                                        Classes="header-icon-btn"
                                         Width="38"
                                         Height="38"
-                                        CornerRadius="19"
-                                        Padding="0"
-                                        BorderThickness="0"
-                                        Cursor="Hand"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center">
+                                        CornerRadius="19">
                                     <!-- Icono usuario profesional -->
                                     <Canvas Width="20" Height="20">
                                         <!-- Cabeza -->
@@ -290,15 +292,10 @@
                             <Panel>
                                 <Button x:Name="MenuButton"
                                         Click="MenuButton_Click"
-                                        Background="White"
+                                        Classes="header-icon-btn"
                                         Width="38"
                                         Height="38"
-                                        CornerRadius="8"
-                                        Padding="0"
-                                        BorderThickness="0"
-                                        Cursor="Hand"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center">
+                                        CornerRadius="8">
                                     <StackPanel Spacing="5" 
                                                 VerticalAlignment="Center" 
                                                 HorizontalAlignment="Center">

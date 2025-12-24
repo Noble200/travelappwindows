@@ -322,17 +322,11 @@
                                                     <Border Classes="list-item">
                                                         <Grid ColumnDefinitions="*,Auto,Auto">
                                                             <StackPanel Grid.Column="0">
-                                                                <TextBlock Text="{Binding NombreLocal}" 
+                                                                <TextBlock Text="{Binding CodigoLocal}"
                                                                            FontWeight="SemiBold"
-                                                                           FontSize="14"/>
-                                                                <TextBlock FontSize="12" Foreground="#888888">
-                                                                    <TextBlock.Text>
-                                                                        <MultiBinding StringFormat="{}{0} - {1}">
-                                                                            <Binding Path="CodigoLocal"/>
-                                                                            <Binding Path="NombreComercio"/>
-                                                                        </MultiBinding>
-                                                                    </TextBlock.Text>
-                                                                </TextBlock>
+                                                                           FontSize="16"/>
+                                                                <TextBlock Text="{Binding NombreComercio}"
+                                                                           FontSize="12" Foreground="#888888"/>
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="1" 
                                                                        Text="{Binding MargenTexto}"
