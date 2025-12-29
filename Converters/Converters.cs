@@ -32,6 +32,28 @@ public class BoolToColorConverter : IValueConverter
 }
 
 /// <summary>
+/// Convierte un valor booleano a un color de fondo
+/// true = Azul claro (#e3f2fd), false = Transparente
+/// Útil para resaltar items seleccionados
+/// </summary>
+public class BoolToBackgroundConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue)
+        {
+            return Brush.Parse(boolValue ? "#e3f2fd" : "Transparent");
+        }
+        return Brush.Parse("Transparent");
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
 /// Convierte una cadena NO vacía a true (para IsVisible)
 /// </summary>
 public class NotEmptyConverter : IValueConverter

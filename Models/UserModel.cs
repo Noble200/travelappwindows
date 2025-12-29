@@ -17,7 +17,9 @@ public class UserModel : INotifyPropertyChanged
     public int IdUsuario { get; set; }
     public string NumeroUsuario { get; set; } = string.Empty;
     public string Nombre { get; set; } = string.Empty;
+    public string SegundoNombre { get; set; } = string.Empty;
     public string Apellidos { get; set; } = string.Empty;
+    public string SegundoApellido { get; set; } = string.Empty;
     public string Correo { get; set; } = string.Empty;
     public string? Telefono { get; set; }
     public string Password { get; set; } = string.Empty;
@@ -43,7 +45,8 @@ public class UserModel : INotifyPropertyChanged
     }
     
     public DateTime? UltimoAcceso { get; set; }
-    
+    public DateTime? UltimaOperacion { get; set; }
+
     // ============================================
     // PROPIEDADES DE NAVEGACIÓN
     // ============================================
@@ -115,6 +118,10 @@ public class UserModel : INotifyPropertyChanged
     public string UltimoAccesoTexto => UltimoAcceso.HasValue
         ? UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")
         : "Nunca";
+
+    public string UltimaOperacionTexto => UltimaOperacion.HasValue
+        ? UltimaOperacion.Value.ToString("dd/MM/yyyy HH:mm")
+        : "Sin operaciones";
     
     // ============================================
     // PROPIEDADES ADICIONALES PARA MÓDULO DE GESTIÓN

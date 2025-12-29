@@ -15,6 +15,11 @@ namespace Allva.Desktop.Models
         public byte[]? ImagenPoster { get; set; }
         public string? ImagenPosterNombre { get; set; }
         public string? ImagenPosterTipo { get; set; }
+
+        // Propiedades de posicionamiento de imagen poster
+        public double ImagenPosterOffsetX { get; set; } = 0;
+        public double ImagenPosterOffsetY { get; set; } = 0;
+        public double ImagenPosterZoom { get; set; } = 1.0;
         public bool Activo { get; set; } = true;
         public DateTime FechaCreacion { get; set; }
         public DateTime? FechaModificacion { get; set; }

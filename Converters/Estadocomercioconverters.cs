@@ -46,3 +46,24 @@ public class EstadoTextoMayusculaConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Convierte string a bool: True si el valor es "Otro"
+/// Usado para mostrar/ocultar campo de banco personalizado
+/// </summary>
+public class EqualToOtroConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string texto)
+        {
+            return texto == "Otro";
+        }
+        return false;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

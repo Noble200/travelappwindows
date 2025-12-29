@@ -62,7 +62,8 @@ public class LocalConDivisaModel
     public decimal ComisionDivisas { get; set; } = 0.00m;
     public bool UsaComisionPropia { get; set; } = false;
     public decimal MargenEfectivo { get; set; } = 10.00m; // El margen que realmente aplica
-    
+    public bool ModuloDivisas { get; set; } = false; // Indica si el local tiene el módulo de divisas activo
+
     public string MargenTexto => $"{MargenEfectivo:N2}%";
     public string EstadoMargen { get; set; } = "Global";
     public string EstadoTexto => Activo ? "Activo" : "Inactivo";

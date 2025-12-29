@@ -47,11 +47,44 @@ public class ComercioModel
     /// País donde opera el comercio
     /// </summary>
     public string Pais { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Observaciones adicionales
     /// </summary>
     public string? Observaciones { get; set; }
+
+    // ============================================
+    // DATOS FISCALES
+    // ============================================
+
+    /// <summary>
+    /// Tipo de entidad: Persona física o Persona jurídica
+    /// </summary>
+    public string Entidad { get; set; } = "Persona jurídica";
+
+    /// <summary>
+    /// Número de identificación fiscal (NIF, DNI o NIE)
+    /// </summary>
+    public string? IdentidadFiscal { get; set; }
+
+    /// <summary>
+    /// Dirección fiscal del comercio/autónomo
+    /// </summary>
+    public string? DireccionFiscal { get; set; }
+
+    // ============================================
+    // DATOS BANCARIOS
+    // ============================================
+
+    /// <summary>
+    /// Entidad bancaria: CaixaBank, BBVA, Banco Santander, Banco Sabadell, Otro
+    /// </summary>
+    public string? Banco { get; set; }
+
+    /// <summary>
+    /// Número de cuenta bancaria IBAN
+    /// </summary>
+    public string? Iban { get; set; }
     
     // ============================================
     // CONFIGURACIÓN DE DIVISAS
@@ -160,7 +193,12 @@ public partial class LocalSimpleModel : ObservableObject
     /// Código postal del local
     /// </summary>
     public string CodigoPostal { get; set; } = string.Empty;
-    
+
+    /// <summary>
+    /// Ciudad donde se ubica el local
+    /// </summary>
+    public string Ciudad { get; set; } = string.Empty;
+
     /// <summary>
     /// Tipo de vía (Calle, Avenida, Pasaje, etc)
     /// </summary>
@@ -234,13 +272,27 @@ public partial class LocalSimpleModel : ObservableObject
             {
                 _usuarios = value;
                 OnPropertyChanged(nameof(Usuarios));
-                
+
                 // ✅ CRÍTICO: Actualizar las propiedades observables
                 CantidadUsuariosFijos = _usuarios?.Count(u => !u.EsFlooter) ?? 0;
                 CantidadUsuariosFlooter = _usuarios?.Count(u => u.EsFlooter) ?? 0;
+                OnPropertyChanged(nameof(TotalUsuarios));
+                OnPropertyChanged(nameof(NombresUsuarios));
             }
         }
     }
+
+    /// <summary>
+    /// Total de usuarios con acceso a este local
+    /// </summary>
+    public int TotalUsuarios => _usuarios?.Count ?? 0;
+
+    /// <summary>
+    /// Nombres de usuarios separados por coma
+    /// </summary>
+    public string NombresUsuarios => _usuarios != null && _usuarios.Count > 0
+        ? string.Join(", ", _usuarios.Select(u => u.NombreCompleto))
+        : "Sin usuarios asignados";
     
     // ============================================
     // PERMISOS DE MÓDULOS POR LOCAL
@@ -265,7 +317,21 @@ public partial class LocalSimpleModel : ObservableObject
     /// Permiso para módulo de Pack de Viajes en este local
     /// </summary>
     public bool ModuloPackViajes { get; set; } = false;
-    
+
+    // ============================================
+    // FECHAS DE ACTIVIDAD
+    // ============================================
+
+    /// <summary>
+    /// Fecha de última conexión de cualquier usuario en este local
+    /// </summary>
+    public DateTime? UltimaConexion { get; set; }
+
+    /// <summary>
+    /// Fecha de última operación realizada en este local
+    /// </summary>
+    public DateTime? UltimaOperacion { get; set; }
+
     // ============================================
     // PROPIEDADES CALCULADAS PARA UI
     // ============================================
@@ -278,24 +344,30 @@ public partial class LocalSimpleModel : ObservableObject
         get
         {
             var partes = new List<string>();
-            
+
             if (!string.IsNullOrWhiteSpace(TipoVia))
                 partes.Add(TipoVia);
-            
+
             if (!string.IsNullOrWhiteSpace(Direccion))
                 partes.Add(Direccion);
-            
+
             if (!string.IsNullOrWhiteSpace(LocalNumero))
                 partes.Add($"Nº {LocalNumero}");
-            
+
             if (!string.IsNullOrWhiteSpace(Escalera))
                 partes.Add($"Esc. {Escalera}");
-            
+
             if (!string.IsNullOrWhiteSpace(Piso))
                 partes.Add($"Piso {Piso}");
-            
-            return partes.Count > 0 
-                ? string.Join(", ", partes) 
+
+            if (!string.IsNullOrWhiteSpace(CodigoPostal))
+                partes.Add($"CP {CodigoPostal}");
+
+            if (!string.IsNullOrWhiteSpace(Ciudad))
+                partes.Add(Ciudad);
+
+            return partes.Count > 0
+                ? string.Join(", ", partes)
                 : "Sin dirección";
         }
     }

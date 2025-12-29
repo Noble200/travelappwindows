@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace Allva.Desktop.Models;
 
@@ -6,9 +8,34 @@ namespace Allva.Desktop.Models;
 /// Modelo auxiliar para gestionar locales en el formulario
 /// VERSIÓN CORREGIDA: Sin campo ComisionDivisas
 /// </summary>
-public class LocalFormModel
+public class LocalFormModel : INotifyPropertyChanged
 {
+    private bool _estaSeleccionado;
+
     public int IdLocal { get; set; }
+
+    /// <summary>
+    /// Indica si este local está seleccionado en la búsqueda múltiple
+    /// </summary>
+    public bool EstaSeleccionado
+    {
+        get => _estaSeleccionado;
+        set
+        {
+            if (_estaSeleccionado != value)
+            {
+                _estaSeleccionado = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
     
     /// <summary>
     /// ID del comercio al que pertenece este local
@@ -32,7 +59,12 @@ public class LocalFormModel
     /// Código postal del local
     /// </summary>
     public string CodigoPostal { get; set; } = string.Empty;
-    
+
+    /// <summary>
+    /// Ciudad donde se ubica el local
+    /// </summary>
+    public string Ciudad { get; set; } = string.Empty;
+
     // ============================================
     // DIRECCIÓN COMPLETA (SEGÚN BASE DE DATOS)
     // ============================================
@@ -122,30 +154,33 @@ public class LocalFormModel
         get
         {
             var partes = new List<string>();
-            
+
             if (!string.IsNullOrWhiteSpace(TipoVia))
                 partes.Add(TipoVia);
-            
+
             if (!string.IsNullOrWhiteSpace(Direccion))
                 partes.Add(Direccion);
-            
+
             if (!string.IsNullOrWhiteSpace(LocalNumero))
                 partes.Add($"Nº {LocalNumero}");
-            
+
             if (!string.IsNullOrWhiteSpace(Escalera))
                 partes.Add($"Esc. {Escalera}");
-            
+
             if (!string.IsNullOrWhiteSpace(Piso))
                 partes.Add($"Piso {Piso}");
-            
+
             if (!string.IsNullOrWhiteSpace(CodigoPostal))
                 partes.Add($"CP {CodigoPostal}");
-                
+
+            if (!string.IsNullOrWhiteSpace(Ciudad))
+                partes.Add(Ciudad);
+
             if (!string.IsNullOrWhiteSpace(Pais))
                 partes.Add(Pais);
-            
-            return partes.Count > 0 
-                ? string.Join(", ", partes) 
+
+            return partes.Count > 0
+                ? string.Join(", ", partes)
                 : "Sin dirección";
         }
     }

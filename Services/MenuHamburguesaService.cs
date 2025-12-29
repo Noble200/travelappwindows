@@ -30,26 +30,81 @@ namespace Allva.Desktop.Services
         /// </summary>
         private void RegistrarPanelesDisponibles()
         {
+            // Panel de Facturas
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "facturas",
+                Titulo = "Facturas",
+                Descripcion = "Gestion de facturas",
+                Orden = 1,
+                Habilitado = true,
+                TipoVista = typeof(FacturasView)
+            });
+
+            // Panel de Edicion FrontOffice
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "edicion_frontoffice",
+                Titulo = "Edicion FrontOffice",
+                Descripcion = "Edicion de contenido del FrontOffice",
+                Orden = 2,
+                Habilitado = true,
+                TipoVista = typeof(EdicionFrontOfficeView)
+            });
+
+            // Panel de Automatizacion Correo
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "automatizacion_correo",
+                Titulo = "Automatizacion Correo",
+                Descripcion = "Configuracion de correos automaticos",
+                Orden = 3,
+                Habilitado = true,
+                TipoVista = typeof(AutomatizacionCorreoView)
+            });
+
             // Panel de Usuarios Allva (Administradores)
             RegistrarItem(new MenuHamburguesaItem
             {
                 Id = "usuarios_allva",
                 Titulo = "Usuarios Allva",
                 Descripcion = "Gestion de administradores Allva",
-                Orden = 1,
+                Orden = 4,
                 Habilitado = true,
                 TipoVista = typeof(UsuariosAllvaView)
             });
 
-            // Panel de Edicion FrontOffice (antes Packs de Alimentos)
+            // Panel de Alta Inscripcion
             RegistrarItem(new MenuHamburguesaItem
             {
-                Id = "edicion_frontoffice",
-                Titulo = "Edicion FrontOffice",
-                Descripcion = "Edicion de contenido del FrontOffice",
+                Id = "alta_inscripcion",
+                Titulo = "Alta Inscripcion",
+                Descripcion = "Alta de nuevas inscripciones",
                 Orden = 5,
                 Habilitado = true,
-                TipoVista = typeof(EdicionFrontOfficeView)
+                TipoVista = typeof(AltaInscripcionView)
+            });
+
+            // Panel de Contrasena Admin Front
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "contrasena_admin_front",
+                Titulo = "Contrasena Admin. Front",
+                Descripcion = "Gestion de contrasenas de administradores FrontOffice",
+                Orden = 6,
+                Habilitado = true,
+                TipoVista = typeof(ContrasenaAdminFrontView)
+            });
+
+            // Panel de Movimientos Usuarios
+            RegistrarItem(new MenuHamburguesaItem
+            {
+                Id = "movimientos_usuarios",
+                Titulo = "Movimientos Usuarios",
+                Descripcion = "Registro de movimientos de usuarios",
+                Orden = 7,
+                Habilitado = true,
+                TipoVista = typeof(MovimientosUsuariosView)
             });
 
             // Panel de APIs
@@ -58,7 +113,7 @@ namespace Allva.Desktop.Services
                 Id = "apis",
                 Titulo = "APIs",
                 Descripcion = "Configuracion de APIs externas",
-                Orden = 10,
+                Orden = 8,
                 Habilitado = true,
                 TipoVista = typeof(APIsConfigView)
             });
