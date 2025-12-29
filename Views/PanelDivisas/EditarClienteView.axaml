@@ -117,9 +117,10 @@
                             <Grid ColumnDefinitions="*,3*">
                                 <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,12,0">
                                     <TextBlock Text="Telefono" FontSize="12" Foreground="#666"/>
-                                    <TextBox Text="{Binding NuevoTelefono}" 
+                                    <TextBox x:Name="TxtTelefono"
+                                             Text="{Binding NuevoTelefono}"
                                              Classes="input"
-                                             Watermark="+34 600 000 000"/>
+                                             Watermark="600.000.000"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="6" Margin="12,0,0,0">
                                     <StackPanel Orientation="Horizontal">

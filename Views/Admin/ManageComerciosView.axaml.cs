@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Allva.Desktop.ViewModels.Admin;
+using Allva.Desktop.Helpers;
 
 namespace Allva.Desktop.Views.Admin;
 
@@ -13,5 +14,10 @@ public partial class ManageComerciosView : UserControl
     {
         InitializeComponent();
         DataContext = new ManageComerciosViewModel();
+
+        // Conectar eventos para formateo de teléfono
+        TextBoxFormatHelper.ConfigurarFormatoTelefono(this.FindControl<TextBox>("TxtMovilComercio"));
+        TextBoxFormatHelper.ConfigurarFormatoTelefono(this.FindControl<TextBox>("TxtTelefonoSucursal"));
+        TextBoxFormatHelper.ConfigurarFormatoTelefono(this.FindControl<TextBox>("TxtMovilSucursal"));
     }
 }

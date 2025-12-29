@@ -31,8 +31,8 @@
     </UserControl.Styles>
 
     <Grid>
-        <!-- Fondo neutro gris claro -->
-        <Border Background="#F0F2F5" />
+        <!-- Fondo amarillo -->
+        <Border Background="#FFD966" />
 
         <Grid ColumnDefinitions="Auto,*">
             
@@ -94,12 +94,23 @@
 
                     <!-- Menu de navegacion -->
                     <StackPanel Grid.Row="2" Margin="0,8,0,0">
-                        
+
                         <TextBlock Text="MENU PRINCIPAL"
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    Foreground="#999999"
                                    Margin="20,0,20,12"/>
+
+                        <!-- Informes y analiticas -->
+                        <Button Classes="admin-menu-item"
+                                Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='informes'}"
+                                Command="{Binding NavigateToModuleCommand}"
+                                CommandParameter="informes"
+                                IsVisible="{Binding MostrarInformes}"
+                                Margin="12,2"
+                                CornerRadius="8">
+                            <TextBlock Text="Informes y analiticas" Classes="admin-menu-text"/>
+                        </Button>
 
                         <!-- Gestion de comercios -->
                         <Button Classes="admin-menu-item"
@@ -109,7 +120,7 @@
                                 IsVisible="{Binding MostrarGestionComercios}"
                                 Margin="12,2"
                                 CornerRadius="8">
-                            <TextBlock Text="Gestion de comercios" Classes="admin-menu-text"/>
+                            <TextBlock Text="Gestion comercios" Classes="admin-menu-text"/>
                         </Button>
 
                         <!-- Gestion de usuarios -->
@@ -120,10 +131,10 @@
                                 IsVisible="{Binding MostrarGestionUsuarios}"
                                 Margin="12,2"
                                 CornerRadius="8">
-                            <TextBlock Text="Gestion de usuarios" Classes="admin-menu-text"/>
+                            <TextBlock Text="Gestion usuarios" Classes="admin-menu-text"/>
                         </Button>
 
-                        <!-- Divisas -->
+                        <!-- Margen Beneficios -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='divisas'}"
                                 Command="{Binding NavigateToModuleCommand}"
@@ -134,6 +145,28 @@
                             <TextBlock Text="Margen Beneficios" Classes="admin-menu-text"/>
                         </Button>
 
+                        <!-- Pago suscripciones -->
+                        <Button Classes="admin-menu-item"
+                                Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='suscripciones'}"
+                                Command="{Binding NavigateToModuleCommand}"
+                                CommandParameter="suscripciones"
+                                IsVisible="{Binding MostrarSuscripciones}"
+                                Margin="12,2"
+                                CornerRadius="8">
+                            <TextBlock Text="Pago suscripciones" Classes="admin-menu-text"/>
+                        </Button>
+
+                        <!-- Balance de Cuentas -->
+                        <Button Classes="admin-menu-item"
+                                Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='balance'}"
+                                Command="{Binding NavigateToModuleCommand}"
+                                CommandParameter="balance"
+                                IsVisible="{Binding MostrarBalance}"
+                                Margin="12,2"
+                                CornerRadius="8">
+                            <TextBlock Text="Balance de cuentas" Classes="admin-menu-text"/>
+                        </Button>
+
                         <!-- Operaciones -->
                         <Button Classes="admin-menu-item"
                                 Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='operaciones'}"
@@ -142,17 +175,6 @@
                                 Margin="12,2"
                                 CornerRadius="8">
                             <TextBlock Text="Operaciones" Classes="admin-menu-text"/>
-                        </Button>
-
-                        <!-- Balance -->
-                        <Button Classes="admin-menu-item"
-                                Classes.active="{Binding SelectedModule, Converter={x:Static ObjectConverters.Equal}, ConverterParameter='balance'}"
-                                Command="{Binding NavigateToModuleCommand}"
-                                CommandParameter="balance"
-                                IsVisible="{Binding MostrarBalance}"
-                                Margin="12,2"
-                                CornerRadius="8">
-                            <TextBlock Text="Balance de Cuentas" Classes="admin-menu-text"/>
                         </Button>
 
                     </StackPanel>
@@ -208,13 +230,43 @@
                             </Canvas>
                         </Button>
                         
-                        <!-- Titulo del modulo -->
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding SelectedModuleTitle}" 
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="White"
-                                   VerticalAlignment="Center"/>
+                        <!-- Titulo del modulo + Info usuario -->
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Spacing="20">
+                            <TextBlock Text="{Binding SelectedModuleTitle}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"/>
+
+                            <!-- Separador vertical -->
+                            <Border Width="1"
+                                    Height="24"
+                                    Background="#FFFFFF50"
+                                    VerticalAlignment="Center"/>
+
+                            <!-- Usuario y codigo de oficina -->
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="{Binding AdminName}"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="White"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="|"
+                                           FontSize="13"
+                                           Foreground="#FFFFFF80"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding LocalCode}"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="White"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
 
                         <!-- Botones de usuario y menu -->
                         <StackPanel Grid.Column="2" 
@@ -314,18 +366,11 @@
                                     <Border Background="White"
                                             CornerRadius="10"
                                             BoxShadow="0 8 24 0 #30000000"
+                                            BorderBrush="#0b5394"
+                                            BorderThickness="1"
                                             MinWidth="220"
                                             Padding="0">
                                         <StackPanel>
-                                            <Border Padding="16,14" Background="White" CornerRadius="10,10,0,0">
-                                                <TextBlock Text="Opciones" 
-                                                           FontSize="15"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#0b5394"/>
-                                            </Border>
-                                            
-                                            <Border Height="1" Background="#EEEEEE"/>
-                                            
                                             <ItemsControl ItemsSource="{Binding MenuHamburguesaItems}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
@@ -335,6 +380,7 @@
                                                                 HorizontalAlignment="Stretch"
                                                                 HorizontalContentAlignment="Left"
                                                                 Cursor="Hand"
+                                                                Click="MenuHamburguesaItem_Click"
                                                                 Command="{Binding $parent[UserControl].((vm:AdminDashboardViewModel)DataContext).NavigateToMenuHamburguesaItemCommand}"
                                                                 CommandParameter="{Binding}">
                                                             <Button.Styles>

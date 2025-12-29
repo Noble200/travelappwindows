@@ -86,27 +86,7 @@
     </UserControl.Styles>
 
     <Grid Margin="0">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
-        <Border Grid.Row="0" Background="#ffd966" Padding="20,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="BALANCE - BACKOFFICE" FontSize="18" FontWeight="Bold" Foreground="#0b5394" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="{Binding FechaActualTexto}" FontSize="12" Foreground="#666666" VerticalAlignment="Center" HorizontalAlignment="Center" FontStyle="Italic"/>
-                <Button Grid.Column="2" Background="#0b5394" Foreground="White" Padding="14,8" CornerRadius="6" Cursor="Hand" Command="{Binding RefrescarDatosCommand}">
-                    <TextBlock Text="Actualizar" FontSize="13" FontWeight="SemiBold"/>
-                </Button>
-            </Grid>
-        </Border>
-
-        <Grid Grid.Row="1" RowDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,*">
             <Border Grid.Row="0" Background="White" Margin="16,16,16,0">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <Button Classes="tab-button" Background="{Binding TabAlimentosBackground}" Foreground="{Binding TabAlimentosForeground}" Command="{Binding CambiarPanelCommand}" CommandParameter="alimentos">
@@ -143,18 +123,28 @@
                                                 </Button>
                                             </Grid>
                                             <Border Background="#E8E8E8" Height="1" Margin="0,4"/>
-                                            <StackPanel Spacing="4">
-                                                <TextBlock Text="Fecha Desde" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
-                                                <TextBox Classes="filtro-input" Text="{Binding FechaDesdeTexto}" Watermark="dd/mm/yyyy"/>
-                                            </StackPanel>
-                                            <StackPanel Spacing="4">
-                                                <TextBlock Text="Fecha Hasta" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
-                                                <TextBox Classes="filtro-input" Text="{Binding FechaHastaTexto}" Watermark="dd/mm/yyyy"/>
-                                            </StackPanel>
-                                            <StackPanel Spacing="4">
-                                                <TextBlock Text="N Operacion" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
-                                                <TextBox Classes="filtro-input" Text="{Binding FiltroNumeroOperacion}" Watermark="Buscar..."/>
-                                            </StackPanel>
+                                            <!-- Fechas Desde y Hasta en una fila -->
+                                            <Grid ColumnDefinitions="*,8,*">
+                                                <StackPanel Grid.Column="0" Spacing="4">
+                                                    <TextBlock Text="Desde" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
+                                                    <TextBox Classes="filtro-input" Text="{Binding FechaDesdeTexto}" Watermark="dd/mm/yyyy"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Spacing="4">
+                                                    <TextBlock Text="Hasta" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
+                                                    <TextBox Classes="filtro-input" Text="{Binding FechaHastaTexto}" Watermark="dd/mm/yyyy"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <!-- N. Global y N. Operacion en una fila -->
+                                            <Grid ColumnDefinitions="*,8,*">
+                                                <StackPanel Grid.Column="0" Spacing="4">
+                                                    <TextBlock Text="N. Global" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
+                                                    <TextBox Classes="filtro-input" Text="{Binding FiltroNumeroOperacionGlobal}" Watermark="Buscar..."/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Spacing="4">
+                                                    <TextBlock Text="N. Operacion" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
+                                                    <TextBox Classes="filtro-input" Text="{Binding FiltroNumeroOperacion}" Watermark="Buscar..."/>
+                                                </StackPanel>
+                                            </Grid>
                                             <StackPanel Spacing="4">
                                                 <TextBlock Text="Comercio" FontSize="11" Foreground="#666666" FontWeight="Medium"/>
                                                 <Panel>
@@ -253,8 +243,8 @@
                                                         <TextBlock Text="{Binding IconoOrden}" Foreground="#ffd966" FontWeight="Bold" FontSize="10" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Button>
-                                                <TextBlock Grid.Column="2" Text="NoG" Foreground="White" FontWeight="SemiBold" FontSize="11" Padding="6,10" HorizontalAlignment="Center"/>
-                                                <TextBlock Grid.Column="3" Text="N Oper." Foreground="White" FontWeight="SemiBold" FontSize="11" Padding="6,10" HorizontalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="N. Global" Foreground="White" FontWeight="SemiBold" FontSize="10" Padding="4,10" HorizontalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Text="N. Operacion" Foreground="White" FontWeight="SemiBold" FontSize="10" Padding="4,10" HorizontalAlignment="Center"/>
                                                 <TextBlock Grid.Column="4" Text="Comercio" Foreground="White" FontWeight="SemiBold" FontSize="11" Padding="6,10" HorizontalAlignment="Center"/>
                                                 <TextBlock Grid.Column="5" Text="Local" Foreground="White" FontWeight="SemiBold" FontSize="11" Padding="6,10" HorizontalAlignment="Center"/>
                                                 <TextBlock Grid.Column="6" Text="Destino" Foreground="White" FontWeight="SemiBold" FontSize="11" Padding="6,10" HorizontalAlignment="Center"/>

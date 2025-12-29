@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using System.IO;
 using System.Linq;
+using Allva.Desktop.Helpers;
 
 namespace Allva.Desktop.Views.PanelDivisas;
 
@@ -21,6 +22,9 @@ public partial class EditarClienteView : UserControl
         
         if (btnTrasera != null)
             btnTrasera.Click += BtnSeleccionarTrasera_Click;
+
+        // Conectar eventos para formateo de teléfono
+        TextBoxFormatHelper.ConfigurarFormatoTelefono(this.FindControl<TextBox>("TxtTelefono"));
     }
     
     private async void BtnSeleccionarFrontal_Click(object? sender, RoutedEventArgs e)

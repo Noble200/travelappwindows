@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Allva.Desktop.ViewModels;
+using Allva.Desktop.Helpers;
 
 namespace Allva.Desktop.Views.PanelDivisas;
 
@@ -29,44 +30,14 @@ public partial class NuevoClienteView : UserControl
             btnTrasera.Click += OnSeleccionarImagenTraseraClick;
         
         // Conectar eventos para formateo de fechas
-        var txtFechaNacimiento = this.FindControl<TextBox>("TxtFechaNacimiento");
-        var txtFechaCaducidad = this.FindControl<TextBox>("TxtFechaCaducidad");
-        
-        if (txtFechaNacimiento != null)
-            txtFechaNacimiento.AddHandler(TextInputEvent, FormatearFechaInput, RoutingStrategies.Tunnel);
-        if (txtFechaCaducidad != null)
-            txtFechaCaducidad.AddHandler(TextInputEvent, FormatearFechaInput, RoutingStrategies.Tunnel);
+        TextBoxFormatHelper.ConfigurarFormatoFecha(this.FindControl<TextBox>("TxtFechaNacimiento"));
+        TextBoxFormatHelper.ConfigurarFormatoFecha(this.FindControl<TextBox>("TxtFechaCaducidad"));
+
+        // Conectar eventos para formateo de teléfono
+        TextBoxFormatHelper.ConfigurarFormatoTelefono(this.FindControl<TextBox>("TxtTelefono"));
     }
-    
+
     private CurrencyExchangePanelViewModel? ViewModel => DataContext as CurrencyExchangePanelViewModel;
-    
-    private void FormatearFechaInput(object? sender, TextInputEventArgs e)
-    {
-        if (sender is not TextBox textBox) return;
-        
-        var textoActual = textBox.Text ?? "";
-        var textoNuevo = e.Text ?? "";
-        
-        // Solo permitir numeros
-        if (!string.IsNullOrEmpty(textoNuevo) && !char.IsDigit(textoNuevo[0]))
-        {
-            e.Handled = true;
-            return;
-        }
-        
-        // Agregar / automaticamente
-        var posicion = textBox.CaretIndex;
-        var longitudActual = textoActual.Replace("/", "").Length;
-        
-        if (longitudActual == 2 || longitudActual == 4)
-        {
-            if (posicion == textoActual.Length && !textoActual.EndsWith("/"))
-            {
-                textBox.Text = textoActual + "/";
-                textBox.CaretIndex = textBox.Text.Length;
-            }
-        }
-    }
     
     private async void OnSeleccionarImagenFrontalClick(object? sender, RoutedEventArgs e)
     {

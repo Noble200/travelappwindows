@@ -514,15 +514,15 @@
                                             <Image Source="{Binding ImagenPoster, Converter={StaticResource ByteArrayToImage}}"
                                                    Stretch="UniformToFill"
                                                    IsVisible="{Binding ImagenPoster, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                            <TextBlock Text="--" 
-                                                       FontSize="12" 
+                                            <TextBlock Text="--"
+                                                       FontSize="12"
                                                        Foreground="#AAAAAA"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
                                                        IsVisible="{Binding ImagenPoster, Converter={x:Static ObjectConverters.IsNull}}"/>
                                         </Panel>
                                     </Border>
-                                    
+
                                     <Border Grid.Column="1"
                                             Background="#F5F5F5"
                                             CornerRadius="6"
@@ -565,6 +565,144 @@
                                             IsVisible="{Binding ImagenPoster, Converter={x:Static ObjectConverters.IsNotNull}}"
                                             Command="{Binding EliminarImagenPosterCommand}"/>
                                 </Grid>
+
+                                <!-- Panel de centrado de imagen (solo visible cuando hay imagen) -->
+                                <Border Background="#F8F9FA"
+                                        CornerRadius="8"
+                                        Padding="16"
+                                        Margin="0,12,0,0"
+                                        BorderBrush="#E0E0E0"
+                                        BorderThickness="1"
+                                        IsVisible="{Binding ImagenPoster, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <!-- Preview del icono -->
+                                        <StackPanel Grid.Column="0" Spacing="10" Margin="0,0,32,0">
+                                            <TextBlock Text="Vista previa del icono"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#0b5394"
+                                                       HorizontalAlignment="Center"/>
+                                            <Border Width="160"
+                                                    Height="160"
+                                                    CornerRadius="12"
+                                                    Background="#FFFFFF"
+                                                    BorderBrush="#0b5394"
+                                                    BorderThickness="3"
+                                                    ClipToBounds="True"
+                                                    BoxShadow="0 4 16 0 #40000000">
+                                                <Panel ClipToBounds="True">
+                                                    <Image Source="{Binding ImagenPoster, Converter={StaticResource ByteArrayToImage}}"
+                                                           Stretch="UniformToFill"
+                                                           RenderTransformOrigin="0.5,0.5">
+                                                        <Image.RenderTransform>
+                                                            <TransformGroup>
+                                                                <ScaleTransform ScaleX="{Binding ImagenPosterZoom}"
+                                                                                ScaleY="{Binding ImagenPosterZoom}"/>
+                                                                <TranslateTransform X="{Binding ImagenPosterOffsetX}"
+                                                                                    Y="{Binding ImagenPosterOffsetY}"/>
+                                                            </TransformGroup>
+                                                        </Image.RenderTransform>
+                                                    </Image>
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Text="Asi se vera en la lista"
+                                                       FontSize="11"
+                                                       Foreground="#888888"
+                                                       HorizontalAlignment="Center"/>
+                                        </StackPanel>
+
+                                        <!-- Controles de ajuste -->
+                                        <StackPanel Grid.Column="1" Spacing="12">
+                                            <TextBlock Text="Ajustar posicion de la imagen"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#333333"/>
+
+                                            <!-- Control de Zoom -->
+                                            <StackPanel Spacing="4">
+                                                <Grid ColumnDefinitions="80,*,40">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="Zoom:"
+                                                               FontSize="12"
+                                                               Foreground="#666666"
+                                                               VerticalAlignment="Center"/>
+                                                    <Slider Grid.Column="1"
+                                                            Minimum="0.5"
+                                                            Maximum="3"
+                                                            Value="{Binding ImagenPosterZoom}"
+                                                            TickFrequency="0.1"
+                                                            IsSnapToTickEnabled="True"/>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding ImagenPosterZoom, StringFormat={}{0:F1}x}"
+                                                               FontSize="11"
+                                                               Foreground="#0b5394"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"
+                                                               HorizontalAlignment="Right"/>
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!-- Control Horizontal -->
+                                            <StackPanel Spacing="4">
+                                                <Grid ColumnDefinitions="80,*,40">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="Horizontal:"
+                                                               FontSize="12"
+                                                               Foreground="#666666"
+                                                               VerticalAlignment="Center"/>
+                                                    <Slider Grid.Column="1"
+                                                            Minimum="-50"
+                                                            Maximum="50"
+                                                            Value="{Binding ImagenPosterOffsetX}"
+                                                            TickFrequency="1"
+                                                            IsSnapToTickEnabled="True"/>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding ImagenPosterOffsetX, StringFormat={}{0:F0}}"
+                                                               FontSize="11"
+                                                               Foreground="#0b5394"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"
+                                                               HorizontalAlignment="Right"/>
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!-- Control Vertical -->
+                                            <StackPanel Spacing="4">
+                                                <Grid ColumnDefinitions="80,*,40">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="Vertical:"
+                                                               FontSize="12"
+                                                               Foreground="#666666"
+                                                               VerticalAlignment="Center"/>
+                                                    <Slider Grid.Column="1"
+                                                            Minimum="-50"
+                                                            Maximum="50"
+                                                            Value="{Binding ImagenPosterOffsetY}"
+                                                            TickFrequency="1"
+                                                            IsSnapToTickEnabled="True"/>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding ImagenPosterOffsetY, StringFormat={}{0:F0}}"
+                                                               FontSize="11"
+                                                               Foreground="#0b5394"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"
+                                                               HorizontalAlignment="Right"/>
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!-- Boton Restablecer -->
+                                            <Button Content="Restablecer posicion"
+                                                    Background="#6c757d"
+                                                    Foreground="White"
+                                                    Padding="12,6"
+                                                    CornerRadius="4"
+                                                    FontSize="11"
+                                                    Cursor="Hand"
+                                                    HorizontalAlignment="Left"
+                                                    Command="{Binding RestablecerPosicionImagenCommand}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
                             </StackPanel>
                         </StackPanel>
 
@@ -578,12 +716,23 @@
                                 BorderThickness="2">
                             <StackPanel Spacing="16">
                                 
-                                <Border Background="#0b5394" CornerRadius="6" Padding="12,8" HorizontalAlignment="Left">
-                                    <TextBlock Text="AGREGAR PRODUCTOS AL PACK" 
-                                               FontSize="14" 
-                                               FontWeight="Bold" 
-                                               Foreground="White"/>
-                                </Border>
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <Border Background="#0b5394" CornerRadius="6" Padding="12,8">
+                                        <TextBlock Text="{Binding TituloFormularioProducto, FallbackValue='Agregar Producto'}"
+                                                   FontSize="14"
+                                                   FontWeight="Bold"
+                                                   Foreground="White"/>
+                                    </Border>
+                                    <Button Content="Cancelar edicion"
+                                            Background="#6c757d"
+                                            Foreground="White"
+                                            Padding="12,8"
+                                            CornerRadius="6"
+                                            FontSize="12"
+                                            Cursor="Hand"
+                                            IsVisible="{Binding EsModoEdicionProducto}"
+                                            Command="{Binding CancelarEdicionProductoCommand}"/>
+                                </StackPanel>
 
                                 <Border Background="White" CornerRadius="8" Padding="16" BorderBrush="#0b5394" BorderThickness="1">
                                     <StackPanel Spacing="12">
@@ -684,14 +833,27 @@
                                                     Command="{Binding QuitarImagenProductoCommand}"/>
                                         </Grid>
 
+                                        <!-- Boton Agregar (cuando NO esta editando) -->
                                         <Button Command="{Binding AgregarProductoCommand}"
                                                 Background="#28a745"
                                                 Foreground="White"
                                                 Padding="24,14"
                                                 CornerRadius="8"
                                                 Cursor="Hand"
-                                                HorizontalAlignment="Center">
+                                                HorizontalAlignment="Center"
+                                                IsVisible="{Binding !EsModoEdicionProducto}">
                                             <TextBlock Text="AGREGAR PRODUCTO AL PACK" FontWeight="Bold" FontSize="14"/>
+                                        </Button>
+                                        <!-- Boton Actualizar (cuando SI esta editando) -->
+                                        <Button Command="{Binding AgregarProductoCommand}"
+                                                Background="#ffc107"
+                                                Foreground="#333333"
+                                                Padding="24,14"
+                                                CornerRadius="8"
+                                                Cursor="Hand"
+                                                HorizontalAlignment="Center"
+                                                IsVisible="{Binding EsModoEdicionProducto}">
+                                            <TextBlock Text="ACTUALIZAR PRODUCTO" FontWeight="Bold" FontSize="14"/>
                                         </Button>
                                     </StackPanel>
                                 </Border>
@@ -712,14 +874,14 @@
                                     <ItemsControl ItemsSource="{Binding ProductosActuales}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Background="White" 
-                                                        CornerRadius="8" 
-                                                        Padding="12" 
+                                                <Border Background="White"
+                                                        CornerRadius="8"
+                                                        Padding="12"
                                                         Margin="0,0,0,8"
                                                         BorderBrush="#28a745"
                                                         BorderThickness="1">
-                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
-                                                        
+                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
+
                                                         <Border Grid.Column="0"
                                                                 Width="45"
                                                                 Height="45"
@@ -731,38 +893,52 @@
                                                                 <Image Source="{Binding Imagen, Converter={StaticResource ByteArrayToImage}}"
                                                                        Stretch="UniformToFill"
                                                                        IsVisible="{Binding TieneImagen}"/>
-                                                                <TextBlock Text="--" 
-                                                                           FontSize="10" 
+                                                                <TextBlock Text="--"
+                                                                           FontSize="10"
                                                                            Foreground="#AAAAAA"
                                                                            HorizontalAlignment="Center"
                                                                            VerticalAlignment="Center"
                                                                            IsVisible="{Binding !TieneImagen}"/>
                                                             </Panel>
                                                         </Border>
-                                                        
+
                                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding NombreProducto}" 
+                                                            <TextBlock Text="{Binding NombreProducto}"
                                                                        FontWeight="SemiBold"
                                                                        FontSize="14"
                                                                        Foreground="#0b5394"/>
-                                                            <TextBlock Text="{Binding CantidadConUnidad}" 
+                                                            <TextBlock Text="{Binding CantidadConUnidad}"
                                                                        FontSize="12"
                                                                        Foreground="#666666"/>
                                                         </StackPanel>
-                                                        
+
+                                                        <!-- Boton Editar -->
                                                         <Button Grid.Column="2"
+                                                                Content="Editar"
+                                                                Background="#ffc107"
+                                                                Foreground="#333333"
+                                                                Padding="10,6"
+                                                                CornerRadius="4"
+                                                                FontSize="11"
+                                                                FontWeight="SemiBold"
+                                                                Margin="8,0"
+                                                                Cursor="Hand"
+                                                                Command="{Binding $parent[UserControl].((vm:PacksAlimentosViewModel)DataContext).EditarProductoCommand}"
+                                                                CommandParameter="{Binding}"/>
+
+                                                        <Button Grid.Column="3"
                                                                 Content="Ver Detalles"
                                                                 Background="#17a2b8"
                                                                 Foreground="White"
                                                                 Padding="10,6"
                                                                 CornerRadius="4"
                                                                 FontSize="11"
-                                                                Margin="8,0"
+                                                                Margin="0,0,8,0"
                                                                 Cursor="Hand"
                                                                 Command="{Binding $parent[UserControl].((vm:PacksAlimentosViewModel)DataContext).VerDetallesProductoCommand}"
                                                                 CommandParameter="{Binding}"/>
-                                                        
-                                                        <Button Grid.Column="3"
+
+                                                        <Button Grid.Column="4"
                                                                 Content="Ver Imagen"
                                                                 Background="#6f42c1"
                                                                 Foreground="White"
@@ -774,9 +950,9 @@
                                                                 IsVisible="{Binding TieneImagen}"
                                                                 Command="{Binding $parent[UserControl].((vm:PacksAlimentosViewModel)DataContext).VerImagenAmpliadaCommand}"
                                                                 CommandParameter="{Binding}"/>
-                                                        
-                                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="0,0,8,0">
-                                                            <Button Content="^" 
+
+                                                        <StackPanel Grid.Column="5" Orientation="Horizontal" Margin="0,0,8,0">
+                                                            <Button Content="^"
                                                                     Background="#E0E0E0"
                                                                     Foreground="#333333"
                                                                     Padding="8,4"
@@ -786,7 +962,7 @@
                                                                     Cursor="Hand"
                                                                     Command="{Binding $parent[UserControl].((vm:PacksAlimentosViewModel)DataContext).MoverProductoArribaCommand}"
                                                                     CommandParameter="{Binding}"/>
-                                                            <Button Content="v" 
+                                                            <Button Content="v"
                                                                     Background="#E0E0E0"
                                                                     Foreground="#333333"
                                                                     Padding="8,4"
@@ -796,8 +972,8 @@
                                                                     Command="{Binding $parent[UserControl].((vm:PacksAlimentosViewModel)DataContext).MoverProductoAbajoCommand}"
                                                                     CommandParameter="{Binding}"/>
                                                         </StackPanel>
-                                                        
-                                                        <Button Grid.Column="5"
+
+                                                        <Button Grid.Column="6"
                                                                 Content="X"
                                                                 Background="#dc3545"
                                                                 Foreground="White"

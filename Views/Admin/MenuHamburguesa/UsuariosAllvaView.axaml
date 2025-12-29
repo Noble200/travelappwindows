@@ -156,13 +156,8 @@
 
         <!-- CONTENIDO PRINCIPAL -->
         <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
             <!-- ÁREA DE FILTROS Y LISTA -->
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="32,28" Spacing="28">
 
                     <!-- FILTROS DE BÚSQUEDA -->
@@ -379,14 +374,20 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- PANEL LATERAL DERECHO -->
-            <Border Grid.Column="1"
-                    IsVisible="{Binding MostrarPanelDerecho}"
-                    Background="White"
-                    BorderThickness="1,0,0,0"
-                    BorderBrush="#e0e0e0"
-                    Width="700"
-                    BoxShadow="-4 0 12 0 #10000000">
+            <!-- PANEL LATERAL DERECHO - OVERLAY RESPONSIVO -->
+            <Border IsVisible="{Binding MostrarPanelDerecho}"
+                    Background="#80000000"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    ZIndex="100">
+                <Grid HorizontalAlignment="Right" VerticalAlignment="Stretch">
+                    <Border Background="White"
+                            BorderThickness="1,0,0,0"
+                            BorderBrush="#e0e0e0"
+                            MinWidth="500"
+                            MaxWidth="700"
+                            Width="650"
+                            VerticalAlignment="Stretch">
 
                 <Grid>
                     <Grid.RowDefinitions>
@@ -396,28 +397,20 @@
                     </Grid.RowDefinitions>
 
                     <!-- Header del panel -->
-                    <Border Grid.Row="0" Background="#003366" Padding="28,26">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-
+                    <Border Grid.Row="0" Background="#003366" Padding="24,20">
+                        <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0"
                                        Text="{Binding TituloPanelDerecho}"
-                                       FontSize="24" FontWeight="Bold"
+                                       FontSize="18" FontWeight="Bold"
                                        Foreground="White"
                                        VerticalAlignment="Center"/>
-
                             <Button Grid.Column="1"
-                                    Command="{Binding CerrarPanelDerechoCommand}"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    Foreground="White"
-                                    FontSize="16"
-                                    Padding="14,6"
-                                    Cursor="Hand">
-                                <TextBlock Text="Cerrar" FontWeight="Bold"/>
+                                    Command="{Binding CerrarPanelDerechoCommand}"
+                                    Cursor="Hand"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="X" FontSize="18" Foreground="White" FontWeight="Bold"/>
                             </Button>
                         </Grid>
                     </Border>
@@ -466,8 +459,9 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                             <TextBlock Text="Móvil" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                            <TextBox Text="{Binding FormTelefono}"
-                                                     Watermark="+00 000 000 000"/>
+                                            <TextBox x:Name="TxtTelefono"
+                                                     Text="{Binding FormTelefono}"
+                                                     Watermark="600.000.000"/>
                                         </StackPanel>
                                     </Grid>
 
@@ -654,6 +648,8 @@
                                 <TextBlock Text="{Binding TituloBotonGuardar}"/>
                             </Button>
                         </Grid>
+                    </Border>
+                </Grid>
                     </Border>
                 </Grid>
             </Border>

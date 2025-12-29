@@ -123,8 +123,9 @@
                         
                         <StackPanel Spacing="6" Margin="0,16,0,0">
                             <TextBlock Text="Telefono / Movil *" FontSize="14" FontWeight="SemiBold" Foreground="#0b5394"/>
-                            <TextBox Text="{Binding NuevoTelefono, Mode=TwoWay}"
-                                     Watermark="Numero de telefono"
+                            <TextBox x:Name="TxtTelefono"
+                                     Text="{Binding NuevoTelefono, Mode=TwoWay}"
+                                     Watermark="600.000.000"
                                      FontSize="15"
                                      Padding="14"
                                      CornerRadius="6"

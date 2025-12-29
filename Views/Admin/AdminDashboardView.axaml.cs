@@ -38,10 +38,7 @@ namespace Allva.Desktop.Views.Admin
             }
         }
 
-        /// <summary>
-        /// Cierra el popup del menú hamburguesa después de seleccionar una opción
-        /// </summary>
-        private void CloseMenuPopup()
+        private void MenuHamburguesaItem_Click(object? sender, RoutedEventArgs e)
         {
             var popup = this.FindControl<Popup>("MenuPopup");
             if (popup != null)
