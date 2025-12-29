@@ -17,19 +17,25 @@
     </UserControl.Styles>
 
     <Grid Background="#ffd966">
-        
+
         <!-- Botón cambiar idioma -->
         <Button Classes="btnIdioma"
                 Command="{Binding CambiarIdiomaCommand}"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Margin="0,30,30,0"
+                ZIndex="1"
                 ToolTip.Tip="Change language / Cambiar idioma">
-            <TextBlock Classes="labelIdioma" 
+            <TextBlock Classes="labelIdioma"
                       Text="{Binding Localization.CurrentLanguageCode}"
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"/>
         </Button>
+
+        <!-- ScrollViewer para contenido desplazable -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="20">
 
         <!-- Contenedor centrado -->
         <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -203,8 +209,15 @@
                         <TextBlock Classes="textoVersion"
                                   Text="{Binding Localization[Login_Version]}"/>
                         <TextBlock Classes="textoVersion"
-                                  Text="1.2.0"/>
+                                  Text="1.2.2"/>
                     </StackPanel>
+
+                    <!-- Copyright -->
+                    <TextBlock Text="{Binding Localization[Login_Copyright]}"
+                              Foreground="#666666"
+                              FontSize="11"
+                              HorizontalAlignment="Center"
+                              Margin="0,10,0,0"/>
 
                 </StackPanel>
             </Border>
@@ -402,12 +415,7 @@
 
         </Grid>
 
-        <!-- Copyright -->
-        <TextBlock Classes="textoCopyright"
-                  Text="{Binding Localization[Login_Copyright]}"
-                  HorizontalAlignment="Center"
-                  VerticalAlignment="Bottom"
-                  Margin="0,0,0,20"/>
+        </ScrollViewer>
 
     </Grid>
 

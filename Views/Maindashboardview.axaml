@@ -226,19 +226,49 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Titulo del modulo actual -->
-                    <StackPanel Grid.Column="0" 
+                    <!-- Titulo del modulo actual + Info usuario -->
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
                                 VerticalAlignment="Center"
-                                Spacing="2">
-                        <TextBlock Name="TxtModuleTitle"
-                                   Text="Ultimas Noticias" 
-                                   FontSize="20" 
-                                   FontWeight="SemiBold"
-                                   Foreground="#0b5394"/>
-                        <TextBlock Name="TxtModuleDescription"
-                                   Text="Mantente informado con las ultimas novedades" 
-                                   FontSize="12" 
-                                   Foreground="#808080"/>
+                                Spacing="20">
+                        <!-- Titulo y descripcion -->
+                        <StackPanel Spacing="2">
+                            <TextBlock Name="TxtModuleTitle"
+                                       Text="Ultimas Noticias"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       Foreground="#0b5394"/>
+                            <TextBlock Name="TxtModuleDescription"
+                                       Text="Mantente informado con las ultimas novedades"
+                                       FontSize="12"
+                                       Foreground="#808080"/>
+                        </StackPanel>
+
+                        <!-- Separador vertical -->
+                        <Border Width="1"
+                                Height="32"
+                                Background="#E0E0E0"
+                                VerticalAlignment="Center"/>
+
+                        <!-- Usuario y codigo de oficina -->
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{Binding UserName}"
+                                       FontSize="13"
+                                       FontWeight="Medium"
+                                       Foreground="#0b5394"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="|"
+                                       FontSize="13"
+                                       Foreground="#A0A0A0"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding LocalCode}"
+                                       FontSize="13"
+                                       FontWeight="Medium"
+                                       Foreground="#0b5394"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Botones de accion -->
