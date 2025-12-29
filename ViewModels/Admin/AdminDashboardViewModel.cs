@@ -22,6 +22,9 @@ public partial class AdminDashboardViewModel : ObservableObject
     private string _adminName = "Administrador";
 
     [ObservableProperty]
+    private string _localCode = "CENTRAL";
+
+    [ObservableProperty]
     private string _selectedModule = "comercios";
 
     [ObservableProperty]
@@ -68,19 +71,23 @@ public partial class AdminDashboardViewModel : ObservableObject
             
             return SelectedModule switch
             {
+                "informes" => "INFORMES Y ANALITICAS",
                 "comercios" => "GESTION DE COMERCIOS",
                 "usuarios" => "GESTION DE USUARIOS",
-                "divisas" => "COMISIONES",
-                "operaciones" => "OPERACIONES",
+                "divisas" => "MARGEN BENEFICIOS",
+                "suscripciones" => "PAGO SUSCRIPCIONES",
                 "balance" => "BALANCE DE CUENTAS",
+                "operaciones" => "OPERACIONES",
                 _ => "PANEL DE ADMINISTRACION"
             };
         }
     }
 
+    public bool MostrarInformes => true;
     public bool MostrarGestionComercios => _permisos?.AccesoGestionComercios ?? true;
     public bool MostrarGestionUsuarios => _permisos?.AccesoGestionUsuariosLocales ?? true;
     public bool MostrarDivisas => true;
+    public bool MostrarSuscripciones => true;
     public bool MostrarBalance => true;
 
     // ============================================
@@ -106,6 +113,7 @@ public partial class AdminDashboardViewModel : ObservableObject
     {
         _menuService = MenuHamburguesaService.Instance;
         AdminName = loginData.UserName;
+        LocalCode = loginData.LocalCode;
         _permisos = loginData.Permisos;
         CargarMenuHamburguesa();
         NavigateToModule("comercios");
@@ -150,11 +158,13 @@ public partial class AdminDashboardViewModel : ObservableObject
         {
             CurrentView = module switch
             {
+                "informes" => new InformesAnaliticasView(),
                 "comercios" => new ManageComerciosView(),
                 "usuarios" => new ManageUsersView(),
                 "divisas" => new ComisionesView(),
-                "operaciones" => new OperacionesAdminView(),
+                "suscripciones" => new PagoSuscripcionesView(),
                 "balance" => new BalanceAdminView(),
+                "operaciones" => new OperacionesAdminView(),
                 _ => CurrentView
             };
         }

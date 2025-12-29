@@ -137,6 +137,9 @@ namespace Allva.Desktop.ViewModels
                     
                     if (resultadoAdmin.Exitoso)
                     {
+                        // Actualizar ultimo_acceso del administrador Allva
+                        await ActualizarUltimoAccesoAdmin(resultadoAdmin.IdUsuario);
+
                         var loginData = new LoginSuccessData
                         {
                             UserName = resultadoAdmin.NombreCompleto,
@@ -151,7 +154,7 @@ namespace Allva.Desktop.ViewModels
                             UserType = "ADMIN_ALLVA",
                             RoleName = "Administrador_Allva",
                             EsFloater = false,
-                            
+
                             Permisos = new PermisosAdministrador
                             {
                                 AccesoGestionComercios = resultadoAdmin.AccesoGestionComercios,
@@ -732,6 +735,29 @@ namespace Allva.Desktop.ViewModels
             catch
             {
                 // No interrumpir el login si falla el registro de sesion
+            }
+        }
+
+        private async Task ActualizarUltimoAccesoAdmin(int idAdministrador)
+        {
+            try
+            {
+                using var connection = new NpgsqlConnection(ConnectionString);
+                await connection.OpenAsync();
+
+                // Usar zona horaria de España (Europe/Madrid)
+                var queryAcceso = @"
+                    UPDATE administradores_allva
+                    SET ultimo_acceso = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')
+                    WHERE id_administrador = @IdAdmin";
+
+                using var cmdAcceso = new NpgsqlCommand(queryAcceso, connection);
+                cmdAcceso.Parameters.AddWithValue("@IdAdmin", idAdministrador);
+                await cmdAcceso.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+                // No interrumpir el login si falla la actualizacion
             }
         }
 

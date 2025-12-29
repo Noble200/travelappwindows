@@ -775,7 +775,7 @@ public partial class OperacionesAdminViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void LimpiarFiltros()
+    private async Task LimpiarFiltros()
     {
         var hoy = ObtenerHoraEspana();
         FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
@@ -793,6 +793,8 @@ public partial class OperacionesAdminViewModel : ObservableObject
         MostrarSugerenciasLocal = false;
         MostrarSugerenciasDivisa = false;
         MostrarListaPaises = false;
+
+        await CargarOperacionesAsync();
     }
 
     [RelayCommand]

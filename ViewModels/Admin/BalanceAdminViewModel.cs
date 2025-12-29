@@ -66,6 +66,9 @@ namespace Allva.Desktop.ViewModels.Admin
         private string _filtroNumeroOperacion = "";
 
         [ObservableProperty]
+        private string _filtroNumeroOperacionGlobal = "";
+
+        [ObservableProperty]
         private string _filtroPaisDestino = "";
 
         [ObservableProperty]
@@ -1398,6 +1401,7 @@ namespace Allva.Desktop.ViewModels.Admin
             var hoy = ObtenerHoraEspana();
             FechaDesdeTexto = $"01/{hoy.Month:D2}/{hoy.Year}";
             FechaHastaTexto = $"{hoy.Day:D2}/{hoy.Month:D2}/{hoy.Year}";
+            FiltroNumeroOperacionGlobal = "";
             FiltroNumeroOperacion = "";
             FiltroComercioTexto = "";
             FiltroLocalTexto = "";
@@ -1467,6 +1471,7 @@ namespace Allva.Desktop.ViewModels.Admin
 
                 if (fechaDesde.HasValue) sql += " AND o.fecha_operacion >= @fechaDesde";
                 if (fechaHasta.HasValue) sql += " AND o.fecha_operacion <= @fechaHasta";
+                if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal)) sql += " AND o.id_operacion::text ILIKE @numOpGlobal";
                 if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion)) sql += " AND o.numero_operacion ILIKE @numOp";
                 if (!string.IsNullOrEmpty(FiltroPaisDestino)) sql += " AND opa.pais_destino ILIKE @pais";
                 if (!string.IsNullOrEmpty(FiltroEstado) && FiltroEstado != "Todos") sql += " AND opa.estado_envio = @estado";
@@ -1481,6 +1486,7 @@ namespace Allva.Desktop.ViewModels.Admin
 
                 if (fechaDesde.HasValue) cmd.Parameters.AddWithValue("fechaDesde", fechaDesde.Value.Date);
                 if (fechaHasta.HasValue) cmd.Parameters.AddWithValue("fechaHasta", fechaHasta.Value.Date.AddDays(1).AddSeconds(-1));
+                if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacionGlobal)) cmd.Parameters.AddWithValue("numOpGlobal", $"%{FiltroNumeroOperacionGlobal}%");
                 if (!string.IsNullOrWhiteSpace(FiltroNumeroOperacion)) cmd.Parameters.AddWithValue("numOp", $"%{FiltroNumeroOperacion}%");
                 if (!string.IsNullOrEmpty(FiltroPaisDestino)) cmd.Parameters.AddWithValue("pais", $"%{FiltroPaisDestino}%");
                 if (!string.IsNullOrEmpty(FiltroEstado) && FiltroEstado != "Todos") cmd.Parameters.AddWithValue("estado", FiltroEstado);

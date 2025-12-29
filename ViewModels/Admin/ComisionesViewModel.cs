@@ -489,7 +489,8 @@ public partial class ComisionesViewModel : ObservableObject
             }
 
             var sql = @"SELECT l.id_local, l.id_comercio, l.codigo_local, l.nombre_local, c.nombre_comercio, l.activo,
-                COALESCE(l.comision_divisas, 0) as comision_local, COALESCE(c.porcentaje_comision_divisas, 0) as margen_comercio
+                COALESCE(l.comision_divisas, 0) as comision_local, COALESCE(c.porcentaje_comision_divisas, 0) as margen_comercio,
+                COALESCE(l.modulo_divisas, false) as modulo_divisas
                 FROM locales l INNER JOIN comercios c ON l.id_comercio = c.id_comercio
                 ORDER BY c.nombre_comercio, l.nombre_local";
 
@@ -500,6 +501,7 @@ public partial class ComisionesViewModel : ObservableObject
             {
                 var comisionLocal = reader.GetDecimal(6);
                 var margenComercio = reader.GetDecimal(7);
+                var moduloDivisas = reader.GetBoolean(8);
 
                 decimal margenEfectivo;
                 string estadoMargen;
@@ -519,7 +521,8 @@ public partial class ComisionesViewModel : ObservableObject
                     ComisionDivisas = comisionLocal,
                     UsaComisionPropia = comisionLocal > 0,
                     MargenEfectivo = margenEfectivo,
-                    EstadoMargen = estadoMargen
+                    EstadoMargen = estadoMargen,
+                    ModuloDivisas = moduloDivisas
                 });
             }
         }
@@ -648,14 +651,17 @@ public partial class ComisionesViewModel : ObservableObject
         else
         {
             LocalesFiltrados.Clear();
+            // Filtrar solo locales con módulo de divisas activo
+            var localesConDivisas = _locales.Where(l => l.ModuloDivisas);
+
             if (string.IsNullOrWhiteSpace(filtro))
             {
-                foreach (var local in _locales)
+                foreach (var local in localesConDivisas)
                     LocalesFiltrados.Add(local);
             }
             else
             {
-                var localesPorCodigo = _locales.Where(l => l.CodigoLocal.ToLower().Contains(filtro)).ToList();
+                var localesPorCodigo = localesConDivisas.Where(l => l.CodigoLocal.ToLower().Contains(filtro)).ToList();
                 if (localesPorCodigo.Any())
                 {
                     foreach (var local in localesPorCodigo)
@@ -663,7 +669,7 @@ public partial class ComisionesViewModel : ObservableObject
                 }
                 else
                 {
-                    foreach (var local in _locales.Where(l => l.NombreComercio.ToLower().Contains(filtro)))
+                    foreach (var local in localesConDivisas.Where(l => l.NombreComercio.ToLower().Contains(filtro)))
                         LocalesFiltrados.Add(local);
                 }
             }

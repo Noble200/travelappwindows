@@ -8,21 +8,29 @@ namespace Allva.Desktop.ViewModels.Admin
     public partial class EdicionFrontOfficeViewModel : ObservableObject
     {
         [ObservableProperty]
-        private string _tabSeleccionada = "packs";
+        private string _tabSeleccionada = "cuentas";
 
         [ObservableProperty]
-        private bool _esTabPacksAlimentos = true;
+        private bool _esTabCuentasBancarias = true;
+
+        [ObservableProperty]
+        private bool _esTabCentroAyuda;
 
         [ObservableProperty]
         private bool _esTabUltimasNoticias;
+
+        [ObservableProperty]
+        private bool _esTabPackAlimentos;
+
+        [ObservableProperty]
+        private bool _esTabPackViajes;
 
         [ObservableProperty]
         private UserControl? _vistaActual;
 
         public EdicionFrontOfficeViewModel()
         {
-            // Iniciar con la tab de Packs de Alimentos
-            CambiarTab("packs");
+            CambiarTab("cuentas");
         }
 
         [RelayCommand]
@@ -30,17 +38,21 @@ namespace Allva.Desktop.ViewModels.Admin
         {
             TabSeleccionada = tab;
 
-            EsTabPacksAlimentos = tab == "packs";
+            EsTabCuentasBancarias = tab == "cuentas";
+            EsTabCentroAyuda = tab == "ayuda";
             EsTabUltimasNoticias = tab == "noticias";
+            EsTabPackAlimentos = tab == "alimentos";
+            EsTabPackViajes = tab == "viajes";
 
-            if (tab == "packs")
+            VistaActual = tab switch
             {
-                VistaActual = new PacksAlimentosView();
-            }
-            else if (tab == "noticias")
-            {
-                VistaActual = new UltimasNoticiasAdminView();
-            }
+                "cuentas" => new CuentasBancariasAdminView(),
+                "ayuda" => new CentroAyudaAdminView(),
+                "noticias" => new UltimasNoticiasAdminView(),
+                "alimentos" => new PacksAlimentosView(),
+                "viajes" => new PackViajesAdminView(),
+                _ => new CuentasBancariasAdminView()
+            };
         }
     }
 }

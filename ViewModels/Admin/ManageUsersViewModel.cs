@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -8,6 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 using Allva.Desktop.Models;
 using Npgsql;
 using BCrypt.Net;
+using ClosedXML.Excel;
 
 namespace Allva.Desktop.ViewModels.Admin;
 
@@ -79,7 +81,13 @@ public partial class ManageUsersViewModel : ObservableObject
     private string _formNombre = string.Empty;
 
     [ObservableProperty]
+    private string _formSegundoNombre = string.Empty;
+
+    [ObservableProperty]
     private string _formApellidos = string.Empty;
+
+    [ObservableProperty]
+    private string _formSegundoApellido = string.Empty;
 
     [ObservableProperty]
     private string _formNumeroUsuario = string.Empty;
@@ -118,12 +126,19 @@ public partial class ManageUsersViewModel : ObservableObject
     [ObservableProperty]
     private string _filtroTipoUsuario = "Todos";
 
-    // NUEVOS FILTROS ESTÉTICOS
+    // Filtros de fecha (entrada manual con formato dd/MM/yyyy)
     [ObservableProperty]
-    private string _filtroModulo = "Todos";
+    private string _filtroUltimaOperacionDesde = string.Empty;
 
     [ObservableProperty]
-    private string _filtroUltimaActividad = "Todos";
+    private string _filtroUltimaConexionDesde = string.Empty;
+
+    // Autocompletado de comercios
+    [ObservableProperty]
+    private ObservableCollection<string> _sugerenciasComercio = new();
+
+    [ObservableProperty]
+    private bool _mostrarSugerenciasComercio;
 
     // ============================================
     // BÚSQUEDA Y ASIGNACIÓN DE LOCALES
@@ -141,6 +156,10 @@ public partial class ManageUsersViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<LocalFormModel> _localesAsignados = new();
 
+    // Contador de locales seleccionados en la búsqueda
+    public string ContadorSeleccionados =>
+        $"{ResultadosBusquedaLocales.Count(l => l.EstaSeleccionado)} de {ResultadosBusquedaLocales.Count} seleccionados";
+
     // ============================================
     // ESTADÍSTICAS
     // ============================================
@@ -157,6 +176,9 @@ public partial class ManageUsersViewModel : ObservableObject
     
     // Contraseña guardada del usuario (para comparar si cambió)
     private string _passwordGuardada = string.Empty;
+
+    // Lista de comercios para autocompletado
+    private List<string> _todosLosComercios = new();
 
     // ============================================
     // CONSTRUCTOR
@@ -256,6 +278,7 @@ public partial class ManageUsersViewModel : ObservableObject
             
             await CargarMapeoUsuariosLocales(connection);
             await CargarDatosFloaters(connection);
+            await CargarListaComercios(connection);
 
             OnPropertyChanged(nameof(TotalUsuarios));
             OnPropertyChanged(nameof(UsuariosActivos));
@@ -277,15 +300,18 @@ public partial class ManageUsersViewModel : ObservableObject
     {
         var usuarios = new List<UserModel>();
 
-        var query = @"SELECT u.id_usuario, u.numero_usuario, u.nombre, u.apellidos,
-                             u.correo, COALESCE(u.telefono, '') as telefono, 
+        var query = @"SELECT u.id_usuario, u.numero_usuario, u.nombre,
+                             COALESCE(u.segundo_nombre, '') as segundo_nombre,
+                             u.apellidos, COALESCE(u.segundo_apellido, '') as segundo_apellido,
+                             u.correo, COALESCE(u.telefono, '') as telefono,
                              COALESCE(u.es_flooter, false) as es_flotante,
                              u.activo, u.ultimo_acceso,
-                             COALESCE(l.id_local, 0) as id_local, 
-                             COALESCE(l.nombre_local, 'Sin asignar') as nombre_local, 
+                             COALESCE(l.id_local, 0) as id_local,
+                             COALESCE(l.nombre_local, 'Sin asignar') as nombre_local,
                              COALESCE(l.codigo_local, 'N/A') as codigo_local,
-                             COALESCE(c.id_comercio, 0) as id_comercio, 
-                             COALESCE(c.nombre_comercio, 'Sin asignar') as nombre_comercio
+                             COALESCE(c.id_comercio, 0) as id_comercio,
+                             COALESCE(c.nombre_comercio, 'Sin asignar') as nombre_comercio,
+                             (SELECT MAX(op.fecha_operacion + op.hora_operacion) FROM operaciones op WHERE op.id_usuario = u.id_usuario) as ultima_operacion
                       FROM usuarios u
                       LEFT JOIN locales l ON u.id_local = l.id_local
                       LEFT JOIN comercios c ON l.id_comercio = c.id_comercio
@@ -302,17 +328,20 @@ public partial class ManageUsersViewModel : ObservableObject
                 IdUsuario = reader.GetInt32(0),
                 NumeroUsuario = reader.GetString(1),
                 Nombre = reader.GetString(2),
-                Apellidos = reader.GetString(3),
-                Correo = reader.GetString(4),
-                Telefono = reader.GetString(5),
-                EsFlotante = reader.GetBoolean(6),
-                Activo = reader.GetBoolean(7),
-                UltimoAcceso = reader.IsDBNull(8) ? null : reader.GetDateTime(8),
-                IdLocal = reader.GetInt32(9),
-                NombreLocal = reader.GetString(10),
-                CodigoLocal = reader.GetString(11),
-                IdComercio = reader.GetInt32(12),
-                NombreComercio = reader.GetString(13)
+                SegundoNombre = reader.GetString(3),
+                Apellidos = reader.GetString(4),
+                SegundoApellido = reader.GetString(5),
+                Correo = reader.GetString(6),
+                Telefono = reader.GetString(7),
+                EsFlotante = reader.GetBoolean(8),
+                Activo = reader.GetBoolean(9),
+                UltimoAcceso = reader.IsDBNull(10) ? null : reader.GetDateTime(10),
+                IdLocal = reader.GetInt32(11),
+                NombreLocal = reader.GetString(12),
+                CodigoLocal = reader.GetString(13),
+                IdComercio = reader.GetInt32(14),
+                NombreComercio = reader.GetString(15),
+                UltimaOperacion = reader.IsDBNull(16) ? null : reader.GetDateTime(16)
             });
         }
 
@@ -398,6 +427,138 @@ public partial class ManageUsersViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Carga la lista de comercios para autocompletado
+    /// </summary>
+    private async Task CargarListaComercios(NpgsqlConnection connection)
+    {
+        _todosLosComercios.Clear();
+
+        var query = "SELECT DISTINCT nombre_comercio FROM comercios ORDER BY nombre_comercio";
+
+        using var cmd = new NpgsqlCommand(query, connection);
+        using var reader = await cmd.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            _todosLosComercios.Add(reader.GetString(0));
+        }
+    }
+
+    // Variables para evitar recursión en formateo de fechas
+    private bool _formateandoFechaOperacion = false;
+    private bool _formateandoFechaConexion = false;
+
+    /// <summary>
+    /// Formatea automáticamente la fecha de última operación (dd/MM/yyyy)
+    /// </summary>
+    partial void OnFiltroUltimaOperacionDesdeChanged(string value)
+    {
+        if (_formateandoFechaOperacion) return;
+
+        var formateado = FormatearFechaAutomaticamente(value);
+        if (formateado != value)
+        {
+            _formateandoFechaOperacion = true;
+            FiltroUltimaOperacionDesde = formateado;
+            _formateandoFechaOperacion = false;
+        }
+    }
+
+    /// <summary>
+    /// Formatea automáticamente la fecha de última conexión (dd/MM/yyyy)
+    /// </summary>
+    partial void OnFiltroUltimaConexionDesdeChanged(string value)
+    {
+        if (_formateandoFechaConexion) return;
+
+        var formateado = FormatearFechaAutomaticamente(value);
+        if (formateado != value)
+        {
+            _formateandoFechaConexion = true;
+            FiltroUltimaConexionDesde = formateado;
+            _formateandoFechaConexion = false;
+        }
+    }
+
+    /// <summary>
+    /// Formatea una cadena de fecha agregando / automáticamente (dd/MM/yyyy)
+    /// </summary>
+    private string FormatearFechaAutomaticamente(string valor)
+    {
+        if (string.IsNullOrEmpty(valor))
+            return valor;
+
+        // Solo permitir dígitos y /
+        var soloDigitos = new string(valor.Where(c => char.IsDigit(c)).ToArray());
+
+        // Limitar a 8 dígitos máximo (ddMMyyyy)
+        if (soloDigitos.Length > 8)
+            soloDigitos = soloDigitos.Substring(0, 8);
+
+        // Construir la fecha con /
+        var resultado = string.Empty;
+        for (int i = 0; i < soloDigitos.Length; i++)
+        {
+            resultado += soloDigitos[i];
+            // Agregar / después de la posición 2 (día) y 4 (mes)
+            if ((i == 1 || i == 3) && i < soloDigitos.Length - 1)
+            {
+                resultado += "/";
+            }
+        }
+
+        return resultado;
+    }
+
+    /// <summary>
+    /// Intenta parsear una fecha en formato dd/MM/yyyy
+    /// </summary>
+    private bool TryParseFecha(string valor, out DateTime fecha)
+    {
+        fecha = DateTime.MinValue;
+        if (string.IsNullOrWhiteSpace(valor))
+            return false;
+
+        return DateTime.TryParseExact(valor, "dd/MM/yyyy",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None,
+            out fecha);
+    }
+
+    /// <summary>
+    /// Actualiza las sugerencias de comercio según el texto ingresado
+    /// </summary>
+    partial void OnFiltroComercioChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
+        {
+            SugerenciasComercio.Clear();
+            MostrarSugerenciasComercio = false;
+            return;
+        }
+
+        var sugerencias = _todosLosComercios
+            .Where(c => c.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .Take(5)
+            .ToList();
+
+        SugerenciasComercio.Clear();
+        foreach (var s in sugerencias)
+        {
+            SugerenciasComercio.Add(s);
+        }
+
+        MostrarSugerenciasComercio = SugerenciasComercio.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SeleccionarComercioSugerido(string comercio)
+    {
+        FiltroComercio = comercio;
+        MostrarSugerenciasComercio = false;
+    }
+
     // ============================================
     // COMANDOS - PANEL DERECHO
     // ============================================
@@ -420,7 +581,9 @@ public partial class ManageUsersViewModel : ObservableObject
         UsuarioSeleccionado = usuario;
 
         FormNombre = usuario.Nombre;
+        FormSegundoNombre = usuario.SegundoNombre ?? string.Empty;
         FormApellidos = usuario.Apellidos;
+        FormSegundoApellido = usuario.SegundoApellido ?? string.Empty;
         FormNumeroUsuario = usuario.NumeroUsuario;
         FormCorreo = usuario.Correo;
         FormTelefono = usuario.Telefono == "Sin teléfono" ? string.Empty : usuario.Telefono ?? string.Empty;
@@ -576,13 +739,13 @@ public partial class ManageUsersViewModel : ObservableObject
 
             var queryUsuario = @"
                 INSERT INTO usuarios (
-                    id_comercio, id_local, id_rol, nombre, apellidos, correo, telefono,
-                    numero_usuario, password_hash, es_flooter, idioma, activo, primer_login,
+                    id_comercio, id_local, id_rol, nombre, segundo_nombre, apellidos, segundo_apellido,
+                    correo, telefono, numero_usuario, password_hash, es_flooter, idioma, activo, primer_login,
                     fecha_creacion, fecha_modificacion
                 )
                 VALUES (
-                    @IdComercio, @IdLocal, 2, @Nombre, @Apellidos, @Correo, @Telefono,
-                    @NumeroUsuario, @PasswordHash, @EsFlotante, 'es', @Activo, true,
+                    @IdComercio, @IdLocal, 2, @Nombre, @SegundoNombre, @Apellidos, @SegundoApellido,
+                    @Correo, @Telefono, @NumeroUsuario, @PasswordHash, @EsFlotante, 'es', @Activo, true,
                     @FechaCreacion, @FechaModificacion
                 )
                 RETURNING id_usuario";
@@ -591,7 +754,11 @@ public partial class ManageUsersViewModel : ObservableObject
             cmdUsuario.Parameters.AddWithValue("@IdComercio", idComercio.HasValue ? idComercio.Value : DBNull.Value);
             cmdUsuario.Parameters.AddWithValue("@IdLocal", idLocalPrincipal.HasValue ? idLocalPrincipal.Value : DBNull.Value);
             cmdUsuario.Parameters.AddWithValue("@Nombre", FormNombre.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@SegundoNombre",
+                string.IsNullOrWhiteSpace(FormSegundoNombre) ? DBNull.Value : FormSegundoNombre.Trim().ToUpper());
             cmdUsuario.Parameters.AddWithValue("@Apellidos", FormApellidos.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@SegundoApellido",
+                string.IsNullOrWhiteSpace(FormSegundoApellido) ? DBNull.Value : FormSegundoApellido.Trim().ToUpper());
             cmdUsuario.Parameters.AddWithValue("@Correo", FormCorreo.Trim());
             cmdUsuario.Parameters.AddWithValue("@Telefono",
                 string.IsNullOrWhiteSpace(FormTelefono) ? DBNull.Value : FormTelefono.Trim());
@@ -663,7 +830,9 @@ public partial class ManageUsersViewModel : ObservableObject
                     id_local = @IdLocal,
                     numero_usuario = @NumeroUsuario,
                     nombre = @Nombre,
+                    segundo_nombre = @SegundoNombre,
                     apellidos = @Apellidos,
+                    segundo_apellido = @SegundoApellido,
                     correo = @Correo,
                     telefono = @Telefono,
                     es_flooter = @EsFlotante,
@@ -677,7 +846,11 @@ public partial class ManageUsersViewModel : ObservableObject
             cmdUsuario.Parameters.AddWithValue("@IdLocal", idLocalPrincipal.HasValue ? idLocalPrincipal.Value : DBNull.Value);
             cmdUsuario.Parameters.AddWithValue("@NumeroUsuario", FormNumeroUsuario);
             cmdUsuario.Parameters.AddWithValue("@Nombre", FormNombre.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@SegundoNombre",
+                string.IsNullOrWhiteSpace(FormSegundoNombre) ? DBNull.Value : FormSegundoNombre.Trim().ToUpper());
             cmdUsuario.Parameters.AddWithValue("@Apellidos", FormApellidos.Trim().ToUpper());
+            cmdUsuario.Parameters.AddWithValue("@SegundoApellido",
+                string.IsNullOrWhiteSpace(FormSegundoApellido) ? DBNull.Value : FormSegundoApellido.Trim().ToUpper());
             cmdUsuario.Parameters.AddWithValue("@Correo", FormCorreo.Trim());
             cmdUsuario.Parameters.AddWithValue("@Telefono",
                 string.IsNullOrWhiteSpace(FormTelefono) ? DBNull.Value : FormTelefono.Trim());
@@ -881,6 +1054,22 @@ public partial class ManageUsersViewModel : ObservableObject
             filtrados = filtrados.Where(u => u.EsFlotante == esFlotante);
         }
 
+        // Filtro por última operación desde
+        if (!string.IsNullOrWhiteSpace(FiltroUltimaOperacionDesde) && TryParseFecha(FiltroUltimaOperacionDesde, out var fechaOperacion))
+        {
+            filtrados = filtrados.Where(u =>
+                u.UltimaOperacion.HasValue &&
+                u.UltimaOperacion.Value.Date >= fechaOperacion.Date);
+        }
+
+        // Filtro por última conexión desde
+        if (!string.IsNullOrWhiteSpace(FiltroUltimaConexionDesde) && TryParseFecha(FiltroUltimaConexionDesde, out var fechaConexion))
+        {
+            filtrados = filtrados.Where(u =>
+                u.UltimoAcceso.HasValue &&
+                u.UltimoAcceso.Value.Date >= fechaConexion.Date);
+        }
+
         UsuariosFiltrados.Clear();
         foreach (var usuario in filtrados.OrderBy(u => u.NombreCompleto))
         {
@@ -896,8 +1085,9 @@ public partial class ManageUsersViewModel : ObservableObject
         FiltroComercio = string.Empty;
         FiltroEstado = "Todos";
         FiltroTipoUsuario = "Todos";
-        FiltroModulo = "Todos";
-        FiltroUltimaActividad = "Todos";
+        FiltroUltimaOperacionDesde = string.Empty;
+        FiltroUltimaConexionDesde = string.Empty;
+        MostrarSugerenciasComercio = false;
         
         UsuariosFiltrados.Clear();
         foreach (var usuario in Usuarios.OrderBy(u => u.NombreCompleto))
@@ -906,6 +1096,113 @@ public partial class ManageUsersViewModel : ObservableObject
         }
         
         MostrarMensajeExitoNotificacion("✓ Filtros limpiados");
+    }
+
+    // ============================================
+    // EXPORTAR A EXCEL
+    // ============================================
+
+    [RelayCommand]
+    private async Task ExportarUsuariosExcel()
+    {
+        try
+        {
+            // Usar usuarios filtrados si hay filtros aplicados, sino todos
+            var usuariosAExportar = UsuariosFiltrados.Count > 0 && UsuariosFiltrados.Count != Usuarios.Count
+                ? UsuariosFiltrados.ToList()
+                : Usuarios.ToList();
+
+            if (!usuariosAExportar.Any())
+            {
+                MostrarMensajeError("No hay usuarios para exportar");
+                return;
+            }
+
+            Cargando = true;
+
+            // Crear directorio de exportaciones si no existe
+            var exportPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Allva", "Exportaciones");
+            Directory.CreateDirectory(exportPath);
+
+            var fileName = $"Usuarios_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var filePath = Path.Combine(exportPath, fileName);
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Usuarios");
+
+            // Encabezados
+            var headers = new[] {
+                "Nº Usuario", "Nombre", "Segundo Nombre", "Apellidos", "Segundo Apellido",
+                "Correo", "Móvil", "Comercio", "Código Local", "Tipo",
+                "Estado", "Última Operación", "Última Conexión"
+            };
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                worksheet.Cell(1, i + 1).Value = headers[i];
+                worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+                worksheet.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#0b5394");
+                worksheet.Cell(1, i + 1).Style.Font.FontColor = XLColor.White;
+                worksheet.Cell(1, i + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            // Datos
+            int row = 2;
+            foreach (var usuario in usuariosAExportar)
+            {
+                worksheet.Cell(row, 1).Value = usuario.NumeroUsuario;
+                worksheet.Cell(row, 2).Value = usuario.Nombre;
+                worksheet.Cell(row, 3).Value = usuario.SegundoNombre ?? "";
+                worksheet.Cell(row, 4).Value = usuario.Apellidos;
+                worksheet.Cell(row, 5).Value = usuario.SegundoApellido ?? "";
+                worksheet.Cell(row, 6).Value = usuario.Correo;
+                worksheet.Cell(row, 7).Value = usuario.Telefono ?? "";
+                worksheet.Cell(row, 8).Value = usuario.NombreComercioDisplay;
+                worksheet.Cell(row, 9).Value = usuario.CodigoLocalDisplay;
+                worksheet.Cell(row, 10).Value = usuario.TipoUsuarioDisplay;
+                worksheet.Cell(row, 11).Value = usuario.EstadoTexto;
+                worksheet.Cell(row, 12).Value = usuario.UltimaOperacionTexto;
+                worksheet.Cell(row, 13).Value = usuario.UltimoAccesoTexto;
+
+                // Colorear estado
+                if (usuario.Activo)
+                {
+                    worksheet.Cell(row, 11).Style.Font.FontColor = XLColor.FromHtml("#28a745");
+                }
+                else
+                {
+                    worksheet.Cell(row, 11).Style.Font.FontColor = XLColor.FromHtml("#dc3545");
+                }
+
+                row++;
+            }
+
+            // Ajustar ancho de columnas
+            worksheet.Columns().AdjustToContents();
+
+            // Añadir filtros automáticos
+            worksheet.RangeUsed()?.SetAutoFilter();
+
+            await Task.Run(() => workbook.SaveAs(filePath));
+
+            // Abrir el archivo
+            var processStartInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            };
+            System.Diagnostics.Process.Start(processStartInfo);
+
+            MostrarMensajeExitoNotificacion($"✓ Exportados {usuariosAExportar.Count} usuarios a Excel");
+        }
+        catch (Exception ex)
+        {
+            MostrarMensajeError($"Error al exportar: {ex.Message}");
+        }
+        finally
+        {
+            Cargando = false;
+        }
     }
 
     // ============================================
@@ -972,7 +1269,8 @@ public partial class ManageUsersViewModel : ObservableObject
             }
 
             MostrarResultadosBusqueda = ResultadosBusquedaLocales.Count > 0;
-            
+            OnPropertyChanged(nameof(ContadorSeleccionados));
+
             if (ResultadosBusquedaLocales.Count == 0)
             {
                 MostrarMensajeError("No se encontraron locales para ese comercio");
@@ -987,12 +1285,52 @@ public partial class ManageUsersViewModel : ObservableObject
     [RelayCommand]
     private void SeleccionarLocal(LocalFormModel local)
     {
-        if (!LocalesAsignados.Any(l => l.IdLocal == local.IdLocal))
+        // Toggle de selección
+        local.EstaSeleccionado = !local.EstaSeleccionado;
+        OnPropertyChanged(nameof(ContadorSeleccionados));
+    }
+
+    [RelayCommand]
+    private void AgregarLocalesSeleccionados()
+    {
+        var seleccionados = ResultadosBusquedaLocales.Where(l => l.EstaSeleccionado).ToList();
+
+        foreach (var local in seleccionados)
         {
-            LocalesAsignados.Add(local);
-            ActualizarTipoEmpleado();
+            if (!LocalesAsignados.Any(l => l.IdLocal == local.IdLocal))
+            {
+                // Crear una nueva instancia para evitar referencias compartidas
+                var nuevoLocal = new LocalFormModel
+                {
+                    IdLocal = local.IdLocal,
+                    IdComercio = local.IdComercio,
+                    CodigoLocal = local.CodigoLocal,
+                    NombreLocal = local.NombreLocal,
+                    TipoVia = local.TipoVia,
+                    Direccion = local.Direccion,
+                    LocalNumero = local.LocalNumero,
+                    Escalera = local.Escalera,
+                    Piso = local.Piso,
+                    CodigoPostal = local.CodigoPostal,
+                    Ciudad = local.Ciudad,
+                    Pais = local.Pais
+                };
+                LocalesAsignados.Add(nuevoLocal);
+            }
         }
 
+        ActualizarTipoEmpleado();
+        CerrarBusquedaLocales();
+
+        if (seleccionados.Count > 0)
+        {
+            MostrarMensajeExitoNotificacion($"✓ {seleccionados.Count} local(es) agregado(s)");
+        }
+    }
+
+    [RelayCommand]
+    private void CerrarBusquedaLocales()
+    {
         BusquedaComercio = string.Empty;
         MostrarResultadosBusqueda = false;
         ResultadosBusquedaLocales.Clear();
@@ -1012,7 +1350,9 @@ public partial class ManageUsersViewModel : ObservableObject
     private void LimpiarFormulario()
     {
         FormNombre = string.Empty;
+        FormSegundoNombre = string.Empty;
         FormApellidos = string.Empty;
+        FormSegundoApellido = string.Empty;
         FormNumeroUsuario = string.Empty;
         FormCorreo = string.Empty;
         FormTelefono = string.Empty;

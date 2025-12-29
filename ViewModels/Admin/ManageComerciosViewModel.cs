@@ -105,6 +105,46 @@ public partial class ManageComerciosViewModel : ObservableObject
     [ObservableProperty]
     private string _formObservaciones = string.Empty;
 
+    // Nuevos campos - Datos Fiscales
+    [ObservableProperty]
+    private string _formEntidad = "Persona jurídica";
+
+    [ObservableProperty]
+    private string _formIdentidadFiscal = string.Empty;
+
+    [ObservableProperty]
+    private string _formDireccionFiscal = string.Empty;
+
+    // Nuevos campos - Datos Bancarios
+    [ObservableProperty]
+    private string _formBanco = string.Empty;
+
+    [ObservableProperty]
+    private string _formBancoOtro = string.Empty;
+
+    [ObservableProperty]
+    private string _formIban = string.Empty;
+
+    // Lista de entidades disponibles
+    [ObservableProperty]
+    private ObservableCollection<string> _entidadesDisponibles = new()
+    {
+        "Persona física",
+        "Persona jurídica"
+    };
+
+    // Lista de bancos disponibles
+    [ObservableProperty]
+    private ObservableCollection<string> _bancosDisponibles = new()
+    {
+        "",
+        "CaixaBank",
+        "BBVA",
+        "Banco Santander",
+        "Banco Sabadell",
+        "Otro"
+    };
+
     [ObservableProperty]
     private decimal _formPorcentajeComisionDivisas = 0;
 
@@ -170,6 +210,16 @@ public partial class ManageComerciosViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<string> _archivosParaSubir = new();
 
+    // Propiedades para previsualizacion de PDF
+    [ObservableProperty]
+    private bool _mostrarPrevisualizacionPdf = false;
+
+    [ObservableProperty]
+    private string _nombreArchivoPrevisualizacion = string.Empty;
+
+    [ObservableProperty]
+    private byte[]? _contenidoArchivoPrevisualizacion;
+
     private readonly ArchivoService _archivoService = new();
 
     public int TotalComercios => Comercios.Count;
@@ -231,17 +281,18 @@ public partial class ManageComerciosViewModel : ObservableObject
     private async Task<List<ComercioModel>> CargarComercios(NpgsqlConnection connection)
     {
         var comercios = new List<ComercioModel>();
-        
+
         var query = @"SELECT id_comercio, nombre_comercio, nombre_srl, direccion_central,
                              numero_contacto, mail_contacto, pais, observaciones,
                              porcentaje_comision_divisas, activo, fecha_registro,
-                             fecha_ultima_modificacion
-                      FROM comercios 
+                             fecha_ultima_modificacion,
+                             entidad, identidad_fiscal, direccion_fiscal, banco, iban
+                      FROM comercios
                       ORDER BY nombre_comercio";
-        
+
         using var cmd = new NpgsqlCommand(query, connection);
         using var reader = await cmd.ExecuteReaderAsync();
-        
+
         while (await reader.ReadAsync())
         {
             comercios.Add(new ComercioModel
@@ -257,10 +308,16 @@ public partial class ManageComerciosViewModel : ObservableObject
                 PorcentajeComisionDivisas = reader.GetDecimal(8),
                 Activo = reader.GetBoolean(9),
                 FechaRegistro = reader.GetDateTime(10),
-                FechaUltimaModificacion = reader.GetDateTime(11)
+                FechaUltimaModificacion = reader.GetDateTime(11),
+                // Nuevos campos
+                Entidad = reader.IsDBNull(12) ? "Persona jurídica" : reader.GetString(12),
+                IdentidadFiscal = reader.IsDBNull(13) ? null : reader.GetString(13),
+                DireccionFiscal = reader.IsDBNull(14) ? null : reader.GetString(14),
+                Banco = reader.IsDBNull(15) ? null : reader.GetString(15),
+                Iban = reader.IsDBNull(16) ? null : reader.GetString(16)
             });
         }
-        
+
         return comercios;
     }
 
@@ -555,24 +612,29 @@ public partial class ManageComerciosViewModel : ObservableObject
     {
         using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
-        
+
         using var transaction = await connection.BeginTransactionAsync();
-        
+
         try
         {
+            // Determinar el banco final (si es "Otro", usar el campo personalizado)
+            var bancoFinal = FormBanco == "Otro" ? FormBancoOtro : FormBanco;
+
             var queryComercio = @"
                 INSERT INTO comercios (
-                    nombre_comercio, nombre_srl, direccion_central, 
+                    nombre_comercio, nombre_srl, direccion_central,
                     numero_contacto, mail_contacto, pais, observaciones,
-                    porcentaje_comision_divisas, activo, fecha_registro, fecha_ultima_modificacion
+                    porcentaje_comision_divisas, activo, fecha_registro, fecha_ultima_modificacion,
+                    entidad, identidad_fiscal, direccion_fiscal, banco, iban
                 )
                 VALUES (
-                    @NombreComercio, @NombreSrl, @Direccion, 
+                    @NombreComercio, @NombreSrl, @Direccion,
                     @Telefono, @Email, @Pais, @Observaciones,
-                    @Comision, @Activo, @FechaRegistro, @FechaModificacion
+                    @Comision, @Activo, @FechaRegistro, @FechaModificacion,
+                    @Entidad, @IdentidadFiscal, @DireccionFiscal, @Banco, @Iban
                 )
                 RETURNING id_comercio";
-            
+
             using var cmdComercio = new NpgsqlCommand(queryComercio, connection, transaction);
             cmdComercio.Parameters.AddWithValue("@NombreComercio", FormNombreComercio);
             cmdComercio.Parameters.AddWithValue("@NombreSrl", FormNombreSrl ?? string.Empty);
@@ -580,13 +642,23 @@ public partial class ManageComerciosViewModel : ObservableObject
             cmdComercio.Parameters.AddWithValue("@Telefono", FormNumeroContacto ?? string.Empty);
             cmdComercio.Parameters.AddWithValue("@Email", FormMailContacto);
             cmdComercio.Parameters.AddWithValue("@Pais", FormPais ?? string.Empty);
-            cmdComercio.Parameters.AddWithValue("@Observaciones", 
+            cmdComercio.Parameters.AddWithValue("@Observaciones",
                 string.IsNullOrWhiteSpace(FormObservaciones) ? DBNull.Value : FormObservaciones);
             cmdComercio.Parameters.AddWithValue("@Comision", FormPorcentajeComisionDivisas);
             cmdComercio.Parameters.AddWithValue("@Activo", FormActivo);
             cmdComercio.Parameters.AddWithValue("@FechaRegistro", DateTime.Now);
             cmdComercio.Parameters.AddWithValue("@FechaModificacion", DateTime.Now);
-            
+            // Nuevos campos
+            cmdComercio.Parameters.AddWithValue("@Entidad", FormEntidad ?? "Persona jurídica");
+            cmdComercio.Parameters.AddWithValue("@IdentidadFiscal",
+                string.IsNullOrWhiteSpace(FormIdentidadFiscal) ? DBNull.Value : FormIdentidadFiscal);
+            cmdComercio.Parameters.AddWithValue("@DireccionFiscal",
+                string.IsNullOrWhiteSpace(FormDireccionFiscal) ? DBNull.Value : FormDireccionFiscal);
+            cmdComercio.Parameters.AddWithValue("@Banco",
+                string.IsNullOrWhiteSpace(bancoFinal) ? DBNull.Value : bancoFinal);
+            cmdComercio.Parameters.AddWithValue("@Iban",
+                string.IsNullOrWhiteSpace(FormIban) ? DBNull.Value : FormIban);
+
             var idComercio = Convert.ToInt32(await cmdComercio.ExecuteScalarAsync());
             
             foreach (var local in LocalesComercio)
@@ -667,13 +739,16 @@ public partial class ManageComerciosViewModel : ObservableObject
     {
         using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
-        
+
         using var transaction = await connection.BeginTransactionAsync();
-        
+
         try
         {
+            // Determinar el banco final (si es "Otro", usar el campo personalizado)
+            var bancoFinal = FormBanco == "Otro" ? FormBancoOtro : FormBanco;
+
             var queryComercio = @"
-                UPDATE comercios 
+                UPDATE comercios
                 SET nombre_comercio = @NombreComercio,
                     nombre_srl = @NombreSrl,
                     direccion_central = @Direccion,
@@ -683,9 +758,14 @@ public partial class ManageComerciosViewModel : ObservableObject
                     observaciones = @Observaciones,
                     porcentaje_comision_divisas = @Comision,
                     activo = @Activo,
-                    fecha_ultima_modificacion = @FechaModificacion
+                    fecha_ultima_modificacion = @FechaModificacion,
+                    entidad = @Entidad,
+                    identidad_fiscal = @IdentidadFiscal,
+                    direccion_fiscal = @DireccionFiscal,
+                    banco = @Banco,
+                    iban = @Iban
                 WHERE id_comercio = @IdComercio";
-            
+
             using var cmdComercio = new NpgsqlCommand(queryComercio, connection, transaction);
             cmdComercio.Parameters.AddWithValue("@IdComercio", ComercioSeleccionado!.IdComercio);
             cmdComercio.Parameters.AddWithValue("@NombreComercio", FormNombreComercio);
@@ -694,12 +774,22 @@ public partial class ManageComerciosViewModel : ObservableObject
             cmdComercio.Parameters.AddWithValue("@Telefono", FormNumeroContacto ?? string.Empty);
             cmdComercio.Parameters.AddWithValue("@Email", FormMailContacto);
             cmdComercio.Parameters.AddWithValue("@Pais", FormPais ?? string.Empty);
-            cmdComercio.Parameters.AddWithValue("@Observaciones", 
+            cmdComercio.Parameters.AddWithValue("@Observaciones",
                 string.IsNullOrWhiteSpace(FormObservaciones) ? DBNull.Value : FormObservaciones);
             cmdComercio.Parameters.AddWithValue("@Comision", FormPorcentajeComisionDivisas);
             cmdComercio.Parameters.AddWithValue("@Activo", FormActivo);
             cmdComercio.Parameters.AddWithValue("@FechaModificacion", DateTime.Now);
-            
+            // Nuevos campos
+            cmdComercio.Parameters.AddWithValue("@Entidad", FormEntidad ?? "Persona jurídica");
+            cmdComercio.Parameters.AddWithValue("@IdentidadFiscal",
+                string.IsNullOrWhiteSpace(FormIdentidadFiscal) ? DBNull.Value : FormIdentidadFiscal);
+            cmdComercio.Parameters.AddWithValue("@DireccionFiscal",
+                string.IsNullOrWhiteSpace(FormDireccionFiscal) ? DBNull.Value : FormDireccionFiscal);
+            cmdComercio.Parameters.AddWithValue("@Banco",
+                string.IsNullOrWhiteSpace(bancoFinal) ? DBNull.Value : bancoFinal);
+            cmdComercio.Parameters.AddWithValue("@Iban",
+                string.IsNullOrWhiteSpace(FormIban) ? DBNull.Value : FormIban);
+
             await cmdComercio.ExecuteNonQueryAsync();
             
             var queryExistentes = @"SELECT codigo_local FROM locales WHERE id_comercio = @IdComercio";
@@ -1159,6 +1249,9 @@ public partial class ManageComerciosViewModel : ObservableObject
                         ModuloPackViajes = local.ModuloPackViajes,
                         CantidadUsuariosFijos = local.CantidadUsuariosFijos,
                         CantidadUsuariosFlooter = local.CantidadUsuariosFlooter,
+                        Usuarios = local.Usuarios ?? new List<UserSimpleModel>(),
+                        UltimaConexion = local.UltimaConexion,
+                        UltimaOperacion = local.UltimaOperacion,
                         // Datos del comercio padre
                         IdComercio = comercio.IdComercio,
                         NombreComercio = comercio.NombreComercio ?? string.Empty,
@@ -1190,6 +1283,16 @@ public partial class ManageComerciosViewModel : ObservableObject
     [RelayCommand]
     private async Task AgregarLocal()
     {
+        // Validar que se haya escrito el nombre del comercio antes de agregar locales
+        if (string.IsNullOrWhiteSpace(FormNombreComercio))
+        {
+            MensajeExito = "Debe escribir el nombre del comercio antes de agregar locales";
+            MostrarMensajeExito = true;
+            await Task.Delay(3000);
+            MostrarMensajeExito = false;
+            return;
+        }
+
         var nuevoLocal = new LocalFormModel
         {
             CodigoLocal = await GenerarCodigoLocal(),
@@ -1206,7 +1309,7 @@ public partial class ManageComerciosViewModel : ObservableObject
             ModuloBilletesAvion = false,
             ModuloPackViajes = false
         };
-        
+
         LocalesComercio.Add(nuevoLocal);
     }
 
@@ -1311,7 +1414,7 @@ public partial class ManageComerciosViewModel : ObservableObject
     {
         try
         {
-            var topLevel = Avalonia.Application.Current?.ApplicationLifetime is 
+            var topLevel = Avalonia.Application.Current?.ApplicationLifetime is
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
                 ? desktop.MainWindow
                 : null;
@@ -1319,7 +1422,7 @@ public partial class ManageComerciosViewModel : ObservableObject
             if (topLevel == null) return;
 
             var storage = topLevel.StorageProvider;
-            
+
             var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Guardar archivo",
@@ -1331,12 +1434,152 @@ public partial class ManageComerciosViewModel : ObservableObject
             {
                 var rutaDestino = file.Path.LocalPath;
                 await _archivoService.DescargarArchivo(
-                    ComercioSeleccionado!.IdComercio, 
+                    ComercioSeleccionado!.IdComercio,
                     archivo.IdArchivo,
                     rutaDestino
                 );
-                
+
                 MensajeExito = $"Archivo guardado: {archivo.NombreArchivo}";
+                MostrarMensajeExito = true;
+                await Task.Delay(3000);
+                MostrarMensajeExito = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeExito = $"Error al guardar: {ex.Message}";
+            MostrarMensajeExito = true;
+            await Task.Delay(5000);
+            MostrarMensajeExito = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task PrevisualizarArchivo(ArchivoComercioModel archivo)
+    {
+        try
+        {
+            if (ComercioSeleccionado == null) return;
+
+            Cargando = true;
+
+            // Obtener el contenido del archivo
+            var contenido = await _archivoService.ObtenerContenidoArchivo(
+                ComercioSeleccionado.IdComercio,
+                archivo.IdArchivo
+            );
+
+            if (contenido != null)
+            {
+                NombreArchivoPrevisualizacion = archivo.NombreArchivo;
+                ContenidoArchivoPrevisualizacion = contenido;
+                MostrarPrevisualizacionPdf = true;
+            }
+            else
+            {
+                MensajeExito = "No se pudo cargar el archivo";
+                MostrarMensajeExito = true;
+                await Task.Delay(3000);
+                MostrarMensajeExito = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeExito = $"Error al previsualizar: {ex.Message}";
+            MostrarMensajeExito = true;
+            await Task.Delay(3000);
+            MostrarMensajeExito = false;
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CerrarPrevisualizacion()
+    {
+        MostrarPrevisualizacionPdf = false;
+        NombreArchivoPrevisualizacion = string.Empty;
+        ContenidoArchivoPrevisualizacion = null;
+    }
+
+    [RelayCommand]
+    private async Task AbrirArchivoExterno()
+    {
+        try
+        {
+            if (ContenidoArchivoPrevisualizacion == null || string.IsNullOrEmpty(NombreArchivoPrevisualizacion))
+            {
+                MensajeExito = "No hay archivo cargado para abrir";
+                MostrarMensajeExito = true;
+                await Task.Delay(2000);
+                MostrarMensajeExito = false;
+                return;
+            }
+
+            // Crear archivo temporal
+            var tempPath = Path.Combine(Path.GetTempPath(), NombreArchivoPrevisualizacion);
+            await File.WriteAllBytesAsync(tempPath, ContenidoArchivoPrevisualizacion);
+
+            // Abrir con la aplicacion predeterminada del sistema
+            var processInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = tempPath,
+                UseShellExecute = true
+            };
+            System.Diagnostics.Process.Start(processInfo);
+
+            MensajeExito = "Archivo abierto en aplicacion externa";
+            MostrarMensajeExito = true;
+            await Task.Delay(2000);
+            MostrarMensajeExito = false;
+        }
+        catch (Exception ex)
+        {
+            MensajeExito = $"Error al abrir archivo: {ex.Message}";
+            MostrarMensajeExito = true;
+            await Task.Delay(3000);
+            MostrarMensajeExito = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DescargarArchivoPrevisualizacion()
+    {
+        try
+        {
+            if (ContenidoArchivoPrevisualizacion == null || string.IsNullOrEmpty(NombreArchivoPrevisualizacion))
+            {
+                MensajeExito = "No hay archivo cargado para descargar";
+                MostrarMensajeExito = true;
+                await Task.Delay(2000);
+                MostrarMensajeExito = false;
+                return;
+            }
+
+            var topLevel = Avalonia.Application.Current?.ApplicationLifetime is
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+
+            if (topLevel == null) return;
+
+            var storage = topLevel.StorageProvider;
+
+            var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Guardar archivo",
+                SuggestedFileName = NombreArchivoPrevisualizacion,
+                FileTypeChoices = new[] { new FilePickerFileType("Todos") { Patterns = new[] { "*" } } }
+            });
+
+            if (file != null)
+            {
+                var rutaDestino = file.Path.LocalPath;
+                await File.WriteAllBytesAsync(rutaDestino, ContenidoArchivoPrevisualizacion);
+
+                MensajeExito = $"Archivo guardado: {NombreArchivoPrevisualizacion}";
                 MostrarMensajeExito = true;
                 await Task.Delay(3000);
                 MostrarMensajeExito = false;
@@ -1407,8 +1650,10 @@ public partial class ManageComerciosViewModel : ObservableObject
         {
             if (string.IsNullOrEmpty(_prefijoComercioActual))
             {
-                _prefijoComercioActual = GenerarPrefijo4Letras(FormNombreComercio);
-                Log($"Prefijo generado: '{_prefijoComercioActual}'");
+                // Usar el nuevo método que genera prefijos únicos
+                var idComercioActual = ModoEdicion && ComercioSeleccionado != null ? ComercioSeleccionado.IdComercio : (int?)null;
+                _prefijoComercioActual = await GenerarPrefijoUnico(FormNombreComercio, idComercioActual);
+                Log($"Prefijo único generado: '{_prefijoComercioActual}'");
             }
             else
             {
@@ -1544,6 +1789,134 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Genera un prefijo único de 4 letras para el comercio.
+    /// Si el prefijo base ya existe en otro comercio, genera variaciones hasta encontrar uno único.
+    /// Ejemplo: MERC existe -> prueba MRCA, MCAB, MBAR, etc.
+    /// </summary>
+    private async Task<string> GenerarPrefijoUnico(string nombreComercio, int? idComercioActual = null)
+    {
+        var letrasDisponibles = new string(nombreComercio
+            .Where(char.IsLetter)
+            .ToArray())
+            .ToUpper();
+
+        if (letrasDisponibles.Length < 4)
+        {
+            letrasDisponibles = letrasDisponibles.PadRight(4, 'X');
+        }
+
+        using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        // Obtener todos los prefijos existentes (primeras 4 letras de cada codigo_local)
+        var prefijosExistentes = new HashSet<string>();
+        var queryPrefijos = @"
+            SELECT DISTINCT SUBSTRING(codigo_local FROM 1 FOR 4) as prefijo
+            FROM locales
+            WHERE codigo_local IS NOT NULL AND LENGTH(codigo_local) >= 4";
+
+        // Si estamos editando un comercio existente, excluir sus propios prefijos
+        if (idComercioActual.HasValue)
+        {
+            queryPrefijos += " AND id_comercio != @IdComercio";
+        }
+
+        using var cmd = new NpgsqlCommand(queryPrefijos, connection);
+        if (idComercioActual.HasValue)
+        {
+            cmd.Parameters.AddWithValue("@IdComercio", idComercioActual.Value);
+        }
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            if (!reader.IsDBNull(0))
+            {
+                prefijosExistentes.Add(reader.GetString(0));
+            }
+        }
+        await reader.CloseAsync();
+
+        // Intentar con el prefijo base (primeras 4 letras)
+        var prefijoBase = letrasDisponibles.Substring(0, 4);
+        if (!prefijosExistentes.Contains(prefijoBase))
+        {
+            Console.WriteLine($"Prefijo único encontrado (base): {prefijoBase}");
+            return prefijoBase;
+        }
+
+        // Si el prefijo base ya existe, generar variaciones usando más letras del nombre
+        // Estrategia: usar combinaciones de letras del nombre completo
+        var letrasNombre = letrasDisponibles.ToCharArray();
+
+        // Intentar combinaciones saltando letras: posiciones 0,2,4,6 luego 0,1,3,5 etc.
+        for (int salto = 2; salto <= 4; salto++)
+        {
+            var prefijo = "";
+            for (int i = 0; i < letrasNombre.Length && prefijo.Length < 4; i += salto)
+            {
+                prefijo += letrasNombre[i];
+            }
+            // Rellenar si no tenemos 4 letras
+            while (prefijo.Length < 4 && prefijo.Length < letrasNombre.Length)
+            {
+                prefijo += letrasNombre[prefijo.Length];
+            }
+            prefijo = prefijo.PadRight(4, 'X').Substring(0, 4);
+
+            if (!prefijosExistentes.Contains(prefijo))
+            {
+                Console.WriteLine($"Prefijo único encontrado (variación salto {salto}): {prefijo}");
+                return prefijo;
+            }
+        }
+
+        // Intentar usando consonantes primero, luego vocales
+        var consonantes = new string(letrasNombre.Where(c => !"AEIOU".Contains(c)).ToArray());
+        var vocales = new string(letrasNombre.Where(c => "AEIOU".Contains(c)).ToArray());
+        var reordenado = consonantes + vocales;
+
+        if (reordenado.Length >= 4)
+        {
+            var prefijoConsonantes = reordenado.Substring(0, 4);
+            if (!prefijosExistentes.Contains(prefijoConsonantes))
+            {
+                Console.WriteLine($"Prefijo único encontrado (consonantes): {prefijoConsonantes}");
+                return prefijoConsonantes;
+            }
+        }
+
+        // Último recurso: agregar número al final del prefijo
+        for (int i = 1; i <= 99; i++)
+        {
+            var prefijoConNumero = prefijoBase.Substring(0, 3) + (i % 10).ToString();
+            if (!prefijosExistentes.Contains(prefijoConNumero))
+            {
+                Console.WriteLine($"Prefijo único encontrado (con número): {prefijoConNumero}");
+                return prefijoConNumero;
+            }
+
+            // También probar con 2 dígitos al final
+            if (i <= 9)
+            {
+                var prefijoConDosDigitos = prefijoBase.Substring(0, 2) + i.ToString("D2");
+                if (!prefijosExistentes.Contains(prefijoConDosDigitos))
+                {
+                    Console.WriteLine($"Prefijo único encontrado (con 2 dígitos): {prefijoConDosDigitos}");
+                    return prefijoConDosDigitos;
+                }
+            }
+        }
+
+        // Si todo falla, usar las primeras 4 letras con un carácter aleatorio
+        var random = new Random();
+        var letraAleatoria = (char)('A' + random.Next(26));
+        var prefijoAleatorio = prefijoBase.Substring(0, 3) + letraAleatoria;
+        Console.WriteLine($"Prefijo generado (aleatorio): {prefijoAleatorio}");
+        return prefijoAleatorio;
+    }
+
     private string GenerarPrefijo4Letras(string nombreComercio)
     {
         var letrasDisponibles = new string(nombreComercio
@@ -1604,6 +1977,14 @@ public partial class ManageComerciosViewModel : ObservableObject
         FormObservaciones = string.Empty;
         FormPorcentajeComisionDivisas = 0;
         FormActivo = true;
+        // Nuevos campos
+        FormEntidad = "Persona jurídica";
+        FormIdentidadFiscal = string.Empty;
+        FormDireccionFiscal = string.Empty;
+        FormBanco = string.Empty;
+        FormBancoOtro = string.Empty;
+        FormIban = string.Empty;
+
         LocalesComercio.Clear();
         ArchivosParaSubir.Clear();
         _prefijoComercioActual = string.Empty;
@@ -1620,6 +2001,23 @@ public partial class ManageComerciosViewModel : ObservableObject
         FormObservaciones = comercio.Observaciones ?? string.Empty;
         FormPorcentajeComisionDivisas = comercio.PorcentajeComisionDivisas;
         FormActivo = comercio.Activo;
+        // Nuevos campos
+        FormEntidad = comercio.Entidad ?? "Persona jurídica";
+        FormIdentidadFiscal = comercio.IdentidadFiscal ?? string.Empty;
+        FormDireccionFiscal = comercio.DireccionFiscal ?? string.Empty;
+        FormIban = comercio.Iban ?? string.Empty;
+        // Determinar si el banco es uno de los predefinidos o es "Otro"
+        var bancosConocidos = new[] { "CaixaBank", "BBVA", "Banco Santander", "Banco Sabadell", "" };
+        if (!string.IsNullOrEmpty(comercio.Banco) && !bancosConocidos.Contains(comercio.Banco))
+        {
+            FormBanco = "Otro";
+            FormBancoOtro = comercio.Banco;
+        }
+        else
+        {
+            FormBanco = comercio.Banco ?? string.Empty;
+            FormBancoOtro = string.Empty;
+        }
 
         LocalesComercio.Clear();
         foreach (var local in comercio.Locales)
@@ -1663,11 +2061,10 @@ public partial class ManageComerciosViewModel : ObservableObject
         }
         else
         {
-            _prefijoComercioActual = GenerarPrefijo4Letras(FormNombreComercio);
-            Console.WriteLine($"Nuevo prefijo generado: {_prefijoComercioActual}");
+            // Si el comercio no tiene locales, generar un prefijo único
+            _prefijoComercioActual = await GenerarPrefijoUnico(FormNombreComercio, comercio.IdComercio);
+            Console.WriteLine($"Nuevo prefijo único generado: {_prefijoComercioActual}");
         }
-        
-        await Task.CompletedTask;
     }
 
     private bool ValidarFormulario(out string mensajeError)
@@ -1735,8 +2132,14 @@ public partial class ManageComerciosViewModel : ObservableObject
                 mensajeError = $"El local '{local.NombreLocal}' debe tener un numero";
                 return false;
             }
+
+            if (string.IsNullOrWhiteSpace(local.Telefono))
+            {
+                mensajeError = $"El local '{local.NombreLocal}' debe tener un teléfono fijo";
+                return false;
+            }
         }
-        
+
         return true;
     }
 
@@ -1773,6 +2176,123 @@ public partial class ManageComerciosViewModel : ObservableObject
             ComerciosFiltrados.Add(comercio);
         }
     }
+
+    [RelayCommand]
+    private async Task ExportarDatos()
+    {
+        try
+        {
+            var topLevel = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+
+            if (topLevel == null) return;
+
+            var fechaHora = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var nombreArchivo = MostrandoLocales
+                ? $"Locales_{fechaHora}.xlsx"
+                : $"Comercios_{fechaHora}.xlsx";
+
+            var archivo = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Exportar datos a Excel",
+                SuggestedFileName = nombreArchivo,
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("Excel") { Patterns = new[] { "*.xlsx" } }
+                }
+            });
+
+            if (archivo == null) return;
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+
+            if (MostrandoLocales)
+            {
+                var worksheet = workbook.Worksheets.Add("Locales");
+
+                // Encabezados
+                worksheet.Cell(1, 1).Value = "Codigo";
+                worksheet.Cell(1, 2).Value = "Nombre Local";
+                worksheet.Cell(1, 3).Value = "Comercio";
+                worksheet.Cell(1, 4).Value = "Pais";
+                worksheet.Cell(1, 5).Value = "Codigo Postal";
+                worksheet.Cell(1, 6).Value = "Direccion";
+                worksheet.Cell(1, 7).Value = "Activo";
+
+                // Estilo encabezados
+                var headerRange = worksheet.Range(1, 1, 1, 7);
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#0b5394");
+                headerRange.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+
+                // Datos
+                int row = 2;
+                foreach (var local in LocalesFiltrados)
+                {
+                    worksheet.Cell(row, 1).Value = local.CodigoLocal;
+                    worksheet.Cell(row, 2).Value = local.NombreLocal;
+                    worksheet.Cell(row, 3).Value = local.NombreComercio;
+                    worksheet.Cell(row, 4).Value = local.Pais;
+                    worksheet.Cell(row, 5).Value = local.CodigoPostal;
+                    worksheet.Cell(row, 6).Value = local.DireccionCompleta;
+                    worksheet.Cell(row, 7).Value = local.Activo ? "Si" : "No";
+                    row++;
+                }
+
+                worksheet.Columns().AdjustToContents();
+            }
+            else
+            {
+                var worksheet = workbook.Worksheets.Add("Comercios");
+
+                // Encabezados
+                worksheet.Cell(1, 1).Value = "Nombre Comercio";
+                worksheet.Cell(1, 2).Value = "Nombre SRL";
+                worksheet.Cell(1, 3).Value = "Pais";
+                worksheet.Cell(1, 4).Value = "Email";
+                worksheet.Cell(1, 5).Value = "Telefono";
+                worksheet.Cell(1, 6).Value = "Direccion";
+                worksheet.Cell(1, 7).Value = "Total Locales";
+                worksheet.Cell(1, 8).Value = "Total Empleados";
+
+                // Estilo encabezados
+                var headerRange = worksheet.Range(1, 1, 1, 8);
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#0b5394");
+                headerRange.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+
+                // Datos
+                int row = 2;
+                foreach (var comercio in ComerciosFiltrados)
+                {
+                    worksheet.Cell(row, 1).Value = comercio.NombreComercio;
+                    worksheet.Cell(row, 2).Value = comercio.NombreSrl;
+                    worksheet.Cell(row, 3).Value = comercio.Pais;
+                    worksheet.Cell(row, 4).Value = comercio.MailContacto;
+                    worksheet.Cell(row, 5).Value = comercio.NumeroContacto;
+                    worksheet.Cell(row, 6).Value = comercio.DireccionCentral;
+                    worksheet.Cell(row, 7).Value = comercio.CantidadLocales;
+                    worksheet.Cell(row, 8).Value = comercio.TotalUsuarios;
+                    row++;
+                }
+
+                worksheet.Columns().AdjustToContents();
+            }
+
+            using var stream = await archivo.OpenWriteAsync();
+            workbook.SaveAs(stream);
+
+            MensajeExito = "Datos exportados correctamente";
+            MostrarMensajeExito = true;
+            await Task.Delay(3000);
+            MostrarMensajeExito = false;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error al exportar: {ex.Message}");
+        }
+    }
 }
 
 /// <summary>
@@ -1804,7 +2324,19 @@ public partial class LocalConComercioModel : ObservableObject
     public bool ModuloPackViajes { get; set; }
     public int CantidadUsuariosFijos { get; set; }
     public int CantidadUsuariosFlooter { get; set; }
-    
+
+    // Fechas de actividad
+    public DateTime? UltimaConexion { get; set; }
+    public DateTime? UltimaOperacion { get; set; }
+
+    // Lista de usuarios con acceso a este local
+    public List<UserSimpleModel> Usuarios { get; set; } = new List<UserSimpleModel>();
+
+    // Nombres de usuarios separados por coma
+    public string NombresUsuarios => Usuarios != null && Usuarios.Count > 0
+        ? string.Join(", ", Usuarios.Select(u => u.NombreCompleto))
+        : "Sin usuarios asignados";
+
     // Datos del comercio padre
     public int IdComercio { get; set; }
     public string NombreComercio { get; set; } = string.Empty;
@@ -1826,4 +2358,13 @@ public partial class LocalConComercioModel : ObservableObject
     }
     
     public int TotalUsuarios => CantidadUsuariosFijos + CantidadUsuariosFlooter;
+
+    // Propiedades formateadas para UI
+    public string UltimaConexionFormateada => UltimaConexion.HasValue
+        ? UltimaConexion.Value.ToString("dd/MM/yyyy")
+        : "Sin conexiones";
+
+    public string UltimaOperacionFormateada => UltimaOperacion.HasValue
+        ? UltimaOperacion.Value.ToString("dd/MM/yyyy")
+        : "Sin operaciones";
 }

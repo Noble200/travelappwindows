@@ -62,6 +62,16 @@ namespace Allva.Desktop.ViewModels.Admin
         [ObservableProperty]
         private string? _nombreImagenPoster;
 
+        // Propiedades de posicionamiento de imagen poster
+        [ObservableProperty]
+        private double _imagenPosterOffsetX = 0;
+
+        [ObservableProperty]
+        private double _imagenPosterOffsetY = 0;
+
+        [ObservableProperty]
+        private double _imagenPosterZoom = 1.0;
+
         [ObservableProperty]
         private ObservableCollection<PackAlimentoProducto> _productosActuales = new();
 
@@ -89,6 +99,16 @@ namespace Allva.Desktop.ViewModels.Admin
 
         [ObservableProperty]
         private string? _nuevoProductoImagenNombre;
+
+        // Edicion de producto existente
+        [ObservableProperty]
+        private PackAlimentoProducto? _productoEnEdicion;
+
+        [ObservableProperty]
+        private bool _esModoEdicionProducto = false;
+
+        public string TextoBotonProducto => EsModoEdicionProducto ? "Actualizar Producto" : "Agregar Producto";
+        public string TituloFormularioProducto => EsModoEdicionProducto ? "Editar Producto" : "Agregar Producto";
 
         // ASIGNACION A COMERCIOS (integrada en creacion)
         [ObservableProperty]
@@ -231,8 +251,45 @@ namespace Allva.Desktop.ViewModels.Admin
         private async Task InicializarAsync()
         {
             await AsegurarTablaPaisesAsync();
+            await AsegurarColumnasImagenPosterAsync();
             await CargarPaisesAsync();
             await CargarPacksAsync();
+        }
+
+        private async Task AsegurarColumnasImagenPosterAsync()
+        {
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnectionString);
+                await conn.OpenAsync();
+
+                // Verificar y agregar columnas de posicionamiento de imagen
+                var columnas = new[] { "imagen_poster_offset_x", "imagen_poster_offset_y", "imagen_poster_zoom" };
+                var tipos = new[] { "DOUBLE PRECISION DEFAULT 0", "DOUBLE PRECISION DEFAULT 0", "DOUBLE PRECISION DEFAULT 1.0" };
+
+                for (int i = 0; i < columnas.Length; i++)
+                {
+                    var checkColumn = $@"
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.columns
+                            WHERE table_name = 'packs_alimentos' AND column_name = '{columnas[i]}'
+                        )";
+
+                    await using var checkCmd = new NpgsqlCommand(checkColumn, conn);
+                    var exists = (bool)(await checkCmd.ExecuteScalarAsync() ?? false);
+
+                    if (!exists)
+                    {
+                        var addColumn = $"ALTER TABLE packs_alimentos ADD COLUMN {columnas[i]} {tipos[i]}";
+                        await using var addCmd = new NpgsqlCommand(addColumn, conn);
+                        await addCmd.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error al asegurar columnas de imagen: {ex.Message}");
+            }
         }
 
         // Notificar cambios
@@ -306,7 +363,10 @@ namespace Allva.Desktop.ViewModels.Admin
                            pa.imagen_poster_nombre, pa.activo, pa.fecha_creacion, pa.id_pais,
                            pd.nombre_pais, pd.bandera_imagen,
                            COALESCE(pap.precio, pap_global.precio, 0) as precio,
-                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa
+                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa,
+                           COALESCE(pa.imagen_poster_offset_x, 0) as offset_x,
+                           COALESCE(pa.imagen_poster_offset_y, 0) as offset_y,
+                           COALESCE(pa.imagen_poster_zoom, 1.0) as zoom
                     FROM packs_alimentos pa
                     LEFT JOIN paises_designados pd ON pa.id_pais = pd.id_pais
                     LEFT JOIN pack_alimentos_asignacion_comercios paac
@@ -345,7 +405,10 @@ namespace Allva.Desktop.ViewModels.Admin
                         NombrePais = reader.IsDBNull(8) ? null : reader.GetString(8),
                         BanderaPais = reader.IsDBNull(9) ? null : (byte[])reader["bandera_imagen"],
                         PrecioPack = reader.IsDBNull(10) ? 0 : reader.GetDecimal(10),
-                        DivisaPack = reader.IsDBNull(11) ? "EUR" : reader.GetString(11)
+                        DivisaPack = reader.IsDBNull(11) ? "EUR" : reader.GetString(11),
+                        ImagenPosterOffsetX = reader.GetDouble(12),
+                        ImagenPosterOffsetY = reader.GetDouble(13),
+                        ImagenPosterZoom = reader.GetDouble(14)
                     };
 
                     PacksPaisActual.Add(pack);
@@ -744,6 +807,9 @@ namespace Allva.Desktop.ViewModels.Admin
             DescripcionPack = pack.Descripcion ?? string.Empty;
             ImagenPoster = pack.ImagenPoster;
             NombreImagenPoster = pack.ImagenPosterNombre;
+            ImagenPosterOffsetX = pack.ImagenPosterOffsetX;
+            ImagenPosterOffsetY = pack.ImagenPosterOffsetY;
+            ImagenPosterZoom = pack.ImagenPosterZoom > 0 ? pack.ImagenPosterZoom : 1.0;
 
             ProductosActuales.Clear();
             foreach (var p in pack.Productos)
@@ -843,11 +909,14 @@ namespace Allva.Desktop.ViewModels.Admin
                 if (ModoEdicion)
                 {
                     var updateQuery = @"
-                        UPDATE packs_alimentos 
+                        UPDATE packs_alimentos
                         SET nombre_pack = @nombre,
                             descripcion = @descripcion,
                             imagen_poster = @imagen,
                             imagen_poster_nombre = @imagenNombre,
+                            imagen_poster_offset_x = @offsetX,
+                            imagen_poster_offset_y = @offsetY,
+                            imagen_poster_zoom = @zoom,
                             id_pais = @idPais,
                             fecha_modificacion = CURRENT_TIMESTAMP
                         WHERE id_pack = @idPack";
@@ -857,6 +926,9 @@ namespace Allva.Desktop.ViewModels.Admin
                     cmd.Parameters.AddWithValue("@descripcion", (object?)DescripcionPack ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@imagen", (object?)ImagenPoster ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@imagenNombre", (object?)NombreImagenPoster ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@offsetX", ImagenPosterOffsetX);
+                    cmd.Parameters.AddWithValue("@offsetY", ImagenPosterOffsetY);
+                    cmd.Parameters.AddWithValue("@zoom", ImagenPosterZoom);
                     cmd.Parameters.AddWithValue("@idPais", PaisSeleccionado?.IdPais ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@idPack", _packIdEnEdicion);
                     await cmd.ExecuteNonQueryAsync();
@@ -893,8 +965,8 @@ namespace Allva.Desktop.ViewModels.Admin
                 else
                 {
                     var insertQuery = @"
-                        INSERT INTO packs_alimentos (nombre_pack, descripcion, imagen_poster, imagen_poster_nombre, id_pais)
-                        VALUES (@nombre, @descripcion, @imagen, @imagenNombre, @idPais)
+                        INSERT INTO packs_alimentos (nombre_pack, descripcion, imagen_poster, imagen_poster_nombre, imagen_poster_offset_x, imagen_poster_offset_y, imagen_poster_zoom, id_pais)
+                        VALUES (@nombre, @descripcion, @imagen, @imagenNombre, @offsetX, @offsetY, @zoom, @idPais)
                         RETURNING id_pack";
 
                     await using var cmd = new NpgsqlCommand(insertQuery, conn);
@@ -902,6 +974,9 @@ namespace Allva.Desktop.ViewModels.Admin
                     cmd.Parameters.AddWithValue("@descripcion", (object?)DescripcionPack ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@imagen", (object?)ImagenPoster ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@imagenNombre", (object?)NombreImagenPoster ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@offsetX", ImagenPosterOffsetX);
+                    cmd.Parameters.AddWithValue("@offsetY", ImagenPosterOffsetY);
+                    cmd.Parameters.AddWithValue("@zoom", ImagenPosterZoom);
                     cmd.Parameters.AddWithValue("@idPais", PaisSeleccionado?.IdPais ?? (object)DBNull.Value);
 
                     var result = await cmd.ExecuteScalarAsync();
@@ -1071,22 +1146,75 @@ namespace Allva.Desktop.ViewModels.Admin
                 return;
             }
 
-            var producto = new PackAlimentoProducto
+            if (EsModoEdicionProducto && ProductoEnEdicion != null)
             {
-                NombreProducto = NuevoProductoNombre,
-                Descripcion = NuevoProductoDescripcion,
-                Detalles = NuevoProductoDetalles,
-                Cantidad = cantidad,
-                UnidadMedida = NuevoProductoUnidad,
-                Orden = ProductosActuales.Count,
-                Imagen = NuevoProductoImagen,
-                ImagenNombre = NuevoProductoImagenNombre,
-                ImagenTipo = NuevoProductoImagenNombre != null ? Path.GetExtension(NuevoProductoImagenNombre) : null
-            };
+                // Modo edicion: actualizar producto existente
+                ProductoEnEdicion.NombreProducto = NuevoProductoNombre;
+                ProductoEnEdicion.Descripcion = NuevoProductoDescripcion;
+                ProductoEnEdicion.Detalles = NuevoProductoDetalles;
+                ProductoEnEdicion.Cantidad = cantidad;
+                ProductoEnEdicion.UnidadMedida = NuevoProductoUnidad;
+                ProductoEnEdicion.Imagen = NuevoProductoImagen;
+                ProductoEnEdicion.ImagenNombre = NuevoProductoImagenNombre;
+                ProductoEnEdicion.ImagenTipo = NuevoProductoImagenNombre != null ? Path.GetExtension(NuevoProductoImagenNombre) : null;
 
-            ProductosActuales.Add(producto);
+                // Forzar actualizacion de la lista
+                var index = ProductosActuales.IndexOf(ProductoEnEdicion);
+                if (index >= 0)
+                {
+                    ProductosActuales.RemoveAt(index);
+                    ProductosActuales.Insert(index, ProductoEnEdicion);
+                }
+
+                LimpiarFormularioProducto();
+                MostrarMensaje("Producto actualizado", false);
+            }
+            else
+            {
+                // Modo creacion: agregar nuevo producto
+                var producto = new PackAlimentoProducto
+                {
+                    NombreProducto = NuevoProductoNombre,
+                    Descripcion = NuevoProductoDescripcion,
+                    Detalles = NuevoProductoDetalles,
+                    Cantidad = cantidad,
+                    UnidadMedida = NuevoProductoUnidad,
+                    Orden = ProductosActuales.Count,
+                    Imagen = NuevoProductoImagen,
+                    ImagenNombre = NuevoProductoImagenNombre,
+                    ImagenTipo = NuevoProductoImagenNombre != null ? Path.GetExtension(NuevoProductoImagenNombre) : null
+                };
+
+                ProductosActuales.Add(producto);
+                LimpiarFormularioProducto();
+                MostrarMensaje("Producto agregado al pack", false);
+            }
+        }
+
+        [RelayCommand]
+        private void EditarProducto(PackAlimentoProducto? producto)
+        {
+            if (producto == null) return;
+
+            // Cargar datos del producto en el formulario
+            ProductoEnEdicion = producto;
+            EsModoEdicionProducto = true;
+            NuevoProductoNombre = producto.NombreProducto;
+            NuevoProductoDescripcion = producto.Descripcion ?? string.Empty;
+            NuevoProductoDetalles = producto.Detalles ?? string.Empty;
+            NuevoProductoCantidadTexto = producto.Cantidad.ToString();
+            NuevoProductoUnidad = producto.UnidadMedida;
+            NuevoProductoImagen = producto.Imagen;
+            NuevoProductoImagenNombre = producto.ImagenNombre;
+
+            OnPropertyChanged(nameof(TextoBotonProducto));
+            OnPropertyChanged(nameof(TituloFormularioProducto));
+        }
+
+        [RelayCommand]
+        private void CancelarEdicionProducto()
+        {
             LimpiarFormularioProducto();
-            MostrarMensaje("Producto agregado al pack", false);
         }
 
         [RelayCommand]
@@ -1271,6 +1399,15 @@ namespace Allva.Desktop.ViewModels.Admin
         {
             ImagenPoster = null;
             NombreImagenPoster = null;
+            RestablecerPosicionImagen();
+        }
+
+        [RelayCommand]
+        private void RestablecerPosicionImagen()
+        {
+            ImagenPosterOffsetX = 0;
+            ImagenPosterOffsetY = 0;
+            ImagenPosterZoom = 1.0;
         }
 
         // ============================================
@@ -1289,20 +1426,23 @@ namespace Allva.Desktop.ViewModels.Admin
                 await conn.OpenAsync();
 
                 var query = @"
-                    SELECT pa.id_pack, pa.nombre_pack, pa.descripcion, pa.imagen_poster, 
+                    SELECT pa.id_pack, pa.nombre_pack, pa.descripcion, pa.imagen_poster,
                            pa.imagen_poster_nombre, pa.activo, pa.fecha_creacion, pa.id_pais,
                            pd.nombre_pais, pd.bandera_imagen,
                            COALESCE(pap.precio, pap_global.precio, 0) as precio,
-                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa
+                           COALESCE(pap.divisa, pap_global.divisa, 'EUR') as divisa,
+                           COALESCE(pa.imagen_poster_offset_x, 0) as offset_x,
+                           COALESCE(pa.imagen_poster_offset_y, 0) as offset_y,
+                           COALESCE(pa.imagen_poster_zoom, 1.0) as zoom
                     FROM packs_alimentos pa
                     LEFT JOIN paises_designados pd ON pa.id_pais = pd.id_pais
-                    LEFT JOIN pack_alimentos_asignacion_comercios paac 
+                    LEFT JOIN pack_alimentos_asignacion_comercios paac
                         ON pa.id_pack = paac.id_pack AND paac.activo = true
-                    LEFT JOIN pack_alimentos_precios pap 
+                    LEFT JOIN pack_alimentos_precios pap
                         ON paac.id_precio = pap.id_precio
-                    LEFT JOIN pack_alimentos_asignacion_global paag 
+                    LEFT JOIN pack_alimentos_asignacion_global paag
                         ON pa.id_pack = paag.id_pack AND paag.activo = true
-                    LEFT JOIN pack_alimentos_precios pap_global 
+                    LEFT JOIN pack_alimentos_precios pap_global
                         ON paag.id_precio = pap_global.id_precio
                     ORDER BY pa.fecha_creacion DESC";
 
@@ -1315,7 +1455,7 @@ namespace Allva.Desktop.ViewModels.Admin
                 while (await reader.ReadAsync())
                 {
                     var idPack = reader.GetInt32(0);
-                    
+
                     // Evitar duplicados por JOINs multiples
                     if (packsIds.Contains(idPack)) continue;
                     packsIds.Add(idPack);
@@ -1333,7 +1473,10 @@ namespace Allva.Desktop.ViewModels.Admin
                         NombrePais = reader.IsDBNull(8) ? null : reader.GetString(8),
                         BanderaPais = reader.IsDBNull(9) ? null : (byte[])reader["bandera_imagen"],
                         PrecioPack = reader.IsDBNull(10) ? 0 : reader.GetDecimal(10),
-                        DivisaPack = reader.IsDBNull(11) ? "EUR" : reader.GetString(11)
+                        DivisaPack = reader.IsDBNull(11) ? "EUR" : reader.GetString(11),
+                        ImagenPosterOffsetX = reader.GetDouble(12),
+                        ImagenPosterOffsetY = reader.GetDouble(13),
+                        ImagenPosterZoom = reader.GetDouble(14)
                     });
                 }
 
@@ -1508,6 +1651,9 @@ namespace Allva.Desktop.ViewModels.Admin
             DescripcionPack = string.Empty;
             ImagenPoster = null;
             NombreImagenPoster = null;
+            ImagenPosterOffsetX = 0;
+            ImagenPosterOffsetY = 0;
+            ImagenPosterZoom = 1.0;
             ProductosActuales.Clear();
             ImagenesActuales.Clear();
             LimpiarFormularioProducto();
@@ -1531,6 +1677,10 @@ namespace Allva.Desktop.ViewModels.Admin
             NuevoProductoUnidad = "unidad";
             NuevoProductoImagen = null;
             NuevoProductoImagenNombre = null;
+            ProductoEnEdicion = null;
+            EsModoEdicionProducto = false;
+            OnPropertyChanged(nameof(TextoBotonProducto));
+            OnPropertyChanged(nameof(TituloFormularioProducto));
         }
 
         private void MostrarMensaje(string mensaje, bool esError)
